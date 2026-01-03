@@ -1,0 +1,951 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Appeals {
+  id          Int                  @id @default(autoincrement())
+  case_id     Int
+  appeal_date DateTime             @db.Timestamptz(6)
+  reason      String
+  status      enum_Appeals_status? @default(pending)
+  created_at  DateTime             @db.Timestamptz(6)
+  updated_at  DateTime             @db.Timestamptz(6)
+}
+
+model Archives {
+  id                  Int       @id @default(autoincrement())
+  case_id             Int
+  archived_by_user_id Int
+  case_data           Json
+  reason              String
+  archived_at         DateTime? @db.Timestamptz(6)
+  created_at          DateTime  @db.Timestamptz(6)
+  updated_at          DateTime  @db.Timestamptz(6)
+  users               users     @relation(fields: [archived_by_user_id], references: [id], onDelete: NoAction)
+  Cases               Cases     @relation(fields: [case_id], references: [id], onDelete: NoAction)
+}
+
+model ArrestWarrants {
+  id               Int      @id @default(autoincrement())
+  case_id          Int
+  person_name      String   @db.VarChar(255)
+  suspect_address  String?  @db.VarChar(255)
+  reason           String
+  issuing_judge_id Int
+  issued_at        DateTime @db.Timestamptz(6)
+  executed         Boolean? @default(false)
+  created_at       DateTime @db.Timestamptz(6)
+  updated_at       DateTime @db.Timestamptz(6)
+  Cases            Cases    @relation(fields: [case_id], references: [id], onDelete: NoAction)
+  users            users    @relation(fields: [issuing_judge_id], references: [id], onDelete: NoAction)
+}
+
+model Assignments {
+  id          Int                   @id @default(autoincrement())
+  case_id     Int
+  user_id     Int
+  role        enum_Assignments_role
+  assigned_at DateTime?             @db.Timestamptz(6)
+  ended_at    DateTime?             @db.Timestamptz(6)
+  created_at  DateTime              @db.Timestamptz(6)
+  updated_at  DateTime              @db.Timestamptz(6)
+  Cases       Cases                 @relation(fields: [case_id], references: [id], onDelete: Cascade)
+  users       users                 @relation(fields: [user_id], references: [id], onDelete: NoAction)
+}
+
+model Attachments {
+  id          Int      @id @default(autoincrement())
+  case_id     Int
+  filename    String   @db.VarChar(255)
+  file_url    String   @db.VarChar(255)
+  uploaded_by Int
+  created_at  DateTime @db.Timestamptz(6)
+  updated_at  DateTime @db.Timestamptz(6)
+  Cases       Cases    @relation(fields: [case_id], references: [id], onDelete: Cascade)
+  users       users    @relation(fields: [uploaded_by], references: [id], onDelete: NoAction)
+}
+
+model AuditLogs {
+  id            Int                      @id @default(autoincrement())
+  user_id       Int
+  action        String                   @db.VarChar(255)
+  resource_type String                   @db.VarChar(255)
+  resource_id   String                   @db.VarChar(255)
+  ip_address    String?                  @db.VarChar(255)
+  user_agent    String?                  @db.VarChar(255)
+  severity      enum_AuditLogs_severity? @default(info)
+  created_at    DateTime?                @db.Timestamptz(6)
+}
+
+model Cases {
+  id             Int                  @id @default(autoincrement())
+  reference      String               @unique @db.VarChar(255)
+  description    String?
+  type           enum_Cases_type?     @default(criminal)
+  priority       enum_Cases_priority? @default(medium)
+  status         enum_Cases_status?   @default(open)
+  stage          enum_Cases_stage?    @default(prosecution_review)
+  opened_at      DateTime?            @db.Timestamptz(6)
+  closed_at      DateTime?            @db.Timestamptz(6)
+  complaint_id   Int                  @unique
+  court_id       Int
+  created_at     DateTime             @db.Timestamptz(6)
+  updated_at     DateTime             @db.Timestamptz(6)
+  Archives       Archives[]
+  ArrestWarrants ArrestWarrants[]
+  Assignments    Assignments[]
+  Attachments    Attachments[]
+  Complaints     Complaints           @relation(fields: [complaint_id], references: [id], onDelete: Cascade)
+  courts         courts               @relation(fields: [court_id], references: [id], onDelete: Cascade)
+  Decisions      Decisions[]
+  Evidence       Evidence[]
+  Hearings       Hearings[]
+  Notes          Notes[]
+  ProcesVerbaux  ProcesVerbaux[]
+  SearchWarrants SearchWarrants[]
+  Sentences      Sentences[]
+  incarcerations incarcerations[]
+}
+
+model ComplaintFiles {
+  id            Int        @id @default(autoincrement())
+  complaint_id  Int
+  filename      String     @db.VarChar(255)
+  original_name String     @db.VarChar(255)
+  mime_type     String     @db.VarChar(255)
+  size          Int
+  path          String     @db.VarChar(255)
+  Complaints    Complaints @relation(fields: [complaint_id], references: [id], onDelete: Cascade)
+}
+
+model Complaints {
+  id                       Int                     @id @default(autoincrement())
+  title                    String?                 @default("Plainte sans titre") @db.VarChar(255)
+  description              String
+  category                 String?                 @default("general") @db.VarChar(255)
+  status                   enum_Complaints_status? @default(soumise)
+  filed_at                 DateTime?               @db.Timestamptz(6)
+  location                 String?                 @db.VarChar(255)
+  latitude                 Decimal?                @db.Decimal(10, 8)
+  longitude                Decimal?                @db.Decimal(11, 8)
+  provisional_offence      String?                 @db.VarChar(255)
+  validated_by_commissaire Boolean?                @default(false)
+  case_number              String?                 @db.VarChar(255)
+  tracking_code            String?                 @unique @db.VarChar(255)
+  verification_token       String?                 @unique @db.Uuid
+  citizen_id               Int
+  police_station_id        Int?
+  assigned_judge_id        Int?
+  created_at               DateTime                @db.Timestamptz(6)
+  updated_at               DateTime                @db.Timestamptz(6)
+  Cases                    Cases?
+  ComplaintFiles           ComplaintFiles[]
+  users                    users                   @relation(fields: [citizen_id], references: [id], onDelete: Cascade)
+  police_stations          police_stations?        @relation(fields: [police_station_id], references: [id])
+  Custodies                Custodies[]
+  Indictments              Indictments[]
+  Interrogations           Interrogations[]
+  PreventiveDetentions     PreventiveDetentions[]
+  Summons                  Summons[]
+  warrants                 warrants[]
+}
+
+model Confiscations {
+  id             Int      @id @default(autoincrement())
+  case_id        Int
+  item           String   @db.VarChar(255)
+  reason         String   @db.VarChar(255)
+  confiscated_at DateTime @db.Timestamptz(6)
+  created_at     DateTime @db.Timestamptz(6)
+  updated_at     DateTime @db.Timestamptz(6)
+}
+
+model Courts {
+  id           Int                 @id @default(autoincrement())
+  name         String              @db.VarChar(255)
+  jurisdiction String              @db.VarChar(255)
+  type         String              @db.VarChar(255)
+  status       enum_Courts_status? @default(active)
+  created_at   DateTime            @db.Timestamptz(6)
+  updated_at   DateTime            @db.Timestamptz(6)
+  city         String              @default("Niamey") @db.VarChar(255)
+}
+
+model Custodies {
+  id                   Int         @id @default(autoincrement())
+  suspect_name         String      @db.VarChar(255)
+  suspect_phone        String?     @db.VarChar(255)
+  started_at           DateTime    @db.Timestamptz(6)
+  ended_at             DateTime?   @db.Timestamptz(6)
+  reason               String
+  location             String      @db.VarChar(255)
+  ordered_by           Int
+  related_complaint_id Int?
+  created_at           DateTime    @db.Timestamptz(6)
+  updated_at           DateTime    @db.Timestamptz(6)
+  users                users       @relation(fields: [ordered_by], references: [id], onDelete: NoAction)
+  Complaints           Complaints? @relation(fields: [related_complaint_id], references: [id])
+}
+
+model CustodyExtensions {
+  id           Int      @id @default(autoincrement())
+  suspect_id   Int
+  requested_by Int
+  reason       String
+  new_end_date DateTime @db.Timestamptz(6)
+  created_at   DateTime @db.Timestamptz(6)
+  updated_at   DateTime @db.Timestamptz(6)
+}
+
+model Decisions {
+  id              Int                  @id @default(autoincrement())
+  case_id         Int
+  court_id        Int
+  judge_id        Int?
+  type            enum_Decisions_type? @default(judgment_first_instance)
+  verdict         String
+  legal_basis     String?
+  date            DateTime?            @db.Timestamptz(6)
+  decision_number String               @unique @db.VarChar(255)
+  created_at      DateTime             @db.Timestamptz(6)
+  updated_at      DateTime             @db.Timestamptz(6)
+  Cases           Cases                @relation(fields: [case_id], references: [id], onDelete: Cascade)
+  courts          courts               @relation(fields: [court_id], references: [id], onDelete: Cascade)
+  users           users?               @relation(fields: [judge_id], references: [id])
+  Sentences       Sentences[]
+}
+
+model Detentions {
+  id             Int      @id @default(autoincrement())
+  suspect_id     Int
+  decision_id    Int
+  date_debut     DateTime @db.Timestamptz(6)
+  date_fin       DateTime @db.Timestamptz(6)
+  motif          String
+  lieu_detention String   @db.VarChar(255)
+  created_at     DateTime @db.Timestamptz(6)
+  updated_at     DateTime @db.Timestamptz(6)
+}
+
+model Evidence {
+  id                      Int                                    @id @default(autoincrement())
+  case_id                 Int
+  uploader_id             Int
+  filename                String                                 @db.VarChar(255)
+  type                    String                                 @db.VarChar(255)
+  description             String?
+  file_url                String?                                @db.VarChar(255)
+  chain_of_custody_status enum_Evidence_chain_of_custody_status? @default(sealed)
+  uploaded_at             DateTime?                              @db.Timestamptz(6)
+  hash                    String                                 @db.VarChar(255)
+  origin_officer_id       Int?
+  seizure_location        String?                                @db.VarChar(255)
+  created_at              DateTime                               @db.Timestamptz(6)
+  updated_at              DateTime                               @db.Timestamptz(6)
+  Cases                   Cases                                  @relation(fields: [case_id], references: [id], onDelete: Cascade)
+  users                   users                                  @relation(fields: [uploader_id], references: [id], onDelete: NoAction)
+}
+
+model Hearings {
+  id               Int                   @id @default(autoincrement())
+  case_id          Int
+  court_id         Int
+  judge_id         Int?
+  date             DateTime              @db.Timestamptz(6)
+  type             String?               @db.VarChar(255)
+  courtroom        String?               @db.VarChar(255)
+  duration_minutes Int?
+  notes            String?
+  status           enum_Hearings_status? @default(scheduled)
+  created_at       DateTime              @db.Timestamptz(6)
+  updated_at       DateTime              @db.Timestamptz(6)
+  Cases            Cases                 @relation(fields: [case_id], references: [id], onDelete: Cascade)
+  courts           courts                @relation(fields: [court_id], references: [id], onDelete: Cascade)
+  users            users?                @relation(fields: [judge_id], references: [id])
+}
+
+model Indictments {
+  id           Int        @id @default(autoincrement())
+  complaint_id Int
+  judge_id     Int
+  date         DateTime   @db.Timestamptz(6)
+  charges      String
+  observations String?
+  created_at   DateTime   @db.Timestamptz(6)
+  updated_at   DateTime   @db.Timestamptz(6)
+  Complaints   Complaints @relation(fields: [complaint_id], references: [id], onDelete: NoAction)
+  users        users      @relation(fields: [judge_id], references: [id], onDelete: NoAction)
+}
+
+model Interrogations {
+  id           Int        @id @default(autoincrement())
+  complaint_id Int
+  officer_id   Int
+  suspect_name String     @db.VarChar(255)
+  date         DateTime   @db.Timestamptz(6)
+  summary      String
+  signed       Boolean?   @default(false)
+  created_at   DateTime   @db.Timestamptz(6)
+  updated_at   DateTime   @db.Timestamptz(6)
+  Complaints   Complaints @relation(fields: [complaint_id], references: [id], onDelete: NoAction)
+  users        users      @relation(fields: [officer_id], references: [id], onDelete: NoAction)
+}
+
+model Logs {
+  id         Int                @id @default(autoincrement())
+  user_id    Int?
+  action     String
+  method     enum_Logs_method
+  endpoint   String             @db.VarChar(255)
+  ip         String             @db.VarChar(255)
+  severity   enum_Logs_severity @default(INFO)
+  status     enum_Logs_status   @default(SUCCESS)
+  details    String?
+  timestamp  DateTime           @db.Timestamptz(6)
+  hash       String             @default("") @db.VarChar(255)
+  created_at DateTime           @db.Timestamptz(6)
+  updated_at DateTime           @db.Timestamptz(6)
+  Users      Users?             @relation(fields: [user_id], references: [id])
+
+  @@index([endpoint], map: "logs_endpoint")
+  @@index([method], map: "logs_method")
+  @@index([severity], map: "logs_severity")
+  @@index([timestamp], map: "logs_timestamp")
+  @@index([user_id], map: "logs_user_id")
+}
+
+model Notes {
+  id         Int                    @id @default(autoincrement())
+  case_id    Int
+  user_id    Int
+  content    String
+  visibility enum_Notes_visibility? @default(case_global)
+  encrypted  Boolean?               @default(true)
+  hash       String                 @default("") @db.VarChar(255)
+  created_at DateTime?              @db.Timestamptz(6)
+  Cases      Cases                  @relation(fields: [case_id], references: [id], onDelete: NoAction)
+  users      users                  @relation(fields: [user_id], references: [id], onDelete: NoAction)
+}
+
+model PoliceStations {
+  id         Int      @id @default(autoincrement())
+  name       String   @db.VarChar(255)
+  district   String   @db.VarChar(255)
+  address    String?
+  latitude   Float?
+  longitude  Float?
+  phone      String?  @db.VarChar(255)
+  created_at DateTime @db.Timestamptz(6)
+  updated_at DateTime @db.Timestamptz(6)
+}
+
+model PreventiveDetentions {
+  id           Int         @id @default(autoincrement())
+  suspect_name String      @db.VarChar(255)
+  reason       String
+  started_at   DateTime    @db.Timestamptz(6)
+  ended_at     DateTime?   @db.Timestamptz(6)
+  location     String      @db.VarChar(255)
+  ordered_by   Int
+  complaint_id Int?
+  created_at   DateTime    @db.Timestamptz(6)
+  updated_at   DateTime    @db.Timestamptz(6)
+  Complaints   Complaints? @relation(fields: [complaint_id], references: [id])
+  users        users       @relation(fields: [ordered_by], references: [id], onDelete: NoAction)
+}
+
+model ProcesVerbaux {
+  id          Int                        @id @default(autoincrement())
+  case_id     Int
+  author_id   Int
+  pv_type     enum_ProcesVerbaux_pv_type
+  content     String
+  redacted_at DateTime                   @db.Timestamptz(6)
+  created_at  DateTime                   @db.Timestamptz(6)
+  updated_at  DateTime                   @db.Timestamptz(6)
+  users       users                      @relation(fields: [author_id], references: [id], onDelete: NoAction)
+  Cases       Cases                      @relation(fields: [case_id], references: [id], onDelete: Cascade)
+}
+
+model Prosecutions {
+  id            Int      @id @default(autoincrement())
+  complaint_id  Int
+  prosecutor_id Int
+  date          DateTime @db.Timestamptz(6)
+  description   String
+  created_at    DateTime @db.Timestamptz(6)
+  updated_at    DateTime @db.Timestamptz(6)
+}
+
+model RefreshTokens {
+  id         Int      @id @default(autoincrement())
+  user_id    Int
+  token      String
+  created_at DateTime @db.Timestamptz(6)
+  updated_at DateTime @db.Timestamptz(6)
+  Users      Users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model Releases {
+  id           Int      @id @default(autoincrement())
+  suspect_id   Int
+  reason       String
+  release_date DateTime @db.Timestamptz(6)
+  created_at   DateTime @db.Timestamptz(6)
+  updated_at   DateTime @db.Timestamptz(6)
+}
+
+model Reparations {
+  id          Int      @id @default(autoincrement())
+  case_id     Int
+  beneficiary String   @db.VarChar(255)
+  amount      Float
+  reason      String
+  created_at  DateTime @db.Timestamptz(6)
+  updated_at  DateTime @db.Timestamptz(6)
+}
+
+model SearchWarrants {
+  id         Int      @id @default(autoincrement())
+  case_id    Int
+  location   String   @db.VarChar(255)
+  reason     String
+  issued_by  Int
+  issued_at  DateTime @db.Timestamptz(6)
+  executed   Boolean? @default(false)
+  created_at DateTime @db.Timestamptz(6)
+  updated_at DateTime @db.Timestamptz(6)
+  Cases      Cases    @relation(fields: [case_id], references: [id], onDelete: NoAction)
+  users      users    @relation(fields: [issued_by], references: [id], onDelete: NoAction)
+}
+
+model Sentences {
+  id               Int                    @id @default(autoincrement())
+  case_id          Int
+  decision_id      Int
+  court_id         Int
+  judge_id         Int
+  firm_years       Int?                   @default(0)
+  firm_months      Int?                   @default(0)
+  firm_days        Int?                   @default(0)
+  suspended_years  Int?                   @default(0)
+  suspended_months Int?                   @default(0)
+  fine_amount      Decimal?               @default(0) @db.Decimal(15, 2)
+  damages_amount   Decimal?               @default(0) @db.Decimal(15, 2)
+  status           enum_Sentences_status? @default(pending)
+  sentence_date    DateTime               @db.Timestamptz(6)
+  observations     String?
+  created_at       DateTime               @db.Timestamptz(6)
+  updated_at       DateTime               @db.Timestamptz(6)
+  Cases            Cases                  @relation(fields: [case_id], references: [id], onDelete: NoAction)
+  courts           courts                 @relation(fields: [court_id], references: [id], onDelete: NoAction)
+  Decisions        Decisions              @relation(fields: [decision_id], references: [id], onDelete: Cascade)
+  users            users                  @relation(fields: [judge_id], references: [id], onDelete: NoAction)
+}
+
+model SosAlerts {
+  id                Int                    @id @default(autoincrement())
+  user_id           Int
+  police_station_id Int
+  latitude          Float
+  longitude         Float
+  status            enum_SosAlerts_status? @default(pending)
+  created_at        DateTime               @db.Timestamptz(6)
+  updated_at        DateTime               @db.Timestamptz(6)
+  police_stations   police_stations        @relation(fields: [police_station_id], references: [id], onDelete: Cascade)
+  users             users                  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model Summons {
+  id           Int                  @id @default(autoincrement())
+  complaint_id Int
+  issued_by    Int?
+  target_name  String               @db.VarChar(255)
+  target_phone String?              @db.VarChar(255)
+  scheduled_at DateTime             @db.Timestamptz(6)
+  location     String               @db.VarChar(255)
+  reason       String?              @db.VarChar(255)
+  status       enum_Summons_status? @default(envoy_e)
+  created_at   DateTime             @db.Timestamptz(6)
+  updated_at   DateTime             @db.Timestamptz(6)
+  Complaints   Complaints           @relation(fields: [complaint_id], references: [id], onDelete: NoAction)
+  users        users?               @relation(fields: [issued_by], references: [id])
+}
+
+model Users {
+  id                Int                     @id @default(autoincrement())
+  firstname         String                  @db.VarChar(255)
+  lastname          String                  @db.VarChar(255)
+  email             String                  @unique @db.VarChar(255)
+  password          String                  @db.VarChar(255)
+  role              enum_Users_role         @default(citizen)
+  telephone         String?                 @db.VarChar(255)
+  matricule         String?                 @unique @db.VarChar(255)
+  poste             String?                 @db.VarChar(255)
+  status            enum_Users_status       @default(active)
+  failed_attempts   Int                     @default(0)
+  lock_until        DateTime?               @db.Timestamptz(6)
+  created_at        DateTime                @db.Timestamptz(6)
+  updated_at        DateTime                @db.Timestamptz(6)
+  organization      enum_Users_organization @default(CITIZEN)
+  is_active         Boolean                 @default(true)
+  push_token        String?                 @db.VarChar(255)
+  police_station_id Int?
+  court_id          Int?
+  prison_id         Int?
+  Logs              Logs[]
+  RefreshTokens     RefreshTokens[]
+
+  @@index([court_id], map: "users_court_id")
+  @@index([organization], map: "users_organization")
+  @@index([police_station_id], map: "users_police_station_id")
+  @@index([prison_id], map: "users_prison_id")
+  @@index([role], map: "users_role")
+}
+
+model Witnesses {
+  id         Int      @id @default(autoincrement())
+  hearing_id Int
+  full_name  String   @db.VarChar(255)
+  statement  String
+  created_at DateTime @db.Timestamptz(6)
+  updated_at DateTime @db.Timestamptz(6)
+}
+
+model audit_logs {
+  id            Int                       @id @default(autoincrement())
+  user_id       Int?
+  action        String?                   @db.VarChar(255)
+  severity      enum_audit_logs_severity? @default(info)
+  details       String?
+  created_at    DateTime                  @db.Timestamptz(6)
+  ip_address    String?                   @db.VarChar(255)
+  method        String?                   @db.VarChar(255)
+  endpoint      String?                   @db.VarChar(255)
+  status        String?                   @default("SUCCESS") @db.VarChar(255)
+  updated_at    DateTime                  @db.Timestamptz(6)
+  resource_type String?                   @db.VarChar(255)
+  resource_id   String?                   @db.VarChar(255)
+  user_agent    String?                   @db.VarChar(255)
+  users         users?                    @relation(fields: [user_id], references: [id])
+}
+
+model courts {
+  id           Int                 @id @default(autoincrement())
+  name         String              @db.VarChar(255)
+  city         String?             @default("Niamey") @db.VarChar(255)
+  jurisdiction String              @db.VarChar(255)
+  type         String              @db.VarChar(255)
+  status       enum_courts_status? @default(active)
+  created_at   DateTime            @db.Timestamptz(6)
+  updated_at   DateTime            @db.Timestamptz(6)
+  Cases        Cases[]
+  Decisions    Decisions[]
+  Hearings     Hearings[]
+  Sentences    Sentences[]
+  users        users[]
+}
+
+model detainees {
+  id             Int                   @id @default(autoincrement())
+  firstname      String                @db.VarChar(255)
+  lastname       String                @db.VarChar(255)
+  birth_date     DateTime              @db.Date
+  gender         enum_detainees_gender
+  nationality    String?               @default("Nigérienne") @db.VarChar(255)
+  niu            String?               @unique @db.VarChar(255)
+  photo_url      String?               @db.VarChar(255)
+  user_id        Int?
+  created_at     DateTime              @db.Timestamptz(6)
+  updated_at     DateTime              @db.Timestamptz(6)
+  users          users?                @relation(fields: [user_id], references: [id])
+  incarcerations incarcerations[]
+}
+
+model incarcerations {
+  id                    Int                         @id @default(autoincrement())
+  detainee_id           Int
+  prison_id             Int
+  case_id               Int?
+  entry_date            DateTime?                   @db.Timestamptz(6)
+  expected_release_date DateTime?                   @db.Timestamptz(6)
+  actual_release_date   DateTime?                   @db.Timestamptz(6)
+  status                enum_incarcerations_status? @default(preventive)
+  cell_number           String?                     @db.VarChar(255)
+  observation           String?
+  created_at            DateTime                    @db.Timestamptz(6)
+  updated_at            DateTime                    @db.Timestamptz(6)
+  Cases                 Cases?                      @relation(fields: [case_id], references: [id])
+  detainees             detainees                   @relation(fields: [detainee_id], references: [id], onDelete: Cascade)
+  prisons               prisons                     @relation(fields: [prison_id], references: [id], onDelete: Cascade)
+}
+
+model police_stations {
+  id         Int                        @id @default(autoincrement())
+  name       String                     @db.VarChar(255)
+  type       enum_police_stations_type? @default(POLICE)
+  city       String?                    @default("Niamey") @db.VarChar(255)
+  district   String?                    @db.VarChar(255)
+  address    String?                    @db.VarChar(255)
+  phone      String?                    @db.VarChar(255)
+  created_at DateTime                   @db.Timestamptz(6)
+  updated_at DateTime                   @db.Timestamptz(6)
+  Complaints Complaints[]
+  SosAlerts  SosAlerts[]
+  users      users[]
+}
+
+model prisons {
+  id             Int                  @id @default(autoincrement())
+  name           String               @db.VarChar(255)
+  city           String               @db.VarChar(255)
+  type           String?              @default("Maison d'Arrêt") @db.VarChar(255)
+  capacity       Int?
+  status         enum_prisons_status? @default(active)
+  created_at     DateTime             @db.Timestamptz(6)
+  updated_at     DateTime             @db.Timestamptz(6)
+  incarcerations incarcerations[]
+  users          users[]
+}
+
+model refresh_tokens {
+  id          Int      @id @default(autoincrement())
+  token       String   @db.VarChar(255)
+  expiry_date DateTime @db.Timestamptz(6)
+  user_id     Int
+  created_at  DateTime @db.Timestamptz(6)
+  updated_at  DateTime @db.Timestamptz(6)
+  users       users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model users {
+  id                   Int                    @id @default(autoincrement())
+  firstname            String                 @db.VarChar(255)
+  lastname             String                 @db.VarChar(255)
+  email                String                 @unique @db.VarChar(255)
+  matricule            String?                @unique @db.VarChar(255)
+  password             String                 @db.VarChar(255)
+  telephone            String?                @db.VarChar(255)
+  role                 enum_users_role?       @default(citizen)
+  organization         String?                @db.VarChar(255)
+  district             String?                @db.VarChar(255)
+  police_station_id    Int?
+  court_id             Int?
+  prison_id            Int?
+  created_at           DateTime               @db.Timestamptz(6)
+  updated_at           DateTime               @db.Timestamptz(6)
+  Archives             Archives[]
+  ArrestWarrants       ArrestWarrants[]
+  Assignments          Assignments[]
+  Attachments          Attachments[]
+  Complaints           Complaints[]
+  Custodies            Custodies[]
+  Decisions            Decisions[]
+  Evidence             Evidence[]
+  Hearings             Hearings[]
+  Indictments          Indictments[]
+  Interrogations       Interrogations[]
+  Notes                Notes[]
+  PreventiveDetentions PreventiveDetentions[]
+  ProcesVerbaux        ProcesVerbaux[]
+  SearchWarrants       SearchWarrants[]
+  Sentences            Sentences[]
+  SosAlerts            SosAlerts[]
+  Summons              Summons[]
+  audit_logs           audit_logs[]
+  detainees            detainees[]
+  refresh_tokens       refresh_tokens[]
+  courts               courts?                @relation(fields: [court_id], references: [id])
+  police_stations      police_stations?       @relation(fields: [police_station_id], references: [id])
+  prisons              prisons?               @relation(fields: [prison_id], references: [id])
+  warrants             warrants[]
+}
+
+model warrants {
+  id                   Int                   @id @default(autoincrement())
+  type                 enum_warrants_type
+  issued_by            Int
+  issued_at            DateTime?             @db.Timestamptz(6)
+  target_name          String                @db.VarChar(255)
+  reason               String
+  status               enum_warrants_status? @default(mis)
+  related_complaint_id Int?
+  created_at           DateTime              @db.Timestamptz(6)
+  updated_at           DateTime              @db.Timestamptz(6)
+  users                users                 @relation(fields: [issued_by], references: [id], onDelete: NoAction)
+  Complaints           Complaints?           @relation(fields: [related_complaint_id], references: [id])
+}
+
+enum enum_Appeals_status {
+  pending
+  accepted
+  rejected
+}
+
+enum enum_Assignments_role {
+  police_investigator
+  prosecutor
+  judge_instruction
+  judge_trial
+  greffier
+  lawyer
+}
+
+enum enum_AuditLogs_severity {
+  info
+  warning
+  critical
+}
+
+enum enum_Cases_priority {
+  low
+  medium
+  high
+}
+
+enum enum_Cases_stage {
+  police_investigation
+  prosecution_review
+  trial
+  appeal
+  execution
+  archived
+}
+
+enum enum_Cases_status {
+  open
+  closed
+  archived
+}
+
+enum enum_Cases_type {
+  criminal
+  civil
+  other
+}
+
+enum enum_Complaints_status {
+  soumise
+  en_cours_OPJ
+  attente_validation
+  transmise_parquet
+  class_e_sans_suite_par_OPJ       @map("classée_sans_suite_par_OPJ")
+  class_e_sans_suite_par_procureur @map("classée_sans_suite_par_procureur")
+  saisi_juge
+  instruction
+  audience_programm_e              @map("audience_programmée")
+  jug_e                            @map("jugée")
+  non_lieu
+}
+
+enum enum_Courts_status {
+  active
+  inactive
+}
+
+enum enum_Decisions_type {
+  judgment_first_instance
+  judgment_appeal
+  order_instruction
+  order_provisional
+  other
+}
+
+enum enum_Evidence_chain_of_custody_status {
+  sealed
+  opened
+  transferred
+  archived
+}
+
+enum enum_Hearings_status {
+  scheduled
+  postponed
+  held
+  canceled
+}
+
+enum enum_Logs_method {
+  GET
+  POST
+  PUT
+  DELETE
+  PATCH
+}
+
+enum enum_Logs_severity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum enum_Logs_status {
+  SUCCESS
+  FAILURE
+}
+
+enum enum_Notes_visibility {
+  internal_prosecution
+  internal_court
+  case_global
+}
+
+enum enum_ProcesVerbaux_pv_type {
+  interrogation
+  hearing
+  seizure
+  witness_statement
+  crime_scene_report
+  other
+}
+
+enum enum_Sentences_status {
+  pending
+  executing
+  completed
+  suspended
+}
+
+enum enum_SosAlerts_status {
+  pending
+  dispatched
+  resolved
+}
+
+enum enum_Summons_status {
+  envoy_e    @map("envoyée")
+  re_ue      @map("reçue")
+  non_remise
+  ignor_e    @map("ignorée")
+  report_e   @map("reportée")
+  effectu_e  @map("effectuée")
+}
+
+enum enum_Users_organization {
+  POLICE
+  GENDARMERIE
+  JUSTICE
+  ADMIN
+  CITIZEN
+}
+
+enum enum_Users_role {
+  citizen
+  police
+  commisaire
+  prosecutor
+  judge
+  clerk
+  lawyer
+  prison_officer
+  admin
+  commissaire
+  opj
+  gendarme
+  greffier
+  procureur
+  juge
+  avocat
+  bailiff
+  huissier
+}
+
+enum enum_Users_status {
+  active
+  suspended
+  archived
+}
+
+enum enum_audit_logs_method {
+  GET
+  POST
+  PUT
+  DELETE
+  PATCH
+}
+
+enum enum_audit_logs_severity {
+  INFO
+  WARNING
+  CRITICAL
+  info
+  warning
+  critical
+}
+
+enum enum_audit_logs_status {
+  SUCCESS
+  FAILURE
+}
+
+enum enum_courts_status {
+  active
+  inactive
+}
+
+enum enum_detainees_gender {
+  M
+  F
+}
+
+enum enum_incarcerations_status {
+  preventive
+  convicted
+  released
+  escaped
+}
+
+enum enum_police_stations_type {
+  POLICE
+  GENDARMERIE
+}
+
+enum enum_prisons_status {
+  active
+  inactive
+}
+
+enum enum_users_role {
+  admin
+  prosecutor
+  judge
+  greffier
+  commissaire
+  officier_police
+  inspecteur
+  opj_gendarme
+  gendarme
+  prison_guard
+  prison_director
+  citizen
+  lawyer
+  police
+  opj
+}
+
+enum enum_warrants_status {
+  mis     @map("émis")
+  ex_cut_ @map("exécuté")
+  annul_  @map("annulé")
+}
+
+enum enum_warrants_type {
+  amener
+  d_p_t       @map("dépôt")
+  arrestation
+}
+// Rajoutez ceci à la fin du fichier, après les modèles générés
+model Attachment {
+  id          Int      @id @default(autoincrement())
+  filename    String
+  path        String
+  mimeType    String
+  size        Int
+  complaintId Int
+  createdAt   DateTime @default(now())
+}

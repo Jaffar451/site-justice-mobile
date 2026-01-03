@@ -1,0 +1,46 @@
+// src/middleware/upload-evidence.middleware.ts
+import multer, { FileFilterCallback } from "multer";
+import path from "path";
+import fs from "fs";
+import { Request } from "express";
+
+const uploadDir = path.join(__dirname, "../../uploads/evidence");
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const allowedMimeTypes = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "application/pdf",
+  "video/mp4",
+  "text/plain"
+];
+
+const storage = multer.diskStorage({
+  destination: (_req: Request, _file: Express.Multer.File, cb) => {
+    cb(null, uploadDir);
+  },
+  filename: (_req: Request, file: Express.Multer.File, cb) => {
+    const unique = Date.now() + "_" + Math.round(Math.random() * 1e9);
+    cb(null, unique + "_" + file.originalname.replace(/\s+/g, "_"));
+  },
+});
+
+const fileFilter = (
+  _req: Request,
+  file: Express.Multer.File,
+  cb: FileFilterCallback
+) => {
+  if (!allowedMimeTypes.includes(file.mimetype)) {
+    return cb(new Error("Type de fichier interdit"));
+  }
+  cb(null, true);
+};
+
+export const uploadEvidence = multer({
+  storage,
+  fileFilter,
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB max
+}).single("file");
