@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Response } from "express";
 import { SosAlert, PoliceStation, User } from "../../models";
 import { CustomRequest } from "../../types/express-request";

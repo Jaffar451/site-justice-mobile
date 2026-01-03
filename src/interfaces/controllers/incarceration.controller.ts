@@ -1,7 +1,7 @@
 import { Response } from "express";
 import { Detainee, Incarceration, Prison, CaseModel } from "../../models";
 import { CustomRequest } from "../../types/express-request";
-import sequelize from "../../config/database";
+import {sequelize} from "../../config/database";
 import { Op } from "sequelize";
 
 /**

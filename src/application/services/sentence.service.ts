@@ -1,5 +1,5 @@
 import { Sentence, Incarceration, Detainee } from "../../models";
-import sequelize from "../../config/database";
+import {sequelize} from "../../config/database";
 
 export class SentenceService {
   

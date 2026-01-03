@@ -6,16 +6,12 @@
     "outDir": "./dist",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-    
-    /* MODIFICATIONS IMPORTANTES ICI */
-    "strict": false,                 /* Désactive le mode strict (corrige les erreurs de types) */
-    "noImplicitAny": false,          /* Autorise les types 'any' implicites */
-    "strictNullChecks": false,       /* Ignore les erreurs de valeurs nulles/undefined */
-    "skipLibCheck": true,            /* Ignore les erreurs dans les librairies externes */
-    
-    /* POUR SEQUELIZE (Base de données) */
-    "experimentalDecorators": true,  /* Autorise les décorateurs (@Table, etc.) */
-    "emitDecoratorMetadata": true    /* Nécessaire pour Sequelize */
+    "strict": false,
+    "noImplicitAny": false,
+    "strictNullChecks": false,
+    "skipLibCheck": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules"]

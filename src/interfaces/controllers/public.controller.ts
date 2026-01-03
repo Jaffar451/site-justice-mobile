@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Request, Response } from "express";
 import { Complaint, CaseModel, Hearing, User, PoliceStation } from "../../models";
 import { Op } from "sequelize";

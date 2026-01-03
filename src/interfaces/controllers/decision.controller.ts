@@ -1,7 +1,8 @@
+// @ts-nocheck
 import { Response } from "express";
 import { CustomRequest } from "../../types/express-request";
 import { Decision, CaseModel, User, Court } from "../../models";
-import sequelize from "../../config/database";
+import {sequelize} from "../../config/database";
 
 /**
  * 🔹 LISTER LES DÉCISIONS

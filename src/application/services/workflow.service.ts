@@ -1,5 +1,5 @@
 import { Complaint, CaseModel, Incarceration, Detainee, User } from "../../models";
-import sequelize from "../../config/database";
+import {sequelize} from "../../config/database";
 
 export class WorkflowService {
   
