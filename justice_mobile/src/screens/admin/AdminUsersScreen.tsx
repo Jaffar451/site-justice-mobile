@@ -1,0 +1,263 @@
+import React, { useState, useMemo } from "react";
+import { 
+  View, 
+  FlatList, 
+  Text, 
+  StyleSheet, 
+  ActivityIndicator, 
+  TouchableOpacity, 
+  RefreshControl, 
+  TextInput,
+  Platform,
+  StatusBar
+} from "react-native";
+import { useQuery } from "@tanstack/react-query";
+import { Ionicons } from "@expo/vector-icons";
+
+// ✅ 1. Architecture & Thème
+import { useAppTheme } from "../../theme/AppThemeProvider"; // ✅ Hook dynamique
+import { AdminScreenProps } from "../../types/navigation";
+
+// Services & Types
+import { getAllUsers, UserData } from "../../services/user.service"; 
+import ScreenContainer from "../../components/layout/ScreenContainer";
+import AppHeader from "../../components/layout/AppHeader";
+import SmartFooter from "../../components/layout/SmartFooter";
+
+export default function AdminUsersScreen({ navigation }: AdminScreenProps<'AdminUsers'>) {
+  // ✅ 2. Thème Dynamique
+  const { theme, isDark } = useAppTheme();
+  const primaryColor = theme.colors.primary;
+  
+  const [search, setSearch] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+
+  // 🎨 PALETTE DYNAMIQUE
+  const colors = {
+    bgMain: isDark ? "#0F172A" : "#F8FAFC",
+    bgCard: isDark ? "#1E293B" : "#FFFFFF",
+    textMain: isDark ? "#FFFFFF" : "#1E293B",
+    textSub: isDark ? "#94A3B8" : "#64748B",
+    border: isDark ? "#334155" : "#F1F5F9",
+    inputBg: isDark ? "#1E293B" : "#FFFFFF",
+    searchSection: isDark ? "#1E293B" : primaryColor,
+  };
+
+  // 📡 Récupération des utilisateurs
+  const { data: rawData, isLoading, refetch, error } = useQuery({
+    queryKey: ["users"],
+    queryFn: getAllUsers,
+  });
+
+  // 🛡️ EXTRACTION SÉCURISÉE
+  const users: UserData[] = useMemo(() => {
+    if (!rawData) return [];
+    if (Array.isArray(rawData)) return rawData;
+    const d = rawData as any;
+    return d.data || d.users || [];
+  }, [rawData]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    refetch().finally(() => setRefreshing(false));
+  };
+
+  const filteredUsers = useMemo(() => {
+    const term = search.toLowerCase().trim();
+    if (!term) return users;
+    return users.filter(u => 
+      (u.lastname?.toLowerCase() || "").includes(term) ||
+      (u.firstname?.toLowerCase() || "").includes(term) ||
+      (u.matricule?.toLowerCase() || "").includes(term) ||
+      (u.role?.toLowerCase() || "").includes(term)
+    );
+  }, [users, search]);
+
+  const getRoleConfig = (role: string) => {
+    switch(role?.toLowerCase()) {
+      case 'admin': return { color: "#EF4444", label: "ADMIN" };
+      case 'police': return { color: "#3B82F6", label: "POLICE" };
+      case 'commissaire': return { color: "#1D4ED8", label: "COMMISSAIRE" };
+      case 'judge': return { color: "#8B5CF6", label: "JUGE" };
+      case 'prosecutor': return { color: "#10B981", label: "PROCUREUR" };
+      case 'clerk': return { color: "#F59E0B", label: "GREFFIER" };
+      default: return { color: colors.textSub, label: role?.toUpperCase() || "AGENT" };
+    }
+  };
+
+  const renderItem = ({ item }: { item: UserData }) => {
+    const roleConfig = getRoleConfig(item.role);
+    return (
+      <TouchableOpacity 
+        activeOpacity={0.7}
+        style={[styles.card, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
+        onPress={() => navigation.navigate("AdminEditUser", { userId: item.id })}
+      >
+        <View style={[styles.avatar, { backgroundColor: roleConfig.color + "15" }]}>
+          <Text style={[styles.initials, { color: roleConfig.color }]}>
+            {item.lastname?.[0]?.toUpperCase()}{item.firstname?.[0]?.toUpperCase()}
+          </Text>
+        </View>
+        
+        <View style={styles.info}>
+          <Text style={[styles.name, { color: colors.textMain }]} numberOfLines={1}>
+            {item.lastname?.toUpperCase()} {item.firstname}
+          </Text>
+          <View style={styles.badgeRow}>
+            <View style={[styles.badge, { backgroundColor: roleConfig.color }]}>
+              <Text style={styles.badgeText}>{roleConfig.label}</Text>
+            </View>
+            <Text style={[styles.matricule, { color: colors.textSub }]}>
+              {item.matricule || item.registrationNumber || "SANS MATRICULE"}
+            </Text>
+          </View>
+        </View>
+        
+        <Ionicons name="chevron-forward" size={18} color={colors.textSub} />
+      </TouchableOpacity>
+    );
+  };
+
+  return (
+    <ScreenContainer withPadding={false}>
+      <StatusBar barStyle="light-content" />
+      <AppHeader title="Répertoire Agents" showBack={true} />
+      
+      {/* 🔍 BARRE DE RECHERCHE */}
+      <View style={[styles.searchContainer, { backgroundColor: colors.searchSection }]}>
+        <View style={[styles.searchBar, { backgroundColor: isDark ? colors.bgMain : "#FFFFFF" }]}>
+          <Ionicons name="search-outline" size={20} color={colors.textSub} />
+          <TextInput 
+            style={[styles.searchInput, { color: colors.textMain }]}
+            placeholder="Nom, matricule, fonction..."
+            placeholderTextColor={colors.textSub}
+            value={search}
+            onChangeText={setSearch}
+            autoCapitalize="none"
+          />
+          {search !== "" && (
+              <TouchableOpacity onPress={() => setSearch("")}>
+                  <Ionicons name="close-circle" size={20} color={colors.textSub} />
+              </TouchableOpacity>
+          )}
+        </View>
+      </View>
+
+      <View style={[styles.mainWrapper, { backgroundColor: colors.bgMain }]}>
+        {isLoading && !refreshing ? (
+          <View style={styles.center}>
+             <ActivityIndicator size="large" color={primaryColor} />
+             <Text style={[styles.loaderText, { color: colors.textSub }]}>Accès à la base agents...</Text>
+          </View>
+        ) : error ? (
+          <View style={styles.center}>
+            <Ionicons name="cloud-offline-outline" size={60} color="#EF4444" />
+            <Text style={{ color: "#EF4444", marginTop: 15, fontWeight: '800' }}>ÉCHEC DE SYNCHRONISATION</Text>
+            <TouchableOpacity onPress={() => refetch()} style={[styles.retryBtn, { backgroundColor: primaryColor }]}>
+              <Text style={{ color: "#FFF", fontWeight: "900" }}>RÉESSAYER</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <FlatList
+            data={filteredUsers}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={renderItem}
+            contentContainerStyle={styles.listPadding}
+            refreshControl={
+                <RefreshControl 
+                    refreshing={refreshing} 
+                    onRefresh={onRefresh} 
+                    tintColor={primaryColor} 
+                />
+            }
+            showsVerticalScrollIndicator={false}
+            ListEmptyComponent={
+              <View style={styles.center}>
+                <Ionicons name="people-outline" size={80} color={colors.border} />
+                <Text style={{ textAlign: 'center', marginTop: 15, color: colors.textSub, fontWeight: '700' }}>
+                  Aucun enrôlement trouvé
+                </Text>
+              </View>
+            }
+          />
+        )}
+      </View>
+      
+      {/* ➕ FAB (AJOUT AGENT) */}
+      <TouchableOpacity
+        activeOpacity={0.9}
+        style={[styles.fab, { backgroundColor: primaryColor }]}
+        onPress={() => navigation.navigate("AdminCreateUser")}
+      >
+        <Ionicons name="person-add-outline" size={26} color="#fff" />
+      </TouchableOpacity>
+
+      <SmartFooter />
+    </ScreenContainer>
+  );
+}
+
+const styles = StyleSheet.create({
+  searchContainer: { 
+    paddingHorizontal: 20, 
+    paddingBottom: 25, 
+    borderBottomLeftRadius: 32, 
+    borderBottomRightRadius: 32,
+    zIndex: 10,
+    ...Platform.select({
+      ios: { shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 10 },
+      android: { elevation: 6 }
+    })
+  },
+  searchBar: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    borderRadius: 18, 
+    paddingHorizontal: 16, 
+    height: 54 
+  },
+  searchInput: { flex: 1, marginLeft: 12, fontSize: 15, fontWeight: '600' },
+  mainWrapper: { flex: 1 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 100 },
+  loaderText: { marginTop: 15, fontWeight: '800', fontSize: 12, letterSpacing: 1 },
+  listPadding: { 
+    padding: 16, 
+    paddingTop: 25,
+    paddingBottom: 160 
+  },
+  card: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    padding: 18, 
+    borderRadius: 24, 
+    marginBottom: 14, 
+    borderWidth: 1.5,
+    ...Platform.select({
+      ios: { shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 10 },
+      android: { elevation: 3 }
+    })
+  },
+  avatar: { 
+    width: 56, height: 56, borderRadius: 18, justifyContent: 'center', alignItems: 'center', marginRight: 16 
+  },
+  initials: { fontSize: 18, fontWeight: "900" },
+  info: { flex: 1 },
+  name: { fontWeight: '900', fontSize: 16, marginBottom: 5, letterSpacing: -0.5 },
+  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  badgeText: { color: "#fff", fontSize: 9, fontWeight: "900", letterSpacing: 0.5 },
+  matricule: { fontSize: 11, fontWeight: "700" },
+  retryBtn: { marginTop: 25, paddingHorizontal: 30, paddingVertical: 14, borderRadius: 16, elevation: 4 },
+  fab: { 
+    position: 'absolute', 
+    bottom: 100, 
+    right: 25, 
+    width: 64, height: 64, 
+    borderRadius: 22, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    zIndex: 99,
+    elevation: 8,
+    shadowColor: "#000", shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: {width: 0, height: 4},
+  }
+});
