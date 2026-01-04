@@ -1,7 +1,7 @@
 // @ts-nocheck
 // PATH: src/interfaces/controllers/user.controller.ts
 import { Response } from "express";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import User from "../../models/user.model";
 import { CustomRequest } from "../../types/express-request";
 import { env } from "../../config/env";
