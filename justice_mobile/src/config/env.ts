@@ -31,7 +31,7 @@ const ACTIVE_URL = SERVER_RENDER;
 // 3. EXPORT
 // ==========================================
 export const ENV = {
-  API_URL: ACTIVE_URL,
+  API_URL: "https://e-justice-niger-backend.onrender.com/api",
   VERSION: "2.2.0", // J'ai mis à jour pour matcher ton Backend
   TIMEOUT: 30000,   // Augmenté à 30s (les serveurs gratuits Render sont parfois lents à répondre au premier appel)
 };

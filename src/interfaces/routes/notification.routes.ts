@@ -1,22 +1,27 @@
+// PATH: src/interfaces/routes/notification.routes.ts
 import { Router } from "express";
-import { NotificationController } from "../controllers/notification.controller";
+// 👇 On importe toutes les fonctions exportées
+import * as NotificationController from "../controllers/notification.controller";
 import { authenticate } from "../../middleware/auth.middleware"; 
 
 const router = Router();
-const controller = new NotificationController();
+
+// ❌ ON SUPPRIME : const controller = new NotificationController();
+// Car ce n'est plus une classe, mais des fonctions directes.
 
 // Toutes les routes nécessitent d'être connecté
 router.use(authenticate);
 
 // Lecture
-router.get("/", (req, res) => controller.getNotifications(req, res));
-router.patch("/:id/read", (req, res) => controller.markAsRead(req, res));
+router.get("/", NotificationController.getNotifications);
+router.patch("/:id/read", NotificationController.markAsRead);
 
 // Suppression
 // ✅ IMPORTANT : La route "/all" doit être déclarée AVANT "/:id"
-router.delete("/all", (req, res) => controller.clearAll(req, res));
+// Sinon Express pensera que "all" est un ID.
+router.delete("/all", NotificationController.clearAll);
 
 // ✅ AJOUT : Route pour supprimer une seule notification
-router.delete("/:id", (req, res) => controller.deleteNotification(req, res));
+router.delete("/:id", NotificationController.deleteNotification);
 
 export default router;

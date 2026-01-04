@@ -4,7 +4,7 @@ import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 import path from "path";
-import fs from "fs"; // ✅ Ajouté pour vérifier l'existence des dossiers
+import fs from "fs"; 
 import rateLimit from "express-rate-limit";
 
 import { env } from "./config/env";
@@ -15,8 +15,6 @@ const app = express();
 // ==========================================
 // 🏗️ CONFIGURATION PROXY (IMPORTANT POUR PROD)
 // ==========================================
-// Si l'app tourne derrière Nginx/Apache, il faut faire confiance au proxy 
-// pour avoir la vraie IP du client (sinon le rateLimit bloque le proxy).
 app.set('trust proxy', 1); 
 
 // ==========================================
@@ -27,19 +25,22 @@ app.use(helmet({
   contentSecurityPolicy: env.NODE_ENV === "production" ? undefined : false,
 }));
 
+// ✅ CORRECTION CORS CRITIQUE
+// On met "origin: true" pour refléter l'origine de la requête (ex: localhost:8081).
+// Cela permet à Expo Web de fonctionner avec les cookies/headers sécurisés.
 app.use(cors({ 
-  origin: env.security.corsOrigin, // Assure-toi que c'est bien défini dans ton env.ts
+  origin: true, 
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"]
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"]
 }));
 
 // ==========================================
 // 🚦 LIMITATION DES REQUÊTES (ANTI-DDOS)
 // ==========================================
 const limiter = rateLimit({
-  windowMs: env.security.rateLimitWindowMs || 15 * 60 * 1000, // 15 minutes
-  max: env.security.rateLimitMax || 100, // Limite par IP
+  windowMs: env.security.rateLimitWindowMs || 15 * 60 * 1000, 
+  max: env.security.rateLimitMax || 100, 
   standardHeaders: true,
   legacyHeaders: false,
   message: { 
@@ -54,15 +55,12 @@ app.use("/api/", limiter);
 // ==========================================
 // ⚙️ MIDDLEWARES DE PARSING & LOGS
 // ==========================================
-// ✅ Augmenté à 50mb pour supporter les photos HD modernes
 app.use(express.json({ limit: "50mb" })); 
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-// Logs HTTP
 if (env.NODE_ENV === 'development') {
   app.use(morgan("dev"));
 } else {
-  // En prod, on loggue moins verbeux ou format combiné
   app.use(morgan("short"));
 }
 
@@ -71,7 +69,6 @@ if (env.NODE_ENV === 'development') {
 // ==========================================
 const uploadsPath = path.join(process.cwd(), "uploads");
 
-// ✅ SÉCURITÉ & STABILITÉ : On vérifie si le dossier existe, sinon on le crée
 if (!fs.existsSync(uploadsPath)) {
   console.log(`📂 [INFO] Dossier 'uploads' introuvable. Création automatique...`);
   fs.mkdirSync(uploadsPath, { recursive: true });
@@ -113,7 +110,6 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   const statusCode = err.status || 500;
   const message = err.message || "Erreur interne du serveur.";
   
-  // Log serveur détaillé pour le développeur/sysadmin
   if (statusCode === 500) {
     console.error(`🔴 [SERVER ERROR] ${new Date().toISOString()} :`, err.stack || err);
   } else {
@@ -123,7 +119,6 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   res.status(statusCode).json({
     success: false,
     message: message,
-    // On ne renvoie la stack trace qu'en mode développement pour la sécurité
     stack: env.NODE_ENV === 'development' ? err.stack : undefined
   });
 });
