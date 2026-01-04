@@ -46,19 +46,42 @@ import Warrant from "./warrant.model";
 import Witness from "./witness.model";
 import Summon from "./summon.model";
 
-// 2. CONFIGURATION DB
+// 2. CONFIGURATION DB (Modifiée pour Render)
 const env = process.env.NODE_ENV || 'development';
-const config = require('../config/config.json')[env];
+
+// On essaie de charger le fichier json, mais on ne plante pas s'il est absent
+let config = { database: '', username: '', password: '', host: '', dialect: '' };
+try {
+  config = require('../config/config.json')[env];
+} catch (error) {
+  // Le fichier n'existe pas, on utilisera les variables d'environnement
+}
+
+// 👉 PRIORITÉ AUX VARIABLES RENDER (DB_HOST, etc.)
+const dbName = process.env.DB_NAME || config.database;
+const dbUser = process.env.DB_USER || config.username;
+const dbPassword = process.env.DB_PASSWORD || config.password;
+const dbHost = process.env.DB_HOST || config.host || '127.0.0.1';
+const dbPort = process.env.DB_PORT ? Number(process.env.DB_PORT) : 5432;
+
+console.log(`📡 Connexion Sequelize vers : ${dbHost} (Base: ${dbName})`);
 
 const sequelize = new Sequelize({
-  database: config.database,
-  username: config.username,
-  password: config.password,
-  host: config.host,
-  dialect: config.dialect || 'postgres',
+  database: dbName,
+  username: dbUser,
+  password: dbPassword,
+  host: dbHost,
+  port: dbPort,
+  dialect: 'postgres',
   logging: false,
-  // ✅ Sequelize-typescript scanne ces classes et configure les associations
-  // grâce aux décorateurs @HasMany, @BelongsTo, etc. présents dans les fichiers.
+  // 🔐 Configuration SSL obligatoire pour Render
+  dialectOptions: process.env.DB_HOST ? {
+    ssl: {
+      require: true,
+      rejectUnauthorized: false
+    }
+  } : {},
+  
   models: [
     User, PoliceStation, Court, Prison, RefreshToken, AuditLog,
     Complaint, ComplaintFile, CaseModel, Assignment, Decision, Attachment, 
@@ -69,9 +92,6 @@ const sequelize = new Sequelize({
     Witness, Summon
   ],
 });
-
-// ✅ NOTE : Pas d'associations manuelles ici pour éviter "SequelizeAssociationError".
-// Les alias comme 'operator' sont définis directement dans les modèles.
 
 // 3. EXPORTS
 export {
