@@ -4,33 +4,22 @@ import { secureGet } from '../utils/secureStorage';
 import { useAuthStore } from '../stores/useAuthStore';
 
 // ==========================================
-// 🔧 CONFIGURATION RÉSEAU
+// 🔧 CONFIGURATION RÉSEAU (CLOUD RENDER)
 // ==========================================
 
-// ✅ IP Locale (votre configuration actuelle)
-const LOCAL_IP = '192.168.120.20'; 
-const PORT = '4000';
+// ✅ L'adresse officielle de votre serveur sur Internet
+const SERVER_URL = 'https://site-justice-mobile.onrender.com';
 
-/**
- * 📍 Détermine l'URL de l'API selon la plateforme
- */
-const getBaseUrl = (): string => {
-  if (Platform.OS === 'web') {
-    return `http://localhost:${PORT}/api`;
-  }
-  // Pour Android (Émulateur ou Physique) et iOS
-  return `http://${LOCAL_IP}:${PORT}/api`;
-};
-
-// ✅ AJOUT CRITIQUE : On exporte cette constante pour l'utiliser dans les écrans (images)
-export const API_URL = getBaseUrl();
+// ✅ L'URL complète de l'API (ex: https://.../api)
+// On exporte cette constante pour l'utiliser ailleurs si besoin (images, etc.)
+export const API_URL = `${SERVER_URL}/api`;
 
 // ==========================================
 // 🚀 CRÉATION DE L'INSTANCE AXIOS
 // ==========================================
 const api = axios.create({
-  baseURL: API_URL, // On utilise la constante exportée
-  timeout: 15000, // 15 secondes
+  baseURL: API_URL, 
+  timeout: 30000, // ⏳ Augmenté à 30 sec (les serveurs gratuits peuvent être lents au réveil)
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
@@ -50,7 +39,7 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
 
-    // 🔍 Log pour débugger
+    // 🔍 Log pour débugger (Vous verrez l'adresse Render ici)
     const fullUrl = `${config.baseURL || ''}${config.url}`;
     console.log(`[API] ➡️  ${config.method?.toUpperCase()} ${fullUrl}`);
     
@@ -89,13 +78,13 @@ api.interceptors.response.use(
     // CAS 3 : Erreur Réseau (Network Error / Connection Refused)
     if (error.code === 'ECONNABORTED' || error.message.includes('Network Error')) {
       console.error(`[API] ⚠️ Problème de réseau vers : ${originalRequest?.baseURL}`);
-      return Promise.reject(new Error(`Impossible de contacter le serveur (${originalRequest?.baseURL}). Vérifiez votre connexion.`));
+      return Promise.reject(new Error("Impossible de contacter le serveur. Vérifiez votre connexion internet."));
     }
 
     // CAS 4 : Erreurs Serveur (500)
     if (error.response?.status && error.response.status >= 500) {
       console.error(`[API] 🔥 Erreur Serveur ${error.response.status}`);
-      return Promise.reject(new Error("Erreur interne du serveur. Réessayez plus tard."));
+      return Promise.reject(new Error("Le serveur rencontre un problème momentané. Réessayez plus tard."));
     }
 
     return Promise.reject(error);
