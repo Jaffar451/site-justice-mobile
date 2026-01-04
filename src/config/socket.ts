@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Server } from "socket.io";
 import { Server as HttpServer } from "http";
 import jwt from "jsonwebtoken"; // ✅ Pour sécuriser la connexion

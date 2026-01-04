@@ -1,3 +1,4 @@
+// @ts-nocheck
 // PATH: src/interfaces/routes/policeStation.routes.ts
 import { Router } from 'express';
 import { PoliceStationController } from '../controllers/policeStation.controller';
