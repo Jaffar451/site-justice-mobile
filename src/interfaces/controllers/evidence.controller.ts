@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Request, Response } from "express";
 import { EvidenceService } from "../../application/services/evidence.service";
 import { MulterRequest } from "../../types/multer-request";

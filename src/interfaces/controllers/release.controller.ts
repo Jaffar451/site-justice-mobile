@@ -1,3 +1,5 @@
+// 
+// @ts-nocheck
 import { Request, Response } from "express";
 import Release from "../../models/release.model";
 

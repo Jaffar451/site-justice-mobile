@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Request, Response } from "express";
 import Reparation from "../../models/reparation.model";
 

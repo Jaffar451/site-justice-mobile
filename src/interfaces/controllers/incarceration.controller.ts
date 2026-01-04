@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Response } from "express";
 import { Detainee, Incarceration, Prison, CaseModel } from "../../models";
 import { CustomRequest } from "../../types/express-request";

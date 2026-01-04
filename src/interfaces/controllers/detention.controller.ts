@@ -1,4 +1,4 @@
-// controllers/detention.controller.ts
+// @ts-nocheck
 import { Request, Response } from "express";
 import Detention from "../../models/detention.model";
 

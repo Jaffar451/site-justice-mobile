@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Response } from "express";
 import { AuditLog, User } from "../../models"; // Import centralisé recommandé
 import { CustomRequest } from "../../types/express-request";

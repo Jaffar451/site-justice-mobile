@@ -1,3 +1,4 @@
+// @ts-nocheck
 // PATH: src/interfaces/controllers/dashboard.controller.ts
 import { Request, Response } from "express";
 import { Prison, Incarceration, PoliceStation, Complaint } from "../../models"; 

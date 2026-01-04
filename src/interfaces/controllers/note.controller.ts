@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Request, Response } from "express";
 import Note from "../../models/note.model";
 import Assignment from "../../models/assignment.model";

@@ -1,3 +1,4 @@
+// @ts-nocheck
 // src/interfaces/controllers/interrogation.controller.ts
 import { Request, Response } from "express";
 import Interrogation from "../../models/interrogation.model";

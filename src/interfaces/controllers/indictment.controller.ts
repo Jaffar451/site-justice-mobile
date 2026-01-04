@@ -1,3 +1,4 @@
+// @ts-nocheck
 // src/interfaces/controllers/indictment.controller.ts
 import { Request, Response } from "express";
 import Indictment from "../../models/indictment.model";

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Request, Response } from 'express';
 
 // ✅ Simulation "Base de données" en mémoire

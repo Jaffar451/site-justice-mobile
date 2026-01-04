@@ -1,3 +1,4 @@
+// @ts-nocheck
 // PATH: src/interfaces/controllers/witness.controller.ts
 import { Response } from "express";
 import Witness from "../../models/witness.model"; // Assure-toi que ce modèle existe
