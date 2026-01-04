@@ -8,7 +8,7 @@ import { useAuthStore } from '../stores/useAuthStore';
 // ==========================================
 
 // ✅ L'adresse officielle de votre serveur sur Internet
-const SERVER_URL = 'https://site-justice-mobile.onrender.com';
+const SERVER_URL = 'https://site-justice-mobile.onrender.com/api';
 
 // ✅ L'URL complète de l'API (ex: https://.../api)
 // On exporte cette constante pour l'utiliser ailleurs si besoin (images, etc.)

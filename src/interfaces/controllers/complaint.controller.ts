@@ -1,14 +1,14 @@
 // PATH: src/interfaces/controllers/complaint.controller.ts
 import { Response } from "express";
 import crypto from "crypto";
-import { Complaint, AuditLog, User, PoliceStation } from "../../models";
+// ✅ IMPORT CORRIGÉ : On ajoute Attachment ici
+import { Complaint, AuditLog, User, PoliceStation, Attachment } from "../../models";
 import { CustomRequest } from "../../types/express-request";
 import { DocumentService } from "../../application/services/document.service";
 import { NotificationService } from "../../application/services/notification.service";
 
-// ✅ CORRECTION : On instancie Prisma localement pour corriger l'erreur d'import app.ts
-import { PrismaClient } from "@prisma/client";
-const prisma = new PrismaClient();
+// ❌ SUPPRIMÉ : import { PrismaClient } ...
+// ❌ SUPPRIMÉ : const prisma = ...
 
 const documentService = new DocumentService();
 const notificationService = new NotificationService();
@@ -94,19 +94,20 @@ export const getComplaint = async (req: CustomRequest, res: Response) => {
       return res.status(403).json({ success: false, message: "Accès refusé : ce dossier ne vous appartient pas." });
     }
 
-    // ✅ RÉCUPÉRATION DES PIÈCES JOINTES (via PRISMA)
-    // On force l'ajout des attachments à la réponse
-    const attachments = await prisma.attachment.findMany({
+    // ✅ RÉCUPÉRATION DES PIÈCES JOINTES (via SEQUELIZE)
+    const attachments = await Attachment.findAll({
       where: { complaintId: item.id }
     });
 
     // Conversion en objet simple pour ajouter la propriété attachments
     const responseData = item.toJSON();
+    // @ts-ignore
     responseData.attachments = attachments;
 
     await audit(req, `VIEW_COMPLAINT_DETAIL #${item.id}`);
     return res.json({ success: true, data: responseData });
   } catch (error) {
+    console.error(error);
     return res.status(500).json({ success: false, message: "Erreur serveur." });
   }
 };
@@ -225,20 +226,18 @@ export const getMyComplaints = async (req: CustomRequest, res: Response) => {
       ]
     });
 
-    // ✅ RÉCUPÉRATION DES PIÈCES JOINTES EN VRAC (OPTIMISATION)
-    // On récupère tous les IDs de plaintes
+    // ✅ RÉCUPÉRATION DES PIÈCES JOINTES EN VRAC (Version Sequelize)
     const complaintIds = complaints.map(c => c.id);
     
-    // On cherche toutes les pièces jointes liées à ces plaintes
-    const allAttachments = await prisma.attachment.findMany({
-        where: { complaintId: { in: complaintIds } },
-        select: { id: true, complaintId: true, filename: true, mimeType: true }
+    const allAttachments = await Attachment.findAll({
+        where: { complaintId: complaintIds }, // Sequelize gère le "IN" automatiquement avec un tableau
+        attributes: ['id', 'complaintId', 'filename', 'mimeType']
     });
 
     // On fusionne manuellement
     const finalData = complaints.map(c => {
         const json = c.toJSON();
-        // On filtre les attachements correspondant à la plainte en cours
+        // @ts-ignore
         json.attachments = allAttachments.filter(a => a.complaintId === c.id);
         return json;
     });
@@ -247,7 +246,7 @@ export const getMyComplaints = async (req: CustomRequest, res: Response) => {
     
     return res.json({ 
       success: true, 
-      data: finalData // On renvoie les données enrichies
+      data: finalData 
     });
   } catch (error) {
     console.error("❌ Erreur getMyComplaints:", error);
@@ -276,23 +275,21 @@ export const addAttachment = async (req: CustomRequest, res: Response) => {
       return res.status(400).json({ message: "Aucun fichier fourni ou format invalide." });
     }
 
-    // 1. Vérifier si la plainte existe (SEQUELIZE)
+    // 1. Vérifier si la plainte existe
     const complaint = await Complaint.findByPk(id);
 
     if (!complaint) {
       return res.status(404).json({ message: "Plainte introuvable." });
     }
 
-    // 2. Enregistrer dans la table Attachment (PRISMA)
-    const attachment = await prisma.attachment.create({
-      data: {
+    // 2. Enregistrer dans la table Attachment (Version SEQUELIZE)
+    const attachment = await Attachment.create({
         filename: file.filename,
         path: file.path,
         mimeType: file.mimetype,
         size: file.size,
         complaintId: Number(id),
-      },
-    });
+    } as any);
 
     await audit(req, `ADD_ATTACHMENT #${attachment.id} TO COMPLAINT #${id}`);
 
@@ -311,7 +308,6 @@ export const addAttachment = async (req: CustomRequest, res: Response) => {
   }
 };
 
-// ✅ NOUVELLE FONCTION : Mettre à jour une plainte (Titre / Description)
 export const updateComplaint = async (req: CustomRequest, res: Response) => {
   try {
     const { id } = req.params;
@@ -326,12 +322,10 @@ export const updateComplaint = async (req: CustomRequest, res: Response) => {
     }
 
     // 2. Vérifications de sécurité
-    // Seul le créateur peut modifier
     if (req.user?.role === "citizen" && item.citizenId !== userId) {
       return res.status(403).json({ message: "Vous ne pouvez pas modifier ce dossier." });
     }
 
-    // On ne peut modifier que si le statut est "soumise"
     if (item.status !== "soumise") {
       return res.status(400).json({ message: "Le dossier est verrouillé par les services de police." });
     }
@@ -340,7 +334,7 @@ export const updateComplaint = async (req: CustomRequest, res: Response) => {
     await item.update({
       title: title || item.title,
       description: description || item.description,
-      // @ts-ignore : Sequelize gère updatedAt auto mais on force pour le refresh
+      // @ts-ignore
       updatedAt: new Date(), 
     });
 
