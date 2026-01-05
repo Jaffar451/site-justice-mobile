@@ -46,6 +46,10 @@ import Warrant from "./warrant.model";
 import Witness from "./witness.model";
 import Summon from "./summon.model";
 
+// ✅ AJOUT : Ressources Juridiques (Annuaire & Lois)
+import { Lawyer } from "./lawyer.model";
+import { LegalText } from "./legalText.model";
+
 // 2. CONFIGURATION DB (Modifiée pour Render)
 const env = process.env.NODE_ENV || 'development';
 
@@ -89,7 +93,9 @@ const sequelize = new Sequelize({
     Detainee, Incarceration, SosAlert, Appeal, ArrestWarrant, Confiscation, 
     Custody, CustodyExtension, Detention, Interrogation, PreventiveDetention, 
     Prosecution, Release, Reparation, Sentence, SearchWarrant, Warrant, 
-    Witness, Summon
+    Witness, Summon,
+    // ✅ AJOUT DANS LA LISTE
+    Lawyer, LegalText
   ],
 });
 
@@ -101,5 +107,7 @@ export {
   Hearing, AuditLog, Note, RefreshToken, Summon, Indictment, Appeal, ArrestWarrant,
   Confiscation, Custody, CustodyExtension, Detention, Interrogation,
   PreventiveDetention, Prosecution, Release, Reparation, Sentence,
-  SearchWarrant, Warrant, Witness, ProcesVerbal, Archive
+  SearchWarrant, Warrant, Witness, ProcesVerbal, Archive,
+  // ✅ AJOUT DANS LES EXPORTS
+  Lawyer, LegalText
 };

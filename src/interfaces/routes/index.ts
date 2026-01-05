@@ -8,7 +8,7 @@ import authRoutes from "./auth.routes";
 import userRoutes from "./user.routes";
 import auditRoutes from "./audit.routes"; 
 import adminRoutes from "./admin.routes";
-import notificationRoutes from "./notification.routes"; // ✅ AJOUT ICI
+import notificationRoutes from "./notification.routes"; 
 import courtRoutes from "./court.routes";
 import prisonRoutes from "./prison.routes";
 import lawyerRoutes from "./lawyer.routes";
@@ -66,6 +66,7 @@ import prosecutionRoutes from "./prosecution.routes";
 import dashboardRoutes from "./dashboard.routes";
 import statsRoutes from "./stats.routes";
 import publicRoutes from "./public.routes";
+import resourceRoutes from "./resource.routes"; // ✅ AJOUT ICI : Ressources (Lois, PDF, Annuaires)
 
 const router = Router();
 
@@ -78,7 +79,7 @@ router.use("/auth", authRoutes);
 router.use("/users", userRoutes);
 router.use("/audit-logs", auditRoutes); 
 router.use("/admin", adminRoutes);
-router.use("/notifications", notificationRoutes); // ✅ AJOUT ICI
+router.use("/notifications", notificationRoutes); 
 router.use("/courts", courtRoutes);
 router.use("/prisons", prisonRoutes);
 router.use("/lawyers", lawyerRoutes);
@@ -123,18 +124,19 @@ router.use("/prosecutions", prosecutionRoutes);
 
 // --- Statistiques & Dashboards ---
 router.use("/dashboard", dashboardRoutes); 
-router.use("/stats", statsRoutes);     
-router.use("/public", publicRoutes); 
+router.use("/stats", statsRoutes);     
+router.use("/public", publicRoutes);
+router.use("/resources", resourceRoutes); // ✅ AJOUT ICI : Route /api/resources
 
 // --- Surveillance du Système ---
 router.get("/status", (_, res) => {
-    res.json({ 
-        success: true,
-        message: "⚖️ Système National e-Justice Niger Online", 
-        version: "2.0.0",
-        node_env: process.env.NODE_ENV || "development",
-        timestamp: new Date() 
-    });
+    res.json({ 
+        success: true,
+        message: "⚖️ Système National e-Justice Niger Online", 
+        version: "2.0.0",
+        node_env: process.env.NODE_ENV || "development",
+        timestamp: new Date() 
+    });
 });
 
 export default router;

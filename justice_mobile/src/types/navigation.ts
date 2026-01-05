@@ -30,6 +30,7 @@ export type RootStackParamList = {
   About: undefined;
   UserGuide: undefined;
   Support: undefined;
+  MyDownloads: undefined; // ✅ AJOUT : Pour l'écran "Mes Téléchargements"
   
   // Écrans de détails partagés
   ComplaintDetail: { id: string | number };

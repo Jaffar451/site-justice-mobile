@@ -1,3 +1,4 @@
+// PATH: src/navigation/stacks/CitizenStack.tsx
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../types/navigation';
@@ -14,12 +15,15 @@ import CitizenCriminalRecordScreen from '../../screens/citizen/CitizenCriminalRe
 import CitizenDirectoryScreen from '../../screens/citizen/CitizenDirectoryScreen';
 import StationMapScreen from '../../screens/citizen/StationMapScreen';
 
+// ✅ AJOUT : L'écran "Mes Téléchargements"
+import MyDownloadsScreen from '../../screens/citizen/MyDownloadsScreen';
+
 // Écrans Communs
 import ProfileScreen from '../../screens/Profile/ProfileScreen'; 
 import EditProfileScreen from '../../screens/Profile/EditProfileScreen';
 import AdminNotificationsScreen from '../../screens/admin/AdminNotificationsScreen'; 
 
-// ✅ AJOUT : Imports des écrans partagés (Guide & Support)
+// Écrans partagés
 import UserGuideScreen from '../../screens/shared/UserGuideScreen';
 import SupportScreen from '../../screens/shared/SupportScreen';
 
@@ -42,17 +46,24 @@ export const CitizenStack = () => (
     <Stack.Screen name="CitizenTracking" component={CitizenTrackingScreen as any} />
     <Stack.Screen name="CitizenCriminalRecord" component={CitizenCriminalRecordScreen} />
     
-    {/* Cartographie & Annuaire */}
+    {/* Cartographie, Annuaire & Téléchargements */}
     <Stack.Screen name="CitizenDirectory" component={CitizenDirectoryScreen as any} />
     <Stack.Screen name="HelpCenter" component={CitizenDirectoryScreen as any} />
     <Stack.Screen name="StationMapScreen" component={StationMapScreen} />
+    
+    {/* ✅ NOUVELLE ROUTE : Mes Fichiers */}
+    <Stack.Screen 
+      name="MyDownloads" 
+      component={MyDownloadsScreen} 
+      options={{ animation: 'slide_from_right' }}
+    />
 
     {/* Profil & Notifications */}
     <Stack.Screen name="Profile" component={ProfileScreen} />
     <Stack.Screen name="EditProfile" component={EditProfileScreen} />
     <Stack.Screen name="Notifications" component={AdminNotificationsScreen} />
 
-    {/* ✅ AJOUT : Support & Guide */}
+    {/* Support & Guide */}
     <Stack.Screen name="UserGuide" component={UserGuideScreen} />
     <Stack.Screen name="Support" component={SupportScreen} />
 
