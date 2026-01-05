@@ -1,77 +1,70 @@
-// @ts-nocheck
 // PATH: src/interfaces/routes/policeStation.routes.ts
 import { Router } from 'express';
-import { PoliceStationController } from '../controllers/policeStation.controller';
+// 👇 On importe tout en tant que "StationController" (pas de classe)
+import * as StationController from '../controllers/policeStation.controller'; 
 import { authenticate, authorize } from '../../middleware/auth.middleware';
 
 const router = Router();
-const controller = new PoliceStationController();
+
+// ==========================================
+// 🔓 ROUTES ACCESSIBLES (Citoyens & Police)
+// ==========================================
 
 /**
  * @route   GET /api/police-stations
- * @desc    Récupérer la liste de tous les commissariats
- * @access  Privé (Admin uniquement pour la gestion)
+ * @desc    Récupérer la liste (Pour l'annuaire mobile)
  */
 router.get(
   '/', 
   authenticate, 
-  authorize(['admin']), 
-  (req, res) => controller.getAll(req, res)
+  StationController.getAllStations
 );
 
 /**
+ * @route   GET /api/police-stations/:id
+ * @desc    Détails d'un commissariat
+ */
+router.get(
+  '/:id', 
+  authenticate, 
+  StationController.getStationById
+);
+
+// ==========================================
+// 🔒 ROUTES ADMIN (GESTION)
+// ==========================================
+
+/**
  * @route   POST /api/police-stations
- * @desc    Créer un nouveau commissariat
- * @access  Privé (Admin uniquement)
+ * @desc    Créer un commissariat
  */
 router.post(
   '/', 
   authenticate, 
   authorize(['admin']), 
-  (req, res) => controller.create(req, res)
+  StationController.createStation
 );
 
 /**
  * @route   PUT /api/police-stations/:id
- * @desc    Modifier les informations d'un commissariat existant
- * @access  Privé (Admin uniquement)
+ * @desc    Modifier
  */
 router.put(
   '/:id',
   authenticate,
   authorize(['admin']),
-  (req, res) => controller.update(req, res)
+  StationController.updateStation
 );
 
 /**
  * @route   DELETE /api/police-stations/:id
- * @desc    Supprimer un commissariat de la base de données
- * @access  Privé (Admin uniquement)
+ * @desc    Supprimer
  */
 router.delete(
   '/:id',
   authenticate,
   authorize(['admin']),
-  (req, res) => controller.delete(req, res)
-);
-
-// --- Routes additionnelles (Optionnel) ---
-
-/**
- * @route   GET /api/police-stations/directory
- * @desc    Annuaire simplifié accessible aux citoyens connectés
- */
-router.get(
-  '/directory', 
-  authenticate, 
-  (req, res) => {
-    // Si vous n'avez pas encore implémenté getDirectory dans le contrôleur, 
-    // utilisez getAll ou créez la méthode spécifique.
-    if (typeof controller.getDirectory === 'function') {
-        return controller.getDirectory(req, res);
-    }
-    return controller.getAll(req, res);
-  }
+  StationController.deleteStation
 );
 
 export default router;
