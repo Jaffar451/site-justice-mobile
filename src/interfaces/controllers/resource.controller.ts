@@ -2,7 +2,7 @@
 import { Request, Response } from "express";
 import { Lawyer, LegalText } from "../../models";
 // 👇 CORRECTION ICI : 'env' en minuscules
-import { env } from "../../config/env"; 
+
 
 /**
  * 📜 Récupérer les Textes de Loi
@@ -119,3 +119,4 @@ export const seedResources = async (req: Request, res: Response) => {
     return res.status(500).json({ success: false, error: error.message });
   }
 };
+// --- FIN DU FICHIER ---
