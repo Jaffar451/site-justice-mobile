@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { StyleSheet, View, Alert, Linking, Platform, StatusBar } from 'react-native';
-import { Text, Button, Card, IconButton, Avatar, Searchbar } from 'react-native-paper';
+import { Text, Button, Card, IconButton, Searchbar } from 'react-native-paper';
 import { Ionicons } from "@expo/vector-icons";
 
 // ✅ 1. Imports Architecture
@@ -15,16 +15,47 @@ import SmartFooter from '../../components/layout/SmartFooter';
 // Services
 import { getAllStations, PoliceStation } from '../../services/policeStation.service';
 
-// ✅ 2. Import Dynamique de MapView (Évite le crash Web)
-let MapView: any;
-let Marker: any;
-let PROVIDER_GOOGLE: any;
+// ==========================================
+// 🌍 2. GESTION DES IMPORTS (MOBILE vs WEB)
+// ==========================================
+
+// MOBILE : Google Maps
+let MapView: any, Marker: any, PROVIDER_GOOGLE: any;
+
+// WEB : Leaflet (OpenStreetMap)
+let MapContainer: any, TileLayer: any, LeafletMarker: any, Popup: any, L: any;
 
 if (Platform.OS !== 'web') {
+  // Chargement Mobile
   const Maps = require('react-native-maps');
   MapView = Maps.default;
   Marker = Maps.Marker;
   PROVIDER_GOOGLE = Maps.PROVIDER_GOOGLE;
+} else {
+  // Chargement Web
+  try {
+    const RL = require('react-leaflet');
+    MapContainer = RL.MapContainer;
+    TileLayer = RL.TileLayer;
+    LeafletMarker = RL.Marker;
+    Popup = RL.Popup;
+    L = require('leaflet');
+
+    // 🔧 Fix pour les icônes Leaflet qui disparaissent souvent avec Webpack/Expo
+    // On définit une icône par défaut
+    if (L) {
+       const iconDefault = L.icon({
+         iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+         shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
+         iconSize: [25, 41],
+         iconAnchor: [12, 41],
+         popupAnchor: [1, -34],
+       });
+       L.Marker.prototype.options.icon = iconDefault;
+    }
+  } catch (e) {
+    console.error("Erreur chargement Leaflet", e);
+  }
 }
 
 interface ValidStation extends PoliceStation {
@@ -32,7 +63,6 @@ interface ValidStation extends PoliceStation {
   longitude: number;
 }
 
-// ✅ Ajout de la prop navigation pour la redirection
 export default function StationMapScreen({ navigation }: CitizenScreenProps<'StationMapScreen'>) {
   const { theme, isDark } = useAppTheme();
   const primaryColor = theme.colors.primary;
@@ -42,9 +72,12 @@ export default function StationMapScreen({ navigation }: CitizenScreenProps<'Sta
   const [selectedStation, setSelectedStation] = useState<ValidStation | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Centre de Niamey
+  const NIAMEY_COORDS = { lat: 13.5127, lng: 2.1128 };
+  
   const NIAMEY_REGION = {
-    latitude: 13.5127,
-    longitude: 2.1128,
+    latitude: NIAMEY_COORDS.lat,
+    longitude: NIAMEY_COORDS.lng,
     latitudeDelta: 0.15,
     longitudeDelta: 0.15,
   };
@@ -59,6 +92,22 @@ export default function StationMapScreen({ navigation }: CitizenScreenProps<'Sta
 
   useEffect(() => {
     loadStations();
+    
+    // 💉 Injection du CSS Leaflet pour le Web (sinon la carte est cassée)
+    if (Platform.OS === 'web') {
+      const style = document.createElement("style");
+      style.innerHTML = `
+        .leaflet-container { height: 100%; width: 100%; z-index: 1; }
+        .leaflet-div-icon { background: transparent; border: none; }
+      `;
+      document.head.appendChild(style);
+      
+      // Import du CSS Leaflet via CDN pour être sûr
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+      document.head.appendChild(link);
+    }
   }, []);
 
   const loadStations = async () => {
@@ -66,6 +115,7 @@ export default function StationMapScreen({ navigation }: CitizenScreenProps<'Sta
       const data = await getAllStations();
       setStations(Array.isArray(data) ? data : []);
     } catch (e) {
+      console.error(e);
       if (Platform.OS !== 'web') Alert.alert("Erreur", "Impossible de charger la carte.");
     }
   };
@@ -82,6 +132,8 @@ export default function StationMapScreen({ navigation }: CitizenScreenProps<'Sta
 
   const handleSelectStation = (station: ValidStation) => {
     setSelectedStation(station);
+    
+    // Animation Mobile
     if (Platform.OS !== 'web' && mapRef.current) {
       mapRef.current.animateToRegion({
         latitude: station.latitude - 0.005,
@@ -90,6 +142,10 @@ export default function StationMapScreen({ navigation }: CitizenScreenProps<'Sta
         longitudeDelta: 0.03,
       }, 1000);
     }
+    // Animation Web (Leaflet)
+    else if (Platform.OS === 'web' && mapRef.current) {
+       mapRef.current.flyTo([station.latitude, station.longitude], 14);
+    }
   };
 
   const openInGmaps = (lat: number, lng: number, label: string) => {
@@ -97,7 +153,7 @@ export default function StationMapScreen({ navigation }: CitizenScreenProps<'Sta
     const url = Platform.select({
       ios: `maps:0,0?q=${encodeURIComponent(label)}@${latLng}`,
       android: `geo:0,0?q=${latLng}(${encodeURIComponent(label)})`,
-      web: `https://www.google.com/maps/search/?api=1&query=${latLng}`
+      web: `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
     });
     if (url) Linking.openURL(url);
   };
@@ -105,29 +161,39 @@ export default function StationMapScreen({ navigation }: CitizenScreenProps<'Sta
   return (
     <ScreenContainer withPadding={false}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-      <AppHeader title="Services Judiciaires" showBack />
+      <AppHeader title="Carte des Services" showBack />
       
       <View style={styles.mainWrapper}>
+        
+        {/* 🗺️ ZONE CARTE (MOBILE OU WEB) */}
         {Platform.OS === 'web' ? (
-          // 💻 AFFICHAGE WEB
-          <View style={[styles.webPlaceholder, { backgroundColor: isDark ? '#0F172A' : '#F8FAFC' }]}>
-            <Ionicons name="map-outline" size={80} color={primaryColor} />
-            <Text style={[styles.webTitle, { color: cardText }]}>Carte indisponible sur navigateur</Text>
-            <Text style={[styles.webSub, { color: cardSubText }]}>
-              La visualisation SIG nécessite l'application mobile pour Niger Justice.
-            </Text>
-            
-            {/* ✅ MODIFICATION ICI : On utilise navigation.navigate au lieu de Linking.openURL */}
-            <Button 
-              mode="contained" 
-              onPress={() => navigation.navigate('CitizenHome')} 
-              style={{ marginTop: 20 }}
-            >
-              RETOUR À L'ACCUEIL
-            </Button>
+          // 💻 WEB : OPENSTREETMAP (Leaflet)
+          <View style={{ flex: 1, height: '100%', width: '100%' }}>
+            {MapContainer && (
+              <MapContainer 
+                center={[NIAMEY_COORDS.lat, NIAMEY_COORDS.lng]} 
+                zoom={12} 
+                style={{ height: '100%', width: '100%' }}
+                whenCreated={(map: any) => { mapRef.current = map; }}
+              >
+                <TileLayer
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+                {filteredStations.map((station) => (
+                  <LeafletMarker 
+                    key={station.id} 
+                    position={[station.latitude, station.longitude]}
+                    eventHandlers={{
+                      click: () => setSelectedStation(station),
+                    }}
+                  />
+                ))}
+              </MapContainer>
+            )}
           </View>
         ) : (
-          // 📱 AFFICHAGE MOBILE (MapView chargé dynamiquement)
+          // 📱 MOBILE : GOOGLE MAPS NATIVE
           <MapView
             ref={mapRef}
             provider={PROVIDER_GOOGLE}
@@ -164,7 +230,7 @@ export default function StationMapScreen({ navigation }: CitizenScreenProps<'Sta
           />
         </View>
 
-        {/* 📋 FICHE DÉTAILLÉE */}
+        {/* 📋 FICHE DÉTAILLÉE (Commun Web & Mobile) */}
         {selectedStation && (
           <Card style={[styles.floatingCard, { backgroundColor: cardBg, borderColor: borderColor }]}>
             <Card.Title
@@ -183,7 +249,7 @@ export default function StationMapScreen({ navigation }: CitizenScreenProps<'Sta
                  buttonColor={primaryColor}
                  onPress={() => openInGmaps(selectedStation.latitude, selectedStation.longitude, selectedStation.name)}
               >
-                ITINÉRAIRE
+                ITINÉRAIRE (Google Maps)
               </Button>
             </Card.Actions>
           </Card>
@@ -202,13 +268,10 @@ const darkMapStyle = [
 ];
 
 const styles = StyleSheet.create({
-  mainWrapper: { flex: 1 },
+  mainWrapper: { flex: 1, position: 'relative' }, // Important pour le web
   map: { ...StyleSheet.absoluteFillObject },
-  webPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30 },
-  webTitle: { fontSize: 20, fontWeight: '800', marginTop: 20, textAlign: 'center' },
-  webSub: { fontSize: 14, textAlign: 'center', marginTop: 10, lineHeight: 20 },
   markerContainer: { padding: 8, borderRadius: 15, borderWidth: 2, borderColor: 'white' },
-  searchOverlay: { position: 'absolute', top: 15, left: 15, right: 15, zIndex: 10 },
+  searchOverlay: { position: 'absolute', top: 15, left: 15, right: 15, zIndex: 1000 }, // Z-index élevé pour passer au-dessus de Leaflet
   searchbar: { borderRadius: 14, elevation: 4, borderWidth: 1 },
-  floatingCard: { position: 'absolute', bottom: 100, left: 15, right: 15, borderRadius: 20, elevation: 8 }
+  floatingCard: { position: 'absolute', bottom: 100, left: 15, right: 15, borderRadius: 20, elevation: 8, zIndex: 1001 }
 });

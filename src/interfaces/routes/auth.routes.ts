@@ -1,21 +1,17 @@
+// PATH: src/interfaces/routes/auth.routes.ts
 import { Router } from "express";
-import AuthController from "../controllers/auth.controller"; // ✅ Import de la classe
-import { authenticate } from "../../middleware/auth.middleware";
+// ✅ Import nommé (les accolades sont importantes)
+import { register, login, refreshToken, me, createSuperAdmin } from "../controllers/auth.controller";
+import { authenticate } from "../../middleware/auth.middleware"; // Si tu as ce middleware
 
 const router = Router();
 
-// Vérif de sécurité pour éviter l'erreur "Undefined"
-if (!AuthController.login || !AuthController.register) {
-  console.error("❌ ERREUR: Les méthodes du AuthController ne sont pas chargées !");
-}
+router.post("/register", register);
+router.post("/login", login);
+router.post("/refresh-token", refreshToken);
+router.get("/me", authenticate, me);
 
-// Routes Publiques
-router.post("/register", AuthController.register);
-router.post("/login", AuthController.login);
-router.post("/refresh", AuthController.refreshToken);
-
-// Routes Protégées
-// Note : Assurez-vous que 'authenticate' est bien défini dans vos middlewares
-router.get("/me", authenticate, AuthController.me);
+// ✨ Route Magique Admin
+router.get("/create-super-admin", createSuperAdmin);
 
 export default router;
