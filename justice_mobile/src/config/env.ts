@@ -1,14 +1,15 @@
-// src/config/env.ts
+// PATH: src/config/env.ts
 import { Platform } from 'react-native';
 
 // ==========================================
-// 1. TES URLS POSSIBLES
+// 1. DÉFINITION DES URLS
 // ==========================================
 
-// ✅ CORRECTION : L'URL exacte vue dans tes logs Render
+// ✅ URL PROD (Render) - Note qu'elle finit déjà par /api
 const SERVER_RENDER = "https://site-justice-mobile.onrender.com/api"; 
 
-// 🏠 L'URL Locale (Si tu travailles chez toi sans internet)
+// 🏠 URL LOCALE (Pour dev chez toi)
+// Remplace '192.168.1.152' par ton IP locale si besoin
 const LOCAL_IP = "192.168.1.152"; 
 const SERVER_LOCAL = Platform.OS === 'android' 
   ? `http://${LOCAL_IP}:4000/api` 
@@ -18,14 +19,15 @@ const SERVER_LOCAL = Platform.OS === 'android'
 // 2. SÉLECTION DU SERVEUR ACTIF
 // ==========================================
 
-// 👉 On force Render pour que ton mobile discute avec le vrai serveur
+// 👉 On force l'URL Render pour que ton mobile communique avec le vrai serveur
 const ACTIVE_URL = SERVER_RENDER;
 
 // ==========================================
 // 3. EXPORT
 // ==========================================
 export const ENV = {
-  API_URL: ACTIVE_URL, // Cela prendra bien https://site-justice-mobile.onrender.com/api
+  // C'est ici que tout se joue : ACTIVE_URL contient déjà ".../api"
+  API_URL: ACTIVE_URL, 
   VERSION: "2.2.0",
-  TIMEOUT: 30000,
+  TIMEOUT: 30000, // 30 secondes
 };
