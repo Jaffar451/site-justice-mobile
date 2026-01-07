@@ -1,4 +1,3 @@
-// PATH: src/interfaces/routes/complaint.routes.ts
 import { Router } from "express";
 import { 
   createComplaint, 
@@ -7,9 +6,16 @@ import {
   transmitToHierarchy, 
   validateToParquet,   
   addAttachment,
-  updateComplaint // ✅ AJOUT : Import du contrôleur de mise à jour
+  updateComplaint 
 } from "../controllers/complaint.controller";
-import { authenticate, authorize } from "../../middleware/auth.middleware";
+
+// ✅ Import des middlewares corrigés
+import { authenticate } from "../../middleware/auth.middleware";
+import { 
+  onlyCitizen, 
+  onlyOfficialAgents, 
+  requireRole 
+} from "../../middleware/role.middleware";
 
 // ✅ Import du middleware d'upload
 import { uploadEvidence } from "../../middleware/upload-evidence.middleware"; 
@@ -24,7 +30,7 @@ const router = Router();
 router.post(
   "/", 
   authenticate, 
-  authorize(["citizen"]), 
+  onlyCitizen, 
   createComplaint
 );
 
@@ -32,32 +38,30 @@ router.post(
 router.get(
   "/me", 
   authenticate, 
-  authorize(["citizen"]), 
+  onlyCitizen, 
   listComplaints
 );
 
-// Alias pour l'appel mobile /my-complaints
 router.get(
   "/my-complaints", 
   authenticate, 
-  authorize(["citizen"]), 
+  onlyCitizen, 
   listComplaints
 );
 
-// ✅ ROUTE POUR METTRE À JOUR UNE PLAINTE (TITRE/DESCRIPTION)
-// Indispensable pour l'écran "Éditer la déclaration"
+// ✅ MISE À JOUR PLAINTE (Synchronisé avec DB)
 router.patch(
   "/:id",
   authenticate,
-  authorize(["citizen", "police", "gendarme", "admin"]),
+  requireRole("citizen", "officier_police", "gendarme", "admin"),
   updateComplaint
 );
 
-// ✅ ROUTE POUR L'UPLOAD DE PREUVES
+// ✅ UPLOAD DE PREUVES (Synchronisé avec DB)
 router.post(
   "/:id/attachments",
   authenticate,
-  authorize(["citizen", "police", "gendarme", "commisaire"]), 
+  requireRole("citizen", "officier_police", "gendarme", "commissaire"), 
   uploadEvidence, 
   addAttachment
 );
@@ -66,19 +70,19 @@ router.post(
 // 2. CONSULTATION GLOBALE (Police / Justice)
 // ==========================================
 
-// Lister les plaintes
+// Lister toutes les plaintes (Pour les agents de l'État)
 router.get(
   "/", 
   authenticate, 
-  authorize(["police", "commisaire", "gendarme", "prosecutor", "judge", "clerk", "admin"]), 
+  onlyOfficialAgents, // ✅ Utilise le groupe incluant 'officier_police'
   listComplaints
 );
 
-// Voir le détail d'une plainte
+// Voir le détail
 router.get(
   "/:id", 
   authenticate, 
-  authorize(["citizen", "police", "commisaire", "gendarme", "prosecutor", "judge", "clerk", "admin"]), 
+  requireRole("citizen", "officier_police", "commissaire", "gendarme", "prosecutor", "judge", "greffier", "admin"), 
   getComplaint
 );
 
@@ -86,11 +90,10 @@ router.get(
 // 3. WORKFLOW OPJ -> COMMISSAIRE
 // ==========================================
 
-// Transmettre au supérieur
 router.put(
   "/:id/transmit", 
   authenticate, 
-  authorize(["police", "gendarme"]), 
+  requireRole("officier_police", "gendarme"), 
   transmitToHierarchy
 );
 
@@ -98,11 +101,10 @@ router.put(
 // 4. WORKFLOW COMMISSAIRE -> PARQUET
 // ==========================================
 
-// Valider et envoyer au Parquet
 router.put(
   "/:id/validate-parquet", 
   authenticate, 
-  authorize(["commisaire", "admin"]), 
+  requireRole("commissaire", "admin"), 
   validateToParquet
 );
 
