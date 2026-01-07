@@ -24,7 +24,7 @@ export default function PoliceHomeScreen({ navigation }: PoliceScreenProps<'Poli
   const { theme, isDark } = useAppTheme();
   const { user } = useAuthStore();
   const [searchQuery, setSearchQuery] = useState("");
-  const [currentTime, setCurrentTime] = useState(new Date()); // ✅ État pour l'horloge
+  const [currentTime, setCurrentTime] = useState(new Date()); 
   const primaryColor = theme.colors.primary;
 
   const colors = {
@@ -35,7 +35,7 @@ export default function PoliceHomeScreen({ navigation }: PoliceScreenProps<'Poli
     border: isDark ? "#334155" : "#E2E8F0",
   };
 
-  // ✅ LOGIQUE DE L'HORLOGE TEMPS RÉEL
+  // ✅ HORLOGE TEMPS RÉEL
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
@@ -50,49 +50,71 @@ export default function PoliceHomeScreen({ navigation }: PoliceScreenProps<'Poli
     queryFn: getAllComplaints,
   });
 
-  // 🔍 Filtrage dynamique
+  // 🔍 Filtrage sécurisé
   const filteredComplaints = useMemo(() => {
-    if (!complaints) return [];
+    if (!complaints || !Array.isArray(complaints)) return [];
     const lowerQuery = searchQuery.toLowerCase();
-    return complaints.filter((c: Complaint) => 
-      c.title?.toLowerCase().includes(lowerQuery) ||
-      c.description?.toLowerCase().includes(lowerQuery) ||
-      c.id.toString().includes(lowerQuery) ||
-      c.citizen?.firstname?.toLowerCase().includes(lowerQuery) ||
-      c.citizen?.lastname?.toLowerCase().includes(lowerQuery)
-    );
+    
+    return complaints.filter((c: any) => {
+      const title = c.title?.toLowerCase() || "";
+      const description = c.description?.toLowerCase() || "";
+      const id = c.id?.toString() || "";
+      const firstname = c.complainant?.firstname?.toLowerCase() || ""; // Note: Vérifiez si c'est citizen ou complainant
+      const lastname = c.complainant?.lastname?.toLowerCase() || "";
+
+      return title.includes(lowerQuery) || 
+             description.includes(lowerQuery) || 
+             id.includes(lowerQuery) ||
+             firstname.includes(lowerQuery) ||
+             lastname.includes(lowerQuery);
+    });
   }, [complaints, searchQuery]);
 
   // 🛠️ ACTIONS RAPIDES OPJ
   const QuickActions = () => (
     <View style={styles.quickActionsGrid}>
-      <TouchableOpacity style={[styles.actionItem, { backgroundColor: colors.bgCard }]} onPress={() => navigation.navigate("PolicePVScreen", {})}>
+      <TouchableOpacity 
+        style={[styles.actionItem, { backgroundColor: colors.bgCard }]} 
+        onPress={() => navigation.navigate("PolicePVScreen", {})}
+      >
         <View style={[styles.actionIcon, { backgroundColor: '#DBEAFE' }]}><Ionicons name="document-text" size={24} color="#2563EB" /></View>
         <Text style={[styles.actionLabel, { color: colors.textMain }]}>Nouveau PV</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={[styles.actionItem, { backgroundColor: colors.bgCard }]} onPress={() => navigation.navigate("PoliceCustody", { complaintId: 0, suspectName: "" })}>
+      <TouchableOpacity 
+        style={[styles.actionItem, { backgroundColor: colors.bgCard }]} 
+        onPress={() => navigation.navigate("PoliceCustody", { complaintId: 0, suspectName: "Nouveau" })}
+      >
         <View style={[styles.actionIcon, { backgroundColor: '#FEE2E2' }]}><Ionicons name="lock-closed" size={24} color="#DC2626" /></View>
         <Text style={[styles.actionLabel, { color: colors.textMain }]}>Garde à vue</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={[styles.actionItem, { backgroundColor: colors.bgCard }]} onPress={() => navigation.navigate("WarrantSearch")}>
+      <TouchableOpacity 
+        style={[styles.actionItem, { backgroundColor: colors.bgCard }]} 
+        onPress={() => navigation.navigate("WarrantSearch" as any)}
+      >
         <View style={[styles.actionIcon, { backgroundColor: '#FEF3C7' }]}><Ionicons name="search" size={24} color="#D97706" /></View>
         <Text style={[styles.actionLabel, { color: colors.textMain }]}>Rechercher</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={[styles.actionItem, { backgroundColor: colors.bgCard }]} onPress={() => navigation.navigate("NationalMap" as any)}>
+      <TouchableOpacity 
+        style={[styles.actionItem, { backgroundColor: colors.bgCard }]} 
+        onPress={() => navigation.navigate("NationalMap" as any)}
+      >
         <View style={[styles.actionIcon, { backgroundColor: '#D1FAE5' }]}><Ionicons name="map" size={24} color="#059669" /></View>
         <Text style={[styles.actionLabel, { color: colors.textMain }]}>Carte/SOS</Text>
       </TouchableOpacity>
     </View>
   );
 
-  const renderItem = ({ item }: { item: Complaint }) => {
-    const citizenName = item.citizen ? `${item.citizen.firstname} ${item.citizen.lastname}` : "Citoyen anonyme";
+  const renderItem = ({ item }: { item: any }) => {
+    // Gestion sécurisée du nom (selon votre retour API : citizen ou complainant)
+    const person = item.complainant || item.citizen;
+    const personName = person ? `${person.firstname} ${person.lastname}` : "Source Anonyme";
     
     return (
       <TouchableOpacity 
+        activeOpacity={0.7}
         style={[styles.complaintCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
         onPress={() => navigation.navigate("PoliceComplaintDetails", { complaintId: item.id })}
       >
@@ -100,7 +122,7 @@ export default function PoliceHomeScreen({ navigation }: PoliceScreenProps<'Poli
           <Text style={[styles.rgNumber, { color: primaryColor }]}>RG #{item.id}</Text>
           <View style={[styles.badge, { backgroundColor: item.status === 'soumise' ? '#FFEDD5' : '#E0F2FE' }]}>
             <Text style={[styles.badgeText, { color: item.status === 'soumise' ? '#9A3412' : '#0369A1' }]}>
-              {item.status.replace(/_/g, ' ').toUpperCase()}
+              {item.status?.replace(/_/g, ' ').toUpperCase()}
             </Text>
           </View>
         </View>
@@ -111,7 +133,7 @@ export default function PoliceHomeScreen({ navigation }: PoliceScreenProps<'Poli
         
         <View style={styles.citizenRow}>
             <Ionicons name="person-circle-outline" size={16} color={primaryColor} />
-            <Text style={[styles.citizenName, { color: colors.textMain }]}>{citizenName}</Text>
+            <Text style={[styles.citizenName, { color: colors.textMain }]}>{personName}</Text>
         </View>
 
         <Text style={[styles.cardDesc, { color: colors.textSub }]} numberOfLines={2}>
@@ -121,7 +143,7 @@ export default function PoliceHomeScreen({ navigation }: PoliceScreenProps<'Poli
         <View style={styles.cardFooter}>
           <Ionicons name="time-outline" size={14} color={colors.textSub} />
           <Text style={[styles.cardDate, { color: colors.textSub }]}>
-            {new Date(item.filedAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+            {item.createdAt ? new Date(item.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) : '--'}
           </Text>
         </View>
       </TouchableOpacity>
@@ -135,9 +157,9 @@ export default function PoliceHomeScreen({ navigation }: PoliceScreenProps<'Poli
       <ScrollView 
         showsVerticalScrollIndicator={false}
         style={{ backgroundColor: colors.bgMain }}
-        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} />}
+        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={primaryColor} />}
       >
-        {/* 1. RÉSUMÉ STATS & HORLOGE */}
+        {/* STATS & HORLOGE */}
         <View style={styles.headerStats}>
           <View style={[styles.clockBox, { backgroundColor: colors.bgCard }]}>
             <Text style={[styles.clockTime, { color: primaryColor }]}>{timeString}</Text>
@@ -149,18 +171,18 @@ export default function PoliceHomeScreen({ navigation }: PoliceScreenProps<'Poli
             <Text style={styles.statLab}>Dossiers</Text>
           </View>
 
-          <TouchableOpacity style={styles.qrButton} onPress={() => alert("Ouverture du Scanner...")}>
+          <TouchableOpacity style={styles.qrButton} onPress={() => alert("Initialisation Scanner...")}>
             <Ionicons name="qr-code-outline" size={24} color="#FFF" />
             <Text style={styles.qrText}>SCANNER</Text>
           </TouchableOpacity>
         </View>
 
-        {/* 2. RECHERCHE */}
+        {/* RECHERCHE */}
         <View style={styles.searchContainer}>
           <View style={[styles.searchBar, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
             <Ionicons name="search" size={20} color={colors.textSub} />
             <TextInput 
-              placeholder="Nom, RG, mot-clé..." 
+              placeholder="Rechercher un dossier..." 
               placeholderTextColor={colors.textSub}
               style={[styles.searchInput, { color: colors.textMain }]}
               value={searchQuery}
@@ -168,17 +190,15 @@ export default function PoliceHomeScreen({ navigation }: PoliceScreenProps<'Poli
             />
             {searchQuery.length > 0 && (
                 <TouchableOpacity onPress={() => setSearchQuery("")}>
-                    <Ionicons name="close-circle" size={20} color={colors.textSub} />
+                  <Ionicons name="close-circle" size={20} color={colors.textSub} />
                 </TouchableOpacity>
             )}
           </View>
         </View>
 
-        {/* 3. ACTIONS RAPIDES */}
         <Text style={[styles.sectionTitle, { color: colors.textMain }]}>Actions Prioritaires</Text>
         <QuickActions />
 
-        {/* 4. LISTE FILTRÉE */}
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { color: colors.textMain }]}>
               {searchQuery ? "Résultats" : "Dernières Plaintes"}
@@ -191,22 +211,22 @@ export default function PoliceHomeScreen({ navigation }: PoliceScreenProps<'Poli
         </View>
 
         {isLoading ? (
-          <ActivityIndicator size="large" style={{ marginTop: 20 }} color={primaryColor} />
+          <ActivityIndicator size="large" style={{ marginTop: 40 }} color={primaryColor} />
         ) : (
-          <FlatList
-            data={filteredComplaints.slice(0, 10)}
-            renderItem={renderItem}
-            keyExtractor={item => item.id.toString()}
-            scrollEnabled={false} 
-            contentContainerStyle={styles.list}
-            ListEmptyComponent={
-                <Text style={styles.emptyText}>
-                    {searchQuery ? "Aucun résultat trouvé" : "Aucun dossier récent"}
-                </Text>
-            }
-          />
+          <View style={styles.listContainer}>
+            {filteredComplaints.length > 0 ? (
+              filteredComplaints.slice(0, 8).map((item: any) => (
+                <View key={item.id.toString()}>
+                  {renderItem({ item })}
+                </View>
+              ))
+            ) : (
+              <Text style={styles.emptyText}>Aucun dossier trouvé.</Text>
+            )}
+          </View>
         )}
-        <View style={{ height: 100 }} /> 
+        
+        <View style={{ height: 120 }} /> 
       </ScrollView>
 
       <SmartFooter />
@@ -216,30 +236,24 @@ export default function PoliceHomeScreen({ navigation }: PoliceScreenProps<'Poli
 
 const styles = StyleSheet.create({
   headerStats: { flexDirection: 'row', padding: 20, alignItems: 'center', gap: 10 },
-  clockBox: { flex: 1.5, padding: 12, borderRadius: 15, alignItems: 'center', elevation: 2, shadowOpacity: 0.05 },
+  clockBox: { flex: 1.5, padding: 12, borderRadius: 15, alignItems: 'center', elevation: 2 },
   clockTime: { fontSize: 18, fontWeight: '900', letterSpacing: 1 },
   clockDate: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', marginTop: 2 },
-  
   statBox: { flex: 1, backgroundColor: 'rgba(37, 99, 235, 0.1)', padding: 12, borderRadius: 15, alignItems: 'center' },
   statVal: { fontSize: 20, fontWeight: '900', color: '#2563EB' },
   statLab: { fontSize: 9, fontWeight: '700', textTransform: 'uppercase', marginTop: 2 },
-
   qrButton: { backgroundColor: '#1E293B', paddingVertical: 12, paddingHorizontal: 15, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   qrText: { color: '#FFF', fontSize: 8, fontWeight: '900', marginTop: 4 },
-  
   searchContainer: { paddingHorizontal: 20, paddingVertical: 5 },
   searchBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, height: 45, borderRadius: 12, borderWidth: 1 },
   searchInput: { flex: 1, marginLeft: 10, fontWeight: '600', fontSize: 14 },
-
   sectionTitle: { fontSize: 17, fontWeight: '900', marginHorizontal: 20, marginTop: 20, marginBottom: 12 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-
   quickActionsGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 15, gap: 10 },
-  actionItem: { width: '48%', padding: 15, borderRadius: 16, alignItems: 'center', elevation: 2, shadowOpacity: 0.05 },
+  actionItem: { width: '48%', padding: 15, borderRadius: 16, alignItems: 'center', elevation: 2 },
   actionIcon: { width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
   actionLabel: { fontSize: 12, fontWeight: '800' },
-
-  list: { paddingHorizontal: 20 },
+  listContainer: { paddingHorizontal: 20 },
   complaintCard: { padding: 15, borderRadius: 15, marginBottom: 10, borderWidth: 1 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
   rgNumber: { fontWeight: '900', fontSize: 12 },

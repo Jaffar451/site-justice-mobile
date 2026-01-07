@@ -1,68 +1,25 @@
+// (Rappel) src/interfaces/routes/admin.routes.ts
 import { Router } from "express";
-import { AdminController } from "../controllers/admin.controller"; 
+import * as AdminController from "../controllers/admin.controller"; // Import global
 import { authenticate, authorize } from "../../middleware/auth.middleware";
 
 const router = Router();
-const controller = new AdminController();
 
-/**
- * 📊 DASHBOARD
- * @route   GET /api/admin/dashboard-stats
- * @desc    Récupérer les statistiques globales
- */
-router.get(
-  "/dashboard-stats", 
-  authenticate,
-  authorize(["admin"]),
-  (req, res) => controller.getDashboardStats(req, res)
-);
+// Middleware global pour ce routeur : Seul l'ADMIN passe
+router.use(authenticate, authorize(["admin"]));
 
-/**
- * 🔐 SÉCURITÉ
- * @route   GET /api/admin/settings/security
- * @desc    Lire la politique de mot de passe actuelle
- */
-router.get(
-  "/settings/security",
-  authenticate,
-  authorize(["admin"]),
-  (req, res) => controller.getSecuritySettings(req, res)
-);
+// Stats
+router.get("/dashboard-stats", AdminController.getDashboardStats);
 
-/**
- * 🔐 SÉCURITÉ
- * @route   PUT /api/admin/settings/security
- * @desc    Mettre à jour la politique de mot de passe
- */
-router.put(
-  "/settings/security",
-  authenticate,
-  authorize(["admin"]),
-  (req, res) => controller.updateSecuritySettings(req, res)
-);
+// Logs
+// router.get("/audit-logs", ...); // Si tu as un contrôleur de logs séparé
 
-/**
- * 🚧 MAINTENANCE
- * @route   GET /api/admin/maintenance
- * @desc    Vérifier si le mode maintenance est actif
- */
-router.get(
-  "/maintenance",
-  authenticate,
-  authorize(["admin"]),
-  (req, res) => controller.getMaintenanceStatus(req, res)
-);
+// Settings
+router.get("/settings/security", AdminController.getSecuritySettings);
+router.put("/settings/security", AdminController.updateSecuritySettings);
 
-/**
- * 🚧 MAINTENANCE
- * @route   POST /api/admin/maintenance
- * @desc    Activer ou désactiver la maintenance
- */
-router.post(
-  "/maintenance",
-  authenticate,
-  authorize(["admin"]),
-  (req, res) => controller.setMaintenanceStatus(req, res)
-);
+// Maintenance
+router.get("/maintenance", AdminController.getMaintenanceStatus);
+router.post("/maintenance", AdminController.setMaintenanceStatus);
 
 export default router;

@@ -7,7 +7,8 @@ import {
   TouchableOpacity, 
   TextInput, 
   StatusBar,
-  Platform
+  Platform,
+  Keyboard
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -18,12 +19,12 @@ import ScreenContainer from "../../components/layout/ScreenContainer";
 import AppHeader from "../../components/layout/AppHeader";
 import SmartFooter from "../../components/layout/SmartFooter";
 
-// Données simulées étendues (Région du Niger)
+// Données simulées (Inspirées du système e-Justice Niger)
 const MOCK_CASES = [
-  { id: 401, title: "Vol avec effraction en réunion", suspect: "Adamou B. & Alassane S.", status: "nouveau", date: "02/01/2026", unit: "Commissariat Central Niamey" },
-  { id: 402, title: "Trafic de stupéfiants (Saisie 2kg)", suspect: "Moussa K.", status: "en_cours", date: "01/01/2026", unit: "Gendarmerie Nationale - Maradi" },
-  { id: 403, title: "Abus de confiance aggravé", suspect: "Mariama T.", status: "nouveau", date: "02/01/2026", unit: "Commissariat de Ville - Zinder" },
-  { id: 404, title: "Homicide involontaire (Accident)", suspect: "Ibrahim J.", status: "instruction", date: "31/12/2025", unit: "DPJ Niamey" },
+  { id: 401, title: "Vol avec effraction nocturne", suspect: "Adamou B. & Alassane S.", status: "nouveau", date: "02/01/2026", unit: "Commissariat Central Niamey" },
+  { id: 402, title: "Trafic transfrontalier (Saisie)", suspect: "Moussa K.", status: "en_cours", date: "01/01/2026", unit: "Gendarmerie Nationale - Maradi" },
+  { id: 403, title: "Détournement de deniers publics", suspect: "Habibou T.", status: "nouveau", date: "02/01/2026", unit: "DPJ Niamey" },
+  { id: 404, title: "Homicide involontaire", suspect: "Ibrahim J.", status: "instruction", date: "31/12/2025", unit: "Commissariat de Ville Zinder" },
 ];
 
 export default function ProsecutorCaseListScreen({ navigation }: ProsecutorScreenProps<'ProsecutorCaseList'>) {
@@ -37,17 +38,18 @@ export default function ProsecutorCaseListScreen({ navigation }: ProsecutorScree
     textMain: isDark ? "#FFFFFF" : "#1E293B",
     textSub: isDark ? "#94A3B8" : "#64748B",
     border: isDark ? "#334155" : "#E2E8F0",
-    justicePrimary: "#7C2D12", // Bordeaux Justice Institutionnel
+    justicePrimary: "#7C2D12", // Bordeaux Justice
     divider: isDark ? "#334155" : "#F1F5F9",
   };
 
-  // Filtrage intelligent des dossiers
+  // Filtrage intelligent
   const filteredCases = useMemo(() => {
+    const term = searchQuery.toLowerCase();
     return MOCK_CASES.filter(c => 
-      c.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.suspect.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.id.toString().includes(searchQuery) ||
-      c.unit.toLowerCase().includes(searchQuery.toLowerCase())
+      c.title.toLowerCase().includes(term) ||
+      c.suspect.toLowerCase().includes(term) ||
+      c.id.toString().includes(term) ||
+      c.unit.toLowerCase().includes(term)
     );
   }, [searchQuery]);
 
@@ -60,39 +62,96 @@ export default function ProsecutorCaseListScreen({ navigation }: ProsecutorScree
     }
   };
 
+  const renderCase = ({ item }: { item: typeof MOCK_CASES[0] }) => {
+    const badge = getStatusBadge(item.status);
+    return (
+      <TouchableOpacity 
+        activeOpacity={0.8}
+        style={[styles.caseCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
+        onPress={() => {
+            Keyboard.dismiss();
+            navigation.navigate('ProsecutorCaseDetail', { caseId: item.id });
+        }}
+      >
+        <View style={styles.caseHeader}>
+          <View style={styles.refContainer}>
+            <Ionicons name="document-text" size={16} color={colors.justicePrimary} />
+            <Text style={[styles.caseRef, { color: colors.justicePrimary }]}>RG #{item.id}/2026</Text>
+          </View>
+          <View style={[styles.badge, { backgroundColor: badge.bg }]}>
+            <Text style={[styles.badgeText, { color: badge.text }]}>{badge.label}</Text>
+          </View>
+        </View>
+
+        <Text style={[styles.caseTitle, { color: colors.textMain }]} numberOfLines={2}>{item.title}</Text>
+        
+        <View style={styles.infoGrid}>
+            <View style={styles.infoRow}>
+                <Ionicons name="person-circle-outline" size={16} color={colors.textSub} />
+                <Text style={[styles.infoText, { color: colors.textSub }]}>
+                    Mis en cause : <Text style={{color: colors.textMain, fontWeight: '700'}}>{item.suspect}</Text>
+                </Text>
+            </View>
+            <View style={styles.infoRow}>
+                <Ionicons name="business-outline" size={16} color={colors.textSub} />
+                <Text style={[styles.infoText, { color: colors.textSub }]}>
+                    Origine : <Text style={{color: colors.textMain}}>{item.unit}</Text>
+                </Text>
+            </View>
+        </View>
+
+        <View style={[styles.footer, { borderTopColor: colors.divider }]}>
+          <View style={styles.dateContainer}>
+            <Ionicons name="time-outline" size={14} color={colors.textSub} />
+            <Text style={[styles.dateText, { color: colors.textSub }]}>Reçu le {item.date}</Text>
+          </View>
+          <View style={styles.actionRow}>
+            <Text style={[styles.actionText, { color: colors.justicePrimary }]}>DÉCIDER</Text>
+            <Ionicons name="chevron-forward-circle" size={20} color={colors.justicePrimary} />
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
   return (
     <ScreenContainer withPadding={false}>
       <StatusBar barStyle="light-content" />
-      <AppHeader title="Registre des Transmissions" showBack />
+      <AppHeader title="Réception des Plaintes" showBack />
 
-      {/* 📊 RÉSUMÉ RAPIDE DU PARQUET */}
+      {/* 📊 BARRE DE STATISTIQUES */}
       <View style={[styles.statsBar, { backgroundColor: colors.bgCard, borderBottomColor: colors.border }]}>
         <View style={styles.statItem}>
           <Text style={[styles.statValue, { color: "#EF4444" }]}>
             {MOCK_CASES.filter(c => c.status === 'nouveau').length}
           </Text>
-          <Text style={[styles.statLabel, { color: colors.textSub }]}>URGENCES PV</Text>
+          <Text style={[styles.statLabel, { color: colors.textSub }]}>URGENCES</Text>
         </View>
         <View style={[styles.statDivider, { backgroundColor: colors.divider }]} />
         <View style={styles.statItem}>
           <Text style={[styles.statValue, { color: colors.justicePrimary }]}>{MOCK_CASES.length}</Text>
-          <Text style={[styles.statLabel, { color: colors.textSub }]}>TOTAL RÉCEPTION</Text>
+          <Text style={[styles.statLabel, { color: colors.textSub }]}>DOSSIERS REÇUS</Text>
         </View>
       </View>
 
       <View style={{ flex: 1, backgroundColor: colors.bgMain }}>
-        {/* 🔍 RECHERCHE AVANCÉE */}
+        {/* 🔍 BARRE DE RECHERCHE */}
         <View style={styles.searchWrapper}>
           <View style={[styles.searchBar, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-            <Ionicons name="search-outline" size={18} color={colors.textSub} />
+            <Ionicons name="search" size={18} color={colors.textSub} />
             <TextInput
-              placeholder="Suspect, N° PV, unité de gendarmerie..."
+              placeholder="Rechercher par suspect, PV ou unité..."
               placeholderTextColor={colors.textSub}
               style={[styles.searchInput, { color: colors.textMain }]}
               value={searchQuery}
               onChangeText={setSearchQuery}
-              clearButtonMode="while-editing"
+              returnKeyType="search"
             />
+            {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery("")}>
+                    <Ionicons name="close-circle" size={18} color={colors.textSub} />
+                </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -100,58 +159,15 @@ export default function ProsecutorCaseListScreen({ navigation }: ProsecutorScree
           data={filteredCases}
           keyExtractor={item => item.id.toString()}
           contentContainerStyle={styles.listPadding}
+          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          renderItem={renderCase}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Ionicons name="folder-open-outline" size={60} color={colors.border} />
-              <Text style={[styles.emptyText, { color: colors.textSub }]}>Aucun dossier ne correspond à votre recherche.</Text>
+              <Ionicons name="file-tray-outline" size={70} color={colors.border} />
+              <Text style={[styles.emptyText, { color: colors.textSub }]}>Aucune transmission trouvée.</Text>
             </View>
           }
-          renderItem={({ item }) => {
-            const badge = getStatusBadge(item.status);
-            return (
-              <TouchableOpacity 
-                activeOpacity={0.85}
-                style={[styles.caseCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
-                onPress={() => navigation.navigate('ProsecutorCaseDetail', { caseId: item.id })}
-              >
-                <View style={styles.caseHeader}>
-                  <View style={styles.refContainer}>
-                    <Ionicons name="document-text" size={16} color={colors.justicePrimary} />
-                    <Text style={[styles.caseRef, { color: colors.justicePrimary }]}>PV N° {item.id}/2026</Text>
-                  </View>
-                  <View style={[styles.badge, { backgroundColor: badge.bg }]}>
-                    <Text style={[styles.badgeText, { color: badge.text }]}>{badge.label}</Text>
-                  </View>
-                </View>
-
-                <Text style={[styles.caseTitle, { color: colors.textMain }]}>{item.title}</Text>
-                
-                <View style={styles.infoGrid}>
-                    <View style={styles.infoRow}>
-                        <Ionicons name="person-circle-outline" size={16} color={colors.textSub} />
-                        <Text style={[styles.infoText, { color: colors.textSub }]}>Suspect(s) : <Text style={{color: colors.textMain}}>{item.suspect}</Text></Text>
-                    </View>
-                    
-                    <View style={styles.infoRow}>
-                        <Ionicons name="business-outline" size={16} color={colors.textSub} />
-                        <Text style={[styles.infoText, { color: colors.textSub }]}>Origine : <Text style={{color: colors.textMain}}>{item.unit}</Text></Text>
-                    </View>
-                </View>
-
-                <View style={[styles.footer, { borderTopColor: colors.divider }]}>
-                  <View style={styles.dateContainer}>
-                    <Ionicons name="calendar-outline" size={14} color={colors.textSub} />
-                    <Text style={[styles.dateText, { color: colors.textSub }]}>Reçu le {item.date}</Text>
-                  </View>
-                  <View style={styles.actionRow}>
-                    <Text style={[styles.actionText, { color: colors.justicePrimary }]}>OPÉRER UN CHOIX</Text>
-                    <Ionicons name="arrow-forward-circle" size={20} color={colors.justicePrimary} />
-                  </View>
-                </View>
-              </TouchableOpacity>
-            );
-          }}
         />
       </View>
 
@@ -161,45 +177,39 @@ export default function ProsecutorCaseListScreen({ navigation }: ProsecutorScree
 }
 
 const styles = StyleSheet.create({
-  statsBar: { flexDirection: 'row', paddingVertical: 18, borderBottomWidth: 1, ...Platform.select({ ios: { shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 3 }, android: { elevation: 3 } }) },
+  statsBar: { flexDirection: 'row', paddingVertical: 15, borderBottomWidth: 1, elevation: 2 },
   statItem: { flex: 1, alignItems: 'center' },
-  statValue: { fontSize: 22, fontWeight: '900' },
-  statLabel: { fontSize: 9, fontWeight: '800', letterSpacing: 1, marginTop: 4, textTransform: 'uppercase' },
-  statDivider: { width: 1, height: '60%', alignSelf: 'center' },
-
-  searchWrapper: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 10 },
-  searchBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 54, borderRadius: 16, borderWidth: 1 },
-  searchInput: { flex: 1, marginLeft: 12, fontSize: 15, fontWeight: '600' },
-
-  listPadding: { padding: 18, paddingBottom: 160 },
+  statValue: { fontSize: 20, fontWeight: '900' },
+  statLabel: { fontSize: 9, fontWeight: '800', marginTop: 2, textTransform: 'uppercase' },
+  statDivider: { width: 1, height: '50%', alignSelf: 'center' },
+  searchWrapper: { padding: 16 },
+  searchBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, height: 50, borderRadius: 14, borderWidth: 1.5 },
+  searchInput: { flex: 1, marginLeft: 10, fontSize: 14, fontWeight: '600' },
+  listPadding: { paddingHorizontal: 16, paddingBottom: 120 },
   caseCard: { 
-    padding: 22, 
-    borderRadius: 28, 
-    marginBottom: 16, 
+    padding: 18, 
+    borderRadius: 22, 
+    marginBottom: 12, 
     borderWidth: 1,
     ...Platform.select({
-      ios: { shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } },
-      android: { elevation: 4 },
-      web: { boxShadow: '0px 4px 15px rgba(0,0,0,0.05)' }
+      ios: { shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 10 },
+      android: { elevation: 2 }
     })
   },
-  caseHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
-  refContainer: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  caseRef: { fontWeight: '900', fontSize: 13, letterSpacing: 0.5 },
-  badge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
-  badgeText: { fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
-  caseTitle: { fontSize: 18, fontWeight: '900', marginBottom: 12, lineHeight: 24 },
-  
-  infoGrid: { gap: 8 },
-  infoRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  infoText: { fontSize: 13, fontWeight: '600' },
-  
-  footer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, marginTop: 20, paddingTop: 15 },
-  dateContainer: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  dateText: { fontSize: 12, fontWeight: '700' },
-  actionRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  actionText: { fontWeight: '900', fontSize: 12, letterSpacing: 0.5 },
-
-  emptyContainer: { alignItems: 'center', marginTop: 100, paddingHorizontal: 40 },
-  emptyText: { textAlign: 'center', marginTop: 15, fontSize: 14, fontWeight: '600', lineHeight: 22 }
+  caseHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  refContainer: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  caseRef: { fontWeight: '900', fontSize: 13 },
+  badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  badgeText: { fontSize: 9, fontWeight: '900' },
+  caseTitle: { fontSize: 16, fontWeight: '800', marginBottom: 10, lineHeight: 22 },
+  infoGrid: { gap: 6 },
+  infoRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  infoText: { fontSize: 13, fontWeight: '500' },
+  footer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, marginTop: 15, paddingTop: 12 },
+  dateContainer: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  dateText: { fontSize: 11, fontWeight: '700' },
+  actionRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  actionText: { fontWeight: '900', fontSize: 11, letterSpacing: 0.5 },
+  emptyContainer: { alignItems: 'center', marginTop: 80, paddingHorizontal: 40 },
+  emptyText: { textAlign: 'center', marginTop: 12, fontSize: 14, fontWeight: '600' }
 });

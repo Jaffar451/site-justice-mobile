@@ -13,15 +13,15 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-// ✅ 1. Imports Architecture Alignés
-import { useAppTheme } from "../../theme/AppThemeProvider"; // ✅ Hook dynamique
+// ✅ Architecture
+import { useAppTheme } from "../../theme/AppThemeProvider";
 import { useAuthStore } from "../../stores/useAuthStore";
 import { PoliceScreenProps } from "../../types/navigation";
 import ScreenContainer from "../../components/layout/ScreenContainer";
 import AppHeader from "../../components/layout/AppHeader";
 import SmartFooter from "../../components/layout/SmartFooter";
 
-// Services
+// ✅ Services
 import { getActiveWarrants } from "../../services/arrestWarrant.service";
 
 interface Warrant {
@@ -34,7 +34,6 @@ interface Warrant {
 }
 
 export default function WarrantSearchScreen({ navigation }: PoliceScreenProps<'PoliceSearchWarrant'>) {
-  // ✅ 2. Thème Dynamique & Auth
   const { theme, isDark } = useAppTheme();
   const primaryColor = theme.colors.primary;
   const { user } = useAuthStore();
@@ -43,23 +42,19 @@ export default function WarrantSearchScreen({ navigation }: PoliceScreenProps<'P
   const [warrants, setWarrants] = useState<Warrant[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // 🎨 PALETTE DYNAMIQUE
   const colors = {
     bgMain: isDark ? "#0F172A" : "#F8FAFC",
     bgCard: isDark ? "#1E293B" : "#FFFFFF",
     textMain: isDark ? "#FFFFFF" : "#1E293B",
     textSub: isDark ? "#94A3B8" : "#64748B",
     border: isDark ? "#334155" : "#E2E8F0",
-    inputBg: isDark ? "#0F172A" : "#F8FAFC",
+    inputBg: isDark ? "#0F172A" : "#F1F5F9",
     divider: isDark ? "#334155" : "#F1F5F9",
   };
 
-  /**
-   * 🔍 INTERROGATION DU FICHIER CENTRAL (CID NIGER)
-   */
   const handleSearch = async (text: string) => {
     setSearch(text);
-    if (text.length < 2) {
+    if (text.trim().length < 2) {
         setWarrants([]);
         return;
     }
@@ -68,11 +63,12 @@ export default function WarrantSearchScreen({ navigation }: PoliceScreenProps<'P
     try {
       const data = await getActiveWarrants();
       const filtered = data.filter((w: Warrant) => 
-        w.personName.toLowerCase().includes(text.toLowerCase())
+        w.personName.toLowerCase().includes(text.toLowerCase()) ||
+        w.caseId.toString().includes(text)
       );
       setWarrants(filtered);
     } catch (error) {
-      if (Platform.OS === 'web') window.alert("Liaison interrompue avec le CID.");
+      console.error("CID connection failed");
     } finally {
       setLoading(false);
     }
@@ -80,9 +76,9 @@ export default function WarrantSearchScreen({ navigation }: PoliceScreenProps<'P
 
   const getUrgencyConfig = (urgency: string) => {
     switch(urgency) {
-        case 'critical': return { color: '#DC2626', label: 'INDIVIDU DANGEREUX', icon: 'warning' };
-        case 'high': return { color: '#EA580C', label: 'PRIORITÉ HAUTE', icon: 'alert-circle' };
-        default: return { color: primaryColor, label: 'MANDAT VALIDE', icon: 'document-text' };
+        case 'critical': return { color: '#EF4444', label: 'INDIVIDU DANGEREUX', icon: 'warning' };
+        case 'high': return { color: '#F59E0B', label: 'PRIORITÉ ÉLEVÉE', icon: 'alert-circle' };
+        default: return { color: '#3B82F6', label: 'MANDAT ACTIF', icon: 'document-text' };
     }
   };
 
@@ -91,16 +87,18 @@ export default function WarrantSearchScreen({ navigation }: PoliceScreenProps<'P
     
     return (
       <TouchableOpacity 
-        activeOpacity={0.85}
+        activeOpacity={0.8}
         style={[styles.card, { backgroundColor: colors.bgCard, borderLeftColor: config.color, borderColor: colors.border }]}
-        onPress={() => {/* Navigation vers détail mandat */}}
+        onPress={() => {
+            // Optionnel: navigation vers une fiche détaillée
+        }}
       >
         <View style={styles.cardHeader}>
           <View style={[styles.urgencyBadge, { backgroundColor: config.color + "15" }]}>
               <Ionicons name={config.icon as any} size={14} color={config.color} />
               <Text style={[styles.urgencyText, { color: config.color }]}>{config.label}</Text>
           </View>
-          <Text style={[styles.caseId, { color: colors.textSub }]}>N° RG {item.caseId}/25</Text>
+          <Text style={[styles.caseId, { color: colors.textSub }]}>RG-{item.caseId}/26</Text>
         </View>
 
         <Text style={[styles.suspectName, { color: colors.textMain }]}>
@@ -109,15 +107,15 @@ export default function WarrantSearchScreen({ navigation }: PoliceScreenProps<'P
         
         <View style={[styles.reasonBox, { backgroundColor: isDark ? "#0F172A" : "#F8FAFC" }]}>
           <Text style={[styles.reasonText, { color: colors.textSub }]}>
-            <Text style={[styles.reasonLabel, { color: colors.textMain }]}>MOTIF :</Text> {item.reason}
+            <Text style={{ fontWeight: '900', color: colors.textMain }}>MOTIF :</Text> {item.reason}
           </Text>
         </View>
         
         <View style={[styles.cardFooter, { borderTopColor: colors.divider }]}>
-          <Text style={[styles.officerStamp, { color: colors.textSub }]}>Interrogé par OPJ {user?.lastname}</Text>
+          <Text style={[styles.officerStamp, { color: colors.textSub }]}>Vérifié par {user?.lastname}</Text>
           <View style={styles.actionRow}>
-             <Text style={[styles.detailsText, { color: primaryColor }]}>VOIR FICHE</Text>
-             <Ionicons name="arrow-forward" size={16} color={primaryColor} />
+             <Text style={[styles.detailsText, { color: primaryColor }]}>CONSULTER</Text>
+             <Ionicons name="chevron-forward" size={16} color={primaryColor} />
           </View>
         </View>
       </TouchableOpacity>
@@ -126,25 +124,24 @@ export default function WarrantSearchScreen({ navigation }: PoliceScreenProps<'P
 
   return (
     <ScreenContainer withPadding={false}>
-      <StatusBar barStyle="light-content" />
-      <AppHeader title="Contrôle d'Identité" showBack={true} />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+      <AppHeader title="Fichier Central" showBack={true} />
 
-      {/* 🔍 BARRE DE RECHERCHE DYNAMIQUE */}
+      {/* ZONE DE RECHERCHE FIXE */}
       <View style={[styles.searchWrapper, { backgroundColor: colors.bgCard, borderBottomColor: colors.border }]}>
         <View style={[styles.searchBar, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
           <Ionicons name="search" size={20} color={primaryColor} />
           <TextInput
-            placeholder="Nom du suspect ou N° de dossier..."
+            placeholder="Nom ou Numéro de Dossier..."
             placeholderTextColor={isDark ? "#475569" : "#94A3B8"}
             style={[styles.input, { color: colors.textMain }]}
             value={search}
             onChangeText={handleSearch}
-            autoFocus={true}
-            returnKeyType="search"
+            returnKeyType="done"
             onSubmitEditing={() => Keyboard.dismiss()}
           />
           {search.length > 0 && (
-            <TouchableOpacity onPress={() => handleSearch("")}>
+            <TouchableOpacity onPress={() => { setSearch(""); setWarrants([]); }}>
                 <Ionicons name="close-circle" size={22} color={colors.textSub} />
             </TouchableOpacity>
           )}
@@ -155,34 +152,34 @@ export default function WarrantSearchScreen({ navigation }: PoliceScreenProps<'P
         {loading && warrants.length === 0 ? (
             <View style={styles.center}>
                 <ActivityIndicator size="large" color={primaryColor} />
-                <Text style={[styles.loadingText, { color: colors.textSub }]}>Liaison Fichier Central...</Text>
+                <Text style={[styles.loadingText, { color: colors.textSub }]}>INTERROGATION DU CID NIGER...</Text>
             </View>
         ) : (
             <FlatList
-            data={warrants}
-            keyExtractor={(item) => item.id.toString()}
-            contentContainerStyle={styles.listPadding}
-            showsVerticalScrollIndicator={false}
-            renderItem={renderWarrantItem}
-            ListEmptyComponent={
+              data={warrants}
+              keyExtractor={(item) => item.id.toString()}
+              contentContainerStyle={styles.listPadding}
+              keyboardShouldPersistTaps="handled"
+              renderItem={renderWarrantItem}
+              ListEmptyComponent={
                 <View style={styles.emptyContainer}>
-                <View style={[styles.emptyIconCircle, { backgroundColor: isDark ? "#1E293B" : "#F1F5F9" }]}>
+                  <View style={[styles.emptyIconCircle, { backgroundColor: colors.inputBg }]}>
                     <Ionicons 
-                        name={search.length > 1 ? "shield-checkmark-outline" : "finger-print"} 
-                        size={80} 
+                        name={search.length > 1 ? "shield-checkmark-outline" : "search-circle-outline"} 
+                        size={70} 
                         color={colors.border} 
                     />
-                </View>
-                <Text style={[styles.emptyTitle, { color: colors.textMain }]}>
-                    {search.length > 1 ? "Aucun Mandat Trouvé" : "Terminal CID Niger"}
-                </Text>
-                <Text style={[styles.emptySub, { color: colors.textSub }]}>
+                  </View>
+                  <Text style={[styles.emptyTitle, { color: colors.textMain }]}>
+                    {search.length > 1 ? "Aucun Mandat Actif" : "Recherche Judiciaire"}
+                  </Text>
+                  <Text style={[styles.emptySub, { color: colors.textSub }]}>
                     {search.length > 1 
-                        ? `Le sujet "${search.toUpperCase()}" n'est actuellement visé par aucun mandat actif.` 
-                        : "Interrogez la base de données criminelle nationale pour vérifier les mesures de contrainte."}
-                </Text>
+                        ? `Le sujet "${search.toUpperCase()}" n'est visé par aucune mesure de contrainte enregistrée.` 
+                        : "Vérifiez instantanément les mandats d'arrêt et d'amener émis par les tribunaux."}
+                  </Text>
                 </View>
-            }
+              }
             />
         )}
       </View>
@@ -194,44 +191,35 @@ export default function WarrantSearchScreen({ navigation }: PoliceScreenProps<'P
 
 const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { marginTop: 15, fontWeight: '800', fontSize: 11, letterSpacing: 1 },
-  
-  searchWrapper: { padding: 16, borderBottomWidth: 1 },
+  loadingText: { marginTop: 15, fontWeight: '900', fontSize: 10, letterSpacing: 1 },
+  searchWrapper: { padding: 15, borderBottomWidth: 1 },
   searchBar: { flexDirection: "row", alignItems: "center", paddingHorizontal: 15, borderRadius: 16, height: 56, borderWidth: 1.5 },
   input: { flex: 1, marginLeft: 12, fontSize: 15, fontWeight: '700' },
-
-  listPadding: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 140 },
-  
+  listPadding: { padding: 16, paddingBottom: 120 },
   card: { 
-    marginBottom: 16, 
+    marginBottom: 15, 
     padding: 20, 
-    borderRadius: 24, 
+    borderRadius: 22, 
     borderLeftWidth: 8, 
     borderWidth: 1,
-    ...Platform.select({
-        ios: { shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 10 },
-        android: { elevation: 3 },
-        web: { boxShadow: "0px 4px 12px rgba(0,0,0,0.1)" }
-    })
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 5
   },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   urgencyBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
-  urgencyText: { fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
-  caseId: { fontSize: 11, fontWeight: '900' },
-  
-  suspectName: { fontSize: 22, fontWeight: "900", letterSpacing: -0.5, marginBottom: 8 },
-  
-  reasonBox: { padding: 14, borderRadius: 12, marginBottom: 18 },
+  urgencyText: { fontSize: 9, fontWeight: '900' },
+  caseId: { fontSize: 11, fontWeight: '800' },
+  suspectName: { fontSize: 22, fontWeight: "900", marginBottom: 10 },
+  reasonBox: { padding: 15, borderRadius: 12, marginBottom: 15 },
   reasonText: { fontSize: 13, lineHeight: 18, fontWeight: '500' },
-  reasonLabel: { fontWeight: '900' },
-  
   cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, paddingTop: 15 },
-  officerStamp: { fontSize: 11, fontWeight: '700', fontStyle: 'italic' },
+  officerStamp: { fontSize: 10, fontWeight: '700', fontStyle: 'italic' },
   actionRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   detailsText: { fontSize: 11, fontWeight: '900' },
-
   emptyContainer: { alignItems: 'center', marginTop: 80, paddingHorizontal: 40 },
   emptyIconCircle: { width: 120, height: 120, borderRadius: 60, justifyContent: 'center', alignItems: 'center', marginBottom: 25 },
-  emptyTitle: { fontSize: 20, fontWeight: "900", letterSpacing: -0.5, marginBottom: 10 },
+  emptyTitle: { fontSize: 20, fontWeight: "900", marginBottom: 10 },
   emptySub: { textAlign: "center", fontSize: 14, lineHeight: 22, fontWeight: '600' }
 });

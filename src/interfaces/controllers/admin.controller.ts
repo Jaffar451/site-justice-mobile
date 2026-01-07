@@ -1,11 +1,9 @@
+// PATH: src/interfaces/controllers/admin.controller.ts
 import { Request, Response } from 'express';
-import User from '../../models/user.model';
-import Complaint from '../../models/complaint.model';
-import PoliceStation from '../../models/policeStation.model';
+import { User, Complaint, PoliceStation, AuditLog } from '../../models'; // ✅ Assure-toi d'importer les modèles correctement
 import { Op, Sequelize } from 'sequelize';
 
-// --- STOCKAGE TEMPORAIRE (SIMULATION DB) ---
-// En production, déplacez ces données dans une table "SystemSettings"
+// --- STOCKAGE TEMPORAIRE (SIMULATION) ---
 let systemSecurityConfig = {
   minLength: 8,
   requireSpecialChar: true,
@@ -18,16 +16,16 @@ let maintenanceConfig = {
   isActive: false
 };
 
-export class AdminController {
+/**
+ * 📊 RÉCUPÉRER LES STATISTIQUES DU DASHBOARD
+ */
+export const getDashboardStats = async (req: Request, res: Response) => {
+  try {
+    console.log('📊 [Admin] Génération des statistiques...');
 
-  /**
-   * 📊 RÉCUPÉRER LES STATISTIQUES DU DASHBOARD
-   */
-  public async getDashboardStats(req: Request, res: Response) {
+    // 1. 🟢 RÉPARTITION PAR STATUT (Sécurisé)
+    let statusStats = [];
     try {
-      console.log('📊 Début génération Dashboard Stats...');
-
-      // 1. 🟢 RÉPARTITION PAR STATUT
       const statusStatsRaw = await Complaint.findAll({
         attributes: [
           [Sequelize.fn('DISTINCT', Sequelize.col('status')), 'status'],
@@ -37,134 +35,125 @@ export class AdminController {
         raw: true
       });
 
-      const statusStats = statusStatsRaw.map((s: any) => ({
-        status: s.status.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
-        count: s.count.toString()
+      statusStats = statusStatsRaw.map((s: any) => ({
+        status: (s.status || 'Inconnu').replace(/_/g, ' ').toUpperCase(),
+        count: s.count ? s.count.toString() : "0"
       }));
-
-      // 2. 🔵 RÉPARTITION RÉGIONALE
-      const regionalStatsRaw = await PoliceStation.findAll({
-        attributes: [
-          'district',
-          [Sequelize.fn('COUNT', Sequelize.col('id')), 'total']
-        ],
-        group: ['district'],
-        raw: true
-      });
-
-      const regionalStats = regionalStatsRaw.map((r: any) => ({
-        district: r.district || 'Non défini',
-        total: r.total.toString()
-      }));
-
-      // 3. 📈 COMPTEURS GLOBAUX
-      const complaints_total = await Complaint.count();
-      const closedStatuses = ['classée_sans_suite_par_OPJ', 'classée_sans_suite_par_procureur', 'jugée', 'non_lieu'];
-      const complaints_closed = await Complaint.count({ where: { status: { [Op.in]: closedStatuses } } });
-      const complaints_open = complaints_total - complaints_closed;
-
-      const users_total = await User.count();
-      const police_users = await User.count({ 
-        where: { role: { [Op.in]: ['police', 'commissaire', 'opj', 'gendarme'] } } 
-      });
-
-      res.status(200).json({
-        success: true,
-        data: {
-          statusStats,
-          regionalStats,
-          timingStats: { avg_days: 14 },
-          summary: {
-            complaints_total,
-            complaints_open,
-            complaints_closed,
-            users_total,
-            police_users,
-            systemHealth: '100%'
-          }
-        }
-      });
-
-    } catch (error) {
-      console.error('❌ Erreur stats admin:', error);
-      res.status(500).json({ 
-        success: false,
-        message: 'Erreur lors de la génération des statistiques',
-        error: process.env.NODE_ENV === 'development' ? String(error) : undefined
-      });
+    } catch (e) {
+      console.warn("⚠️ Pas de stats statuts (Table vide ?)");
     }
-  }
 
-  /**
-   * 🔐 RÉCUPÉRER LA POLITIQUE DE SÉCURITÉ
-   * Route: GET /api/admin/settings/security
-   */
-  public async getSecuritySettings(req: Request, res: Response) {
+    // 2. 🔵 RÉPARTITION GÉOGRAPHIQUE (Sécurisé)
+    let regionalStats = [];
     try {
-      res.status(200).json({
-        success: true,
-        data: systemSecurityConfig
-      });
-    } catch (error) {
-      res.status(500).json({ success: false, message: "Erreur récupération paramètres" });
+      // On vérifie d'abord s'il y a des stations
+      const countStations = await PoliceStation.count();
+      if (countStations > 0) {
+        // Note: Si la colonne 'district' n'existe pas, utilise 'city' à la place
+        const groupByCol = 'city'; 
+        
+        const regionalStatsRaw = await PoliceStation.findAll({
+          attributes: [
+            groupByCol,
+            [Sequelize.fn('COUNT', Sequelize.col('id')), 'total']
+          ],
+          group: [groupByCol],
+          raw: true
+        });
+
+        regionalStats = regionalStatsRaw.map((r: any) => ({
+          district: r[groupByCol] || 'Non défini',
+          total: r.total ? r.total.toString() : "0"
+        }));
+      }
+    } catch (e) {
+      console.warn("⚠️ Pas de stats régionales (Table vide ?)");
     }
+
+    // 3. 📈 COMPTEURS GLOBAUX (Promise.all pour la rapidité)
+    const [complaints_total, users_total, logs_total] = await Promise.all([
+      Complaint.count(),
+      User.count(),
+      AuditLog.count().catch(() => 0)
+    ]);
+
+    // Calculs dérivés
+    const closedStatuses = ['classée_sans_suite', 'jugée', 'archivée'];
+    const complaints_closed = await Complaint.count({ where: { status: { [Op.in]: closedStatuses } } });
+    const complaints_open = complaints_total - complaints_closed;
+
+    const police_users = await User.count({ 
+      where: { role: { [Op.in]: ['police', 'commissaire', 'opj', 'gendarme'] } } 
+    });
+
+    // 4. ACTIVITÉ RÉCENTE
+    const recentActivity = await AuditLog.findAll({
+        limit: 5,
+        order: [['timestamp', 'DESC']],
+        include: [{ model: User, as: 'user', attributes: ['firstname', 'lastname', 'role'] }]
+    }).catch(() => []);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        statusStats,
+        regionalStats,
+        timingStats: { avg_days: 14 }, // Donnée simulée pour l'instant
+        summary: {
+          complaints_total,
+          complaints_open,
+          complaints_closed,
+          users_total,
+          police_users,
+          systemHealth: '100%'
+        },
+        recentActivity
+      }
+    });
+
+  } catch (error: any) {
+    console.error('❌ Erreur CRITIQUE stats admin:', error);
+    // On renvoie des zéros pour ne pas crasher l'appli mobile
+    res.json({ 
+      success: true,
+      data: {
+        statusStats: [],
+        regionalStats: [],
+        summary: { complaints_total: 0, users_total: 0, police_users: 0 },
+        recentActivity: []
+      }
+    });
   }
+};
 
-  /**
-   * 🛠️ METTRE À JOUR LA POLITIQUE DE SÉCURITÉ
-   * Route: PUT /api/admin/settings/security
-   */
-  public async updateSecuritySettings(req: Request, res: Response) {
-    try {
-      const updates = req.body;
-      // Fusionner les nouvelles configs
-      systemSecurityConfig = { ...systemSecurityConfig, ...updates };
-      
-      console.log("🔒 Politique de sécurité mise à jour :", systemSecurityConfig);
+/**
+ * 🔐 RÉCUPÉRER LA SÉCURITÉ
+ */
+export const getSecuritySettings = async (req: Request, res: Response) => {
+  res.json({ success: true, data: systemSecurityConfig });
+};
 
-      res.status(200).json({
-        success: true,
-        message: "Politique mise à jour",
-        data: systemSecurityConfig
-      });
-    } catch (error) {
-      res.status(500).json({ success: false, message: "Erreur mise à jour paramètres" });
-    }
-  }
+/**
+ * 🛠️ MAJ SÉCURITÉ
+ */
+export const updateSecuritySettings = async (req: Request, res: Response) => {
+  const updates = req.body;
+  systemSecurityConfig = { ...systemSecurityConfig, ...updates };
+  res.json({ success: true, message: "Paramètres mis à jour", data: systemSecurityConfig });
+};
 
-  /**
-   * 🚧 RÉCUPÉRER LE STATUT MAINTENANCE
-   * Route: GET /api/admin/maintenance
-   */
-  public async getMaintenanceStatus(req: Request, res: Response) {
-    try {
-      res.status(200).json({
-        success: true,
-        data: maintenanceConfig
-      });
-    } catch (error) {
-      res.status(500).json({ success: false });
-    }
-  }
+/**
+ * 🚧 STATUT MAINTENANCE
+ */
+export const getMaintenanceStatus = async (req: Request, res: Response) => {
+  res.json({ success: true, data: maintenanceConfig });
+};
 
-  /**
-   * 🚨 ACTIVER/DÉSACTIVER LA MAINTENANCE
-   * Route: POST /api/admin/maintenance
-   */
-  public async setMaintenanceStatus(req: Request, res: Response) {
-    try {
-      const { isActive } = req.body;
-      maintenanceConfig.isActive = isActive;
-
-      console.log(`⚠️ Maintenance système : ${isActive ? 'ACTIVÉE' : 'DÉSACTIVÉE'}`);
-
-      res.status(200).json({
-        success: true,
-        message: isActive ? "Maintenance activée" : "Système rétabli",
-        data: maintenanceConfig
-      });
-    } catch (error) {
-      res.status(500).json({ success: false });
-    }
-  }
-}
+/**
+ * 🚨 MAJ MAINTENANCE
+ */
+export const setMaintenanceStatus = async (req: Request, res: Response) => {
+  const { isActive } = req.body;
+  maintenanceConfig.isActive = isActive;
+  res.json({ success: true, message: isActive ? "Maintenance activée" : "Système actif", data: maintenanceConfig });
+};

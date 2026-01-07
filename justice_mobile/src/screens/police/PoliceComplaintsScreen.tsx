@@ -14,9 +14,9 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 
-// ✅ 1. Imports Architecture Alignés
+// ✅ Architecture
 import { useAuthStore } from "../../stores/useAuthStore";
-import { useAppTheme } from "../../theme/AppThemeProvider"; // ✅ Hook dynamique
+import { useAppTheme } from "../../theme/AppThemeProvider";
 import { PoliceScreenProps } from "../../types/navigation";
 
 // Composants UI
@@ -28,7 +28,6 @@ import SmartFooter from "../../components/layout/SmartFooter";
 import { getAllComplaints, updateComplaint, Complaint } from "../../services/complaint.service";
 
 export default function PoliceComplaintsScreen({ navigation }: PoliceScreenProps<'PoliceCases'>) {
-  // ✅ 2. Thème & Auth
   const { theme, isDark } = useAppTheme();
   const primaryColor = theme.colors.primary;
   const { user } = useAuthStore();
@@ -36,13 +35,12 @@ export default function PoliceComplaintsScreen({ navigation }: PoliceScreenProps
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 🎨 PALETTE DYNAMIQUE
   const colors = {
     bgMain: isDark ? "#0F172A" : "#F8FAFC",
     bgCard: isDark ? "#1E293B" : "#FFFFFF",
     textMain: isDark ? "#FFFFFF" : "#1E293B",
     textSub: isDark ? "#94A3B8" : "#64748B",
-    border: isDark ? "#334155" : "#F1F5F9",
+    border: isDark ? "#334155" : "#E2E8F0",
     divider: isDark ? "#334155" : "#F1F5F9",
   };
 
@@ -51,16 +49,18 @@ export default function PoliceComplaintsScreen({ navigation }: PoliceScreenProps
       setLoading(true);
       const data = await getAllComplaints();
       
-      const sortedData = data.sort((a: Complaint, b: Complaint) => {
-        const dateA = new Date(a.filedAt || (a as any).createdAt).getTime();
-        const dateB = new Date(b.filedAt || (b as any).createdAt).getTime();
+      // ✅ Tri par date (du plus récent au plus ancien)
+      const sortedData = data.sort((a: any, b: any) => {
+        const dateA = new Date(a.createdAt || a.filedAt).getTime();
+        const dateB = new Date(b.createdAt || b.filedAt).getTime();
         return dateB - dateA;
       });
       
       setComplaints(sortedData);
     } catch (error) {
+      console.error("LoadComplaints Error:", error);
       if (Platform.OS === 'web') window.alert("Erreur de synchronisation du registre.");
-      else Alert.alert("Erreur réseau", "Impossible de synchroniser le répertoire.");
+      else Alert.alert("Erreur réseau", "Impossible d'accéder au serveur central.");
     } finally {
       setLoading(false);
     }
@@ -74,7 +74,13 @@ export default function PoliceComplaintsScreen({ navigation }: PoliceScreenProps
 
   const handleStartInvestigation = async (id: number) => {
     try {
-      await updateComplaint(id, { status: "en_cours_OPJ" } as any);
+      // ✅ Passage en mode enquête (OPJ prend la main)
+      await updateComplaint(id, { 
+        status: "en_cours_OPJ",
+        assignedOfficerId: user?.id 
+      } as any);
+      
+      Alert.alert("Dossier Assigné", "Vous avez pris en charge ce dossier avec succès.");
       loadComplaints();
     } catch (error) {
       Alert.alert("Erreur", "La prise en charge du dossier a échoué.");
@@ -96,19 +102,19 @@ export default function PoliceComplaintsScreen({ navigation }: PoliceScreenProps
     }
   };
 
-  const renderItem = ({ item }: { item: Complaint }) => {
+  const renderItem = ({ item }: { item: any }) => {
     const config = getStatusConfig(item.status);
-    const dateStr = item.filedAt || (item as any).createdAt || new Date().toISOString();
+    const dateStr = item.createdAt || item.filedAt || new Date().toISOString();
 
     return (
       <TouchableOpacity
-        activeOpacity={0.85}
+        activeOpacity={0.8}
         style={[styles.card, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
         onPress={() => navigation.navigate("PoliceComplaintDetails", { complaintId: item.id })}
       >
         <View style={styles.cardHeader}>
           <Text style={[styles.title, { color: colors.textMain }]} numberOfLines={1}>
-            {item.title || `Dossier RG-${item.id}`}
+            {item.title || `Dossier #${item.id}`}
           </Text>
           <View style={[styles.badge, { backgroundColor: config.bg }]}>
             <Text style={[styles.badgeText, { color: config.color }]}>{config.label}</Text>
@@ -116,7 +122,7 @@ export default function PoliceComplaintsScreen({ navigation }: PoliceScreenProps
         </View>
 
         <Text style={[styles.description, { color: colors.textSub }]} numberOfLines={2}>
-          {item.description}
+          {item.description || "Aucune description fournie."}
         </Text>
 
         <View style={[styles.footerRow, { borderTopColor: colors.divider }]}>
@@ -134,7 +140,7 @@ export default function PoliceComplaintsScreen({ navigation }: PoliceScreenProps
               onPress={() => handleStartInvestigation(item.id)}
             >
               <Text style={styles.actionBtnText}>Prendre en charge</Text>
-              <Ionicons name="search" size={12} color="#FFF" />
+              <Ionicons name="hand-right-outline" size={14} color="#FFF" />
             </TouchableOpacity>
           ) : (
             <View style={styles.detailsBtn}>
@@ -149,37 +155,37 @@ export default function PoliceComplaintsScreen({ navigation }: PoliceScreenProps
 
   return (
     <ScreenContainer withPadding={false}>
-      <StatusBar barStyle="light-content" />
-      <AppHeader title="Répertoire des Plaintes" showMenu={true} />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+      <AppHeader title="Répertoire e-Justice" showMenu={true} />
 
       <View style={{ flex: 1, backgroundColor: colors.bgMain }}>
         {loading && complaints.length === 0 ? (
             <View style={styles.center}>
-            <ActivityIndicator size="large" color={primaryColor} />
-            <Text style={[styles.loadingText, { color: colors.textSub }]}>Accès au registre sécurisé...</Text>
+              <ActivityIndicator size="large" color={primaryColor} />
+              <Text style={[styles.loadingText, { color: colors.textSub }]}>Accès au registre sécurisé...</Text>
             </View>
         ) : (
             <FlatList
-            data={complaints}
-            contentContainerStyle={styles.listPadding}
-            keyExtractor={(item) => item.id.toString()}
-            renderItem={renderItem}
-            showsVerticalScrollIndicator={false}
-            refreshControl={
+              data={complaints}
+              contentContainerStyle={styles.listPadding}
+              keyExtractor={(item) => item.id.toString()}
+              renderItem={renderItem}
+              showsVerticalScrollIndicator={false}
+              refreshControl={
                 <RefreshControl 
-                    refreshing={loading} 
-                    onRefresh={loadComplaints} 
-                    tintColor={primaryColor}
+                  refreshing={loading} 
+                  onRefresh={loadComplaints} 
+                  tintColor={primaryColor}
                 />
-            }
-            ListEmptyComponent={
+              }
+              ListEmptyComponent={
                 <View style={styles.emptyCenter}>
-                <View style={[styles.emptyIconCircle, { backgroundColor: isDark ? "#1E293B" : "#F8FAFC" }]}>
+                  <View style={[styles.emptyIconCircle, { backgroundColor: isDark ? "#1E293B" : "#F8FAFC" }]}>
                     <Ionicons name="file-tray-outline" size={60} color={colors.textSub} />
+                  </View>
+                  <Text style={[styles.emptyText, { color: colors.textSub }]}>Aucun dossier à traiter.</Text>
                 </View>
-                <Text style={[styles.emptyText, { color: colors.textSub }]}>Aucune plainte enregistrée.</Text>
-                </View>
-            }
+              }
             />
         )}
       </View>
@@ -191,48 +197,31 @@ export default function PoliceComplaintsScreen({ navigation }: PoliceScreenProps
 
 const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  loadingText: { marginTop: 15, fontSize: 13, fontWeight: '700' },
-  listPadding: { paddingHorizontal: 16, paddingTop: 15, paddingBottom: 140 },
-  
+  loadingText: { marginTop: 15, fontSize: 13, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase' },
+  listPadding: { paddingHorizontal: 16, paddingTop: 15, paddingBottom: 120 },
   emptyCenter: { alignItems: "center", marginTop: 100 },
   emptyIconCircle: { width: 110, height: 110, borderRadius: 55, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
   emptyText: { fontSize: 15, fontWeight: '700' },
-
   card: {
     padding: 18,
-    borderRadius: 24,
+    borderRadius: 22,
     marginBottom: 16,
-    borderWidth: 1,
-    ...Platform.select({
-      ios: { shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
-      android: { elevation: 4 },
-      web: { boxShadow: "0px 4px 12px rgba(0,0,0,0.1)" }
-    }),
+    borderWidth: 1.5,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 }
   },
   cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
   title: { fontSize: 17, fontWeight: "900", flex: 1, marginRight: 10, letterSpacing: -0.5 },
-  description: { fontSize: 14, marginBottom: 18, lineHeight: 22, fontWeight: '500' },
+  description: { fontSize: 13, marginBottom: 18, lineHeight: 20, fontWeight: '500' },
   badge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
-  badgeText: { fontSize: 9, fontWeight: "900", letterSpacing: 0.8 },
-  
-  footerRow: { 
-    flexDirection: "row", 
-    justifyContent: "space-between", 
-    alignItems: "center", 
-    borderTopWidth: 1.5, 
-    paddingTop: 15 
-  },
+  badgeText: { fontSize: 9, fontWeight: "900", letterSpacing: 0.5 },
+  footerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderTopWidth: 1, paddingTop: 15 },
   dateInfo: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   dateText: { fontSize: 12, fontWeight: '700' },
-  
-  actionBtn: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: 8, 
-    paddingHorizontal: 14, 
-    paddingVertical: 10, 
-    borderRadius: 12, 
-  },
-  actionBtnText: { color: "#fff", fontSize: 11, fontWeight: "900", textTransform: 'uppercase' },
+  actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 },
+  actionBtnText: { color: "#fff", fontSize: 11, fontWeight: "900" },
   detailsBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 }
 });
