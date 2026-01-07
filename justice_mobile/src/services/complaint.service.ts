@@ -10,11 +10,11 @@ import OfflineService from '../utils/offlineQueue';
 
 const ROLES = {
   ADMIN: "admin",
-  CLERK: "clerk",
+  CLERK: "greffier",        // ✅ Mis à jour (était clerk)
   JUDGE: "judge",
   PROSECUTOR: "prosecutor",
   COMMISSAIRE: "commissaire", 
-  POLICE: "police",
+  POLICE: "officier_police", // ✅ Mis à jour (était police)
   CITIZEN: "citizen",
 } as const;
 
@@ -48,6 +48,7 @@ export interface PoliceStats {
 
 const allow = (...authorizedRoles: string[]) => {
   const user = useAuthStore.getState().user;
+  // On compare avec les rôles du backend (en minuscules)
   if (!user?.role || !authorizedRoles.includes(user.role)) {
     console.warn(`Accès restreint : ${user?.role}`);
   }
@@ -63,6 +64,7 @@ export const getMyComplaints = async () => {
 };
 
 export const getAllComplaints = async () => {
+  // ✅ Désormais, ROLES.POLICE vaut "officier_police", l'accès sera autorisé
   allow(ROLES.POLICE, ROLES.COMMISSAIRE, ROLES.PROSECUTOR, ROLES.CLERK, ROLES.JUDGE, ROLES.ADMIN);
   const res = await api.get<any>("/complaints");
   return res.data.data || [];

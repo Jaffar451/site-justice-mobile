@@ -1,19 +1,21 @@
 /**
- * 🎭 Rôles disponibles (Source de vérité : backend/models/user.model.ts)
- * Note : 'opj' et 'bailiff' ont été supprimés car absents de l'ENUM backend.
- * 'commisaire' est corrigé avec un seul 's' pour matcher la DB.
+ * 🎭 Rôles disponibles (SYNCHRONISÉ AVEC backend/models/user.model.ts)
+ * Attention : Le backend utilise 'officier_police' et 'greffier'.
  */
 export type UserRole = 
-  | 'citizen' 
-  | 'police' 
-  | 'commissaire' 
-  | 'judge' 
-  | 'clerk' 
+  | 'admin' 
   | 'prosecutor' 
-  | 'lawyer' 
-  | 'prison_officer'
-  | 'admin'
-  | 'opj';
+  | 'judge' 
+  | 'greffier'        // backend: UserRole.CLERK = 'greffier'
+  | 'commissaire' 
+  | 'officier_police' // backend: UserRole.OFFICIER_POLICE = 'officier_police'
+  | 'inspecteur' 
+  | 'opj_gendarme'
+  | 'gendarme'
+  | 'prison_guard'
+  | 'prison_director'
+  | 'citizen' 
+  | 'lawyer';
 
 /**
  * 🏛️ Types d'organisations officiels du Niger
@@ -21,7 +23,7 @@ export type UserRole =
 export type OrganizationType = "POLICE" | "GENDARMERIE" | "JUSTICE" | "ADMIN" | "CITIZEN";
 
 /**
- * 👤 Définition de l'Utilisateur alignée sur Sequelize
+ * 👤 Définition de l'Utilisateur alignée sur Sequelize (underscored: true)
  */
 export interface User {
   id: number;
@@ -34,15 +36,14 @@ export interface User {
   
   // Sécurité & Accès
   role: UserRole;
-  organization: OrganizationType;
-  status: "active" | "suspended" | "archived";
-  isActive: boolean; // Aligné sur le champ isActive du backend
+  organization: string | null; // STRING en DB
+  isActive: boolean; 
   
   // Professionnel
   matricule: string | null;
-  poste: string | null; // Remplace 'grade' qui n'existe pas en DB
+  district?: string | null; // Existe dans votre modèle Sequelize
   
-  // Rattachements (Foreign Keys)
+  // Rattachements (L'interface utilise camelCase, Sequelize gère le mapping underscored)
   policeStationId: number | null;
   courtId: number | null;
   prisonId: number | null;
@@ -56,6 +57,10 @@ export interface User {
  * 📦 Réponse de l'API lors du Login
  */
 export interface AuthResponse {
-  token: string;
-  user: User;
+  success: boolean;
+  message: string;
+  data: {
+    token: string;
+    user: User;
+  };
 }

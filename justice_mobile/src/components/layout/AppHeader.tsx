@@ -31,8 +31,7 @@ interface AppHeaderProps {
   rightIcon?: string;
   onRightPress?: () => void;
   onHomePress?: () => void;
-  showSos?: boolean; // ✅ AJOUT : Prop pour le bouton SOS
-  rightElement?: React.ReactNode;
+  showSos?: boolean; 
 }
 
 const HIT_SLOP: Insets = { top: 15, bottom: 15, left: 15, right: 15 };
@@ -40,7 +39,7 @@ const HIT_SLOP: Insets = { top: 15, bottom: 15, left: 15, right: 15 };
 const AppHeader = ({ 
   title, 
   showBack = false, 
-  onBack,                
+  onBack,                 
   showMenu = false,
   onMenuPress,            
   white = false,
@@ -48,7 +47,7 @@ const AppHeader = ({
   onHomePress,    
   rightIcon,      
   onRightPress,
-  showSos = false // ✅ Valeur par défaut
+  showSos = false 
 }: AppHeaderProps) => {
   const { theme, isDark } = useAppTheme();
   const navigation = useNavigation<any>();
@@ -59,35 +58,50 @@ const AppHeader = ({
   const userRole = (user?.role || "citizen").toLowerCase();
   const unread = useNotificationStore((s) => s.list.filter((n) => !n.read).length);
 
-  // Couleurs dynamiques selon le ministère/rôle
+  // 🎨 Identité visuelle par corps d'État (Niger e-Justice)
   const roleStyles = useMemo(() => {
     switch (userRole) {
-      case "admin": return { main: "#1E293B", content: "#FFFFFF" }; 
-      case "police": 
-      case "commissaire": return { main: "#1E3A8A", content: "#FFFFFF" }; 
+      case "admin": 
+        return { main: "#1E293B", content: "#FFFFFF" }; // Gris Charbon Admin
+      case "officier_police": 
+      case "commissaire": 
+      case "inspecteur":
+        return { main: "#1E3A8A", content: "#FFFFFF" }; // Bleu Police
+      case "opj_gendarme":
+      case "gendarme":
+        return { main: "#065F46", content: "#FFFFFF" }; // Vert Gendarmerie
       case "judge":
       case "prosecutor":
-      case "clerk": return { main: "#7C2D12", content: "#FFFFFF" }; 
-      case "bailiff": return { main: "#4338CA", content: "#FFFFFF" };
-      default: return { main: "#0891B2", content: "#FFFFFF" }; 
+      case "greffier": 
+        return { main: "#7C2D12", content: "#FFFFFF" }; // Bordeaux Justice
+      case "bailiff": 
+      case "lawyer":
+        return { main: "#4338CA", content: "#FFFFFF" }; // Indigo Auxiliaires
+      default: 
+        return { main: "#0891B2", content: "#FFFFFF" }; // Cyan Citoyen
     }
   }, [userRole]);
 
   const headerBg = white ? (isDark ? "#121212" : "#FFFFFF") : roleStyles.main;
   const iconAndTextColor = white ? (isDark ? "#FFFFFF" : theme.colors.text) : roleStyles.content;
 
+  // 🏠 Routage Home intelligent pour éviter les erreurs de Navigator
   const handleHomeAction = () => {
     if (onHomePress) return onHomePress();
+    
     const roleRoutes: Record<string, string> = {
       admin: "AdminHome", 
-      police: "PoliceHome",
+      officier_police: "PoliceHome",
+      inspecteur: "PoliceHome",
       commissaire: "CommissaireDashboard",
       judge: "JudgeHome", 
-      prosecutor: "ProsecutorDashboard",
-      clerk: "ClerkHome",
+      prosecutor: "ProsecutorHome",
+      greffier: "ClerkHome",
       bailiff: "BailiffHome",
-      citizen: "CitizenHome"
+      citizen: "CitizenHome",
+      lawyer: "LawyerTracking"
     };
+    
     navigation.navigate(roleRoutes[userRole] || "CitizenHome");
   };
 
@@ -96,20 +110,14 @@ const AppHeader = ({
     navigation.canGoBack() ? navigation.goBack() : handleHomeAction();
   };
 
-  // ✅ LOGIQUE SOS COMPATIBLE WEB & MOBILE
   const handleSos = () => {
+    const msg = "URGENCE SOS\n\nVoulez-vous envoyer une alerte d'urgence immédiate aux forces de l'ordre ?";
     if (Platform.OS === 'web') {
-      // 💻 Version Web
-      const confirm = window.confirm("URGENCE SOS\n\nVoulez-vous envoyer une alerte d'urgence immédiate aux forces de l'ordre ?");
-      if (confirm) {
+      if (window.confirm(msg)) {
         window.alert("🚨 ALERTE ENVOYÉE : Géolocalisation transmise au PC Police.");
       }
     } else {
-      // 📱 Version Mobile
-      Alert.alert(
-        "URGENCE SOS",
-        "Voulez-vous envoyer une alerte d'urgence immédiate aux forces de l'ordre ?",
-        [
+      Alert.alert("URGENCE SOS", msg, [
           { text: "Annuler", style: "cancel" },
           { 
             text: "ENVOYER", 
@@ -139,7 +147,7 @@ const AppHeader = ({
       />
 
       <View style={styles.contentInner}>
-        {/* SECTION GAUCHE */}
+        {/* GAUCHE : Retour ou Menu */}
         <View style={styles.leftContainer}>
           {showBack ? (
             <TouchableOpacity onPress={handleGoBack} style={styles.iconButton} hitSlop={HIT_SLOP}>
@@ -159,16 +167,11 @@ const AppHeader = ({
           </Text>
         </View>
 
-        {/* SECTION DROITE */}
+        {/* DROITE : SOS, Home, Settings, Notifs, Profile */}
         <View style={styles.rightContainer}>
           
-          {/* 🚨 BOUTON SOS (AJOUTÉ ICI) */}
           {showSos && (
-            <TouchableOpacity 
-              style={styles.sosBtn} 
-              onPress={handleSos}
-              activeOpacity={0.7}
-            >
+            <TouchableOpacity style={styles.sosBtn} onPress={handleSos} activeOpacity={0.8}>
               <Ionicons name="alert-circle" size={18} color="#FFF" />
               <Text style={styles.sosText}>SOS</Text>
             </TouchableOpacity>
@@ -180,12 +183,10 @@ const AppHeader = ({
              </TouchableOpacity>
           )}
 
-          {/* 🏠 ACCUEIL */}
           <TouchableOpacity onPress={handleHomeAction} style={styles.iconButton} hitSlop={HIT_SLOP}>
             <Ionicons name="home" size={22} color={iconAndTextColor} />
           </TouchableOpacity>
 
-          {/* ⚙️ PARAMÈTRES */}
           <TouchableOpacity 
             onPress={() => navigation.navigate(userRole === 'admin' ? "AdminSettings" : "Settings")} 
             style={styles.iconButton} 
@@ -194,7 +195,6 @@ const AppHeader = ({
             <Ionicons name="settings-outline" size={22} color={iconAndTextColor} />
           </TouchableOpacity>
 
-          {/* 🔔 NOTIFICATIONS */}
           {route.name !== "Notifications" && (
               <TouchableOpacity 
                 onPress={() => navigation.navigate(userRole === 'admin' ? "AdminNotifications" : "Notifications")} 
@@ -206,7 +206,6 @@ const AppHeader = ({
               </TouchableOpacity>
           )}
 
-          {/* 👤 PROFIL */}
           <TouchableOpacity 
               onPress={onProfilePress || (() => navigation.navigate("Profile"))} 
               style={[styles.profileButton, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}
@@ -238,34 +237,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   leftContainer: { flexDirection: "row", alignItems: "center", flex: 1.5 },
-  rightContainer: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", flex: 2.5, gap: 0 },
-  iconButton: { width: 42, height: 42, justifyContent: "center", alignItems: "center", position: 'relative' },
+  rightContainer: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", flex: 3.5, gap: 0 },
+  iconButton: { width: 40, height: 40, justifyContent: "center", alignItems: "center", position: 'relative' },
   profileButton: { 
-    width: 36, height: 36, borderRadius: 18, 
+    width: 32, height: 32, borderRadius: 16, 
     justifyContent: "center", alignItems: "center", marginLeft: 4, 
   },
   title: { fontWeight: "bold", fontSize: 16, letterSpacing: -0.5, flexShrink: 1 },
-  
-  // ✅ STYLES SOS
   sosBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: "#DC2626", // Rouge urgence
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 16,
-    marginRight: 5,
-    gap: 4,
-    shadowColor: "#DC2626",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 4,
-    elevation: 4
+    backgroundColor: "#DC2626", 
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    marginRight: 4,
+    gap: 3,
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 1 }
   },
   sosText: {
     color: "#FFF",
     fontWeight: "900",
-    fontSize: 11
+    fontSize: 10
   }
 });
 

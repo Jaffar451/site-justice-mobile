@@ -3,30 +3,33 @@ import { View, ActivityIndicator, StyleSheet } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
-// ✅ Types
-import { RootStackParamList } from "../types/navigation";
-
-// ✅ Stores & Composants Système
+// ✅ Stores & Composants
 import { useAuthStore } from "../stores/useAuthStore";
 import { SyncManager } from "../components/SyncManager";
 
-// ✅ Navigateurs
+// ✅ Navigateurs & Stacks
 import AuthNavigator from "./AuthNavigator";
-import DrawerNavigator from "./DrawerNavigator"; // 👈 C'est lui qui gère tout le reste !
+import DrawerNavigator from "./DrawerNavigator"; 
 
-// On utilise 'any' ici temporairement si vous n'avez pas encore ajouté "Main" dans vos types,
-// sinon gardez <RootStackParamList>
+// ✅ Imports de vos Stacks de Rôles (Pour permettre la redirection .replace)
+import AdminStack from "./stacks/AdminStack";
+import PoliceStack from "./stacks/PoliceStack";
+import JudgeStack from "./stacks/JudgeStack";
+import ProsecutorStack from "./stacks/ProsecutorStack";
+import CitizenStack from "./stacks/CitizenStack";
+import ClerkStack from "./stacks/ClerkStack";
+import CommissaireStack from "./stacks/CommissaireStack";
+import LawyerStack from "./stacks/LawyerStack";
+
 const Stack = createNativeStackNavigator<any>();
 
 export default function AppNavigator() {
-  const { isAuthenticated, isHydrating, hydrate } = useAuthStore();
+  const { isAuthenticated, isHydrating, hydrate, user } = useAuthStore();
 
-  // Hydratation de la session au démarrage
   useEffect(() => {
     hydrate();
   }, []);
 
-  // Écran de chargement (Splash technique)
   if (isHydrating) {
     return (
       <View style={styles.loadingContainer}>
@@ -37,19 +40,32 @@ export default function AppNavigator() {
 
   return (
     <View style={{ flex: 1 }}>
-      {/* 📡 Le SyncManager tourne en fond ici */}
       <SyncManager />
 
       <NavigationContainer>
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           
           {!isAuthenticated ? (
-            // 🚪 CAS 1 : NON CONNECTÉ -> On affiche les écrans de Login/Register
+            // 🚪 ZONE PUBLIQUE
             <Stack.Screen name="Auth" component={AuthNavigator} />
           ) : (
-            // 🏛️ CAS 2 : CONNECTÉ -> On délègue tout au Drawer (Menu Latéral)
-            // Le Drawer contient déjà AdminHome, PoliceHome, AdminLogs, etc.
-            <Stack.Screen name="Main" component={DrawerNavigator} />
+            // 🏛️ ZONE SÉCURISÉE
+            <>
+              {/* Le Main (Drawer) est l'entrée par défaut */}
+              <Stack.Screen name="Main" component={DrawerNavigator} />
+
+              {/* Déclaration des Stacks de rôles au même niveau que le Drawer.
+                Cela permet au LoginScreen de faire un navigation.replace('PoliceStack')
+              */}
+              <Stack.Screen name="AdminStack" component={AdminStack} />
+              <Stack.Screen name="PoliceStack" component={PoliceStack} />
+              <Stack.Screen name="JudgeStack" component={JudgeStack} />
+              <Stack.Screen name="ProsecutorStack" component={ProsecutorStack} />
+              <Stack.Screen name="CitizenStack" component={CitizenStack} />
+              <Stack.Screen name="ClerkStack" component={ClerkStack} />
+              <Stack.Screen name="CommissaireStack" component={CommissaireStack} />
+              <Stack.Screen name="LawyerStack" component={LawyerStack} />
+            </>
           )}
 
         </Stack.Navigator>

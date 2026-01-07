@@ -30,11 +30,29 @@ export interface LogEntry {
 
 /**
  * 📋 RÉCUPÉRER LE REGISTRE NATIONAL (ADMIN ONLY)
+ * ✅ AJOUT : Alias getAuditLogs pour compatibilité avec AdminAuditTrailScreen
+ */
+export const getAuditLogs = async (): Promise<LogEntry[]> => {
+  try {
+    const res = await api.get<LogEntry[] | { success: boolean; data: LogEntry[] }>("/audit-logs");
+    
+    // Gestion flexible si le backend renvoie { success: true, data: [...] }
+    if (res.data && typeof res.data === 'object' && 'data' in res.data) {
+      return res.data.data;
+    }
+    
+    return Array.isArray(res.data) ? res.data : [];
+  } catch (error) {
+    console.error("[AUDIT SERVICE] Erreur récupération logs:", error);
+    return [];
+  }
+};
+
+/**
+ * 📋 RÉCUPÉRER LE REGISTRE NATIONAL (ADMIN ONLY) - Nom original conservé
  */
 export const getSystemLogs = async (): Promise<LogEntry[]> => {
-  // Changement de /logs à /audit-logs pour plus de cohérence backend
-  const res = await api.get<LogEntry[]>("/audit-logs");
-  return res.data;
+  return getAuditLogs();
 };
 
 /**

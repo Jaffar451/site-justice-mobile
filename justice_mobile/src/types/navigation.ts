@@ -1,6 +1,7 @@
 import { NavigatorScreenParams } from "@react-navigation/native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { Complaint } from "../services/complaint.service";
+
 /**
  * 🔐 AUTH STACK
  */
@@ -12,25 +13,36 @@ export type AuthStackParamList = {
 };
 
 /**
- * 🌍 ROOT STACK (Liste complète et finale)
+ * 🌍 ROOT STACK (Liste complète et synchronisée)
  */
 export type RootStackParamList = {
   // --- Auth ---
   Auth: NavigatorScreenParams<AuthStackParamList>;
 
-  // ✅ AJOUT CRUCIAL : La route principale qui contient le Drawer
+  // ✅ REDIRECTIONS VERS LES NAVIGATEURS DE RÔLES (Stacks parents)
+  // Ces noms permettent d'utiliser navigation.replace('AdminStack') depuis le Login
   Main: undefined; 
+  AdminStack: undefined;
+  PoliceStack: undefined;
+  JudgeStack: undefined;
+  ProsecutorStack: undefined;
+  CitizenStack: undefined;
+  ClerkStack: undefined;
+  CommissaireStack: undefined;
+  LawyerStack: undefined;
+  BailiffStack: undefined;
+  PrisonStack: undefined;
 
   // --- Shared (Accessibles par tous) ---
   Profile: undefined;
-  EditProfile: undefined; // ✅ AJOUTÉ : Pour l'écran de modification de profil générique
+  EditProfile: undefined; 
   Settings: undefined;
   Notifications: undefined;
   HelpCenter: undefined;
   About: undefined;
   UserGuide: undefined;
   Support: undefined;
-  MyDownloads: undefined; // ✅ AJOUT : Pour l'écran "Mes Téléchargements"
+  MyDownloads: undefined; 
   
   // Écrans de détails partagés
   ComplaintDetail: { id: string | number };
@@ -50,6 +62,8 @@ export type RootStackParamList = {
   AdminEditProfile: undefined;
   AdminSecurity: undefined;
   AdminMaintenance: undefined;
+  AdminAuditTrail: undefined;
+  AdminSecurityDashboard: undefined; // ✅ Corrigé en undefined (écrans de statistiques sécu)
 
   // Gestion Juridictions & Unités
   AdminCourts: undefined;

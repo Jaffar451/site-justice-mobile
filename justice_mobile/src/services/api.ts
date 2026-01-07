@@ -2,14 +2,12 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { secureGet } from '../utils/secureStorage';
 import { useAuthStore } from '../stores/useAuthStore';
-import { ENV } from '../config/env'; // ✅ On importe la config corrigée
+import { ENV } from '../config/env';
 
-// ==========================================
-// 🚀 CRÉATION DE L'INSTANCE AXIOS
-// ==========================================
+/**
+ * 🚀 INSTANCE AXIOS CONFIGURÉE
+ */
 const api = axios.create({
-  // ✅ On utilise directement l'URL de env.ts (qui est déjà correcte)
-  // Pas de `${ENV.API_URL}/api` ici, sinon ça ferait doublon !
   baseURL: ENV.API_URL, 
   timeout: ENV.TIMEOUT, 
   headers: {
@@ -19,33 +17,35 @@ const api = axios.create({
 });
 
 /**
- * 📤 INTERCEPTEUR DE REQUÊTE (REQUEST)
- * Injecte le token et loggue l'URL pour vérifier qu'elle est bonne.
+ * 📤 INTERCEPTEUR DE REQUÊTE
+ * Modifié pour être plus réactif au changement de session
  */
 api.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
-    // 1. Récupération du token
-    const token = await secureGet('token');
+    // 1. Récupération prioritaire depuis le Store (Mémoire vive)
+    // C'est crucial pour les appels qui suivent immédiatement le Login
+    let token = useAuthStore.getState().token;
+
+    // 2. Fallback sur le stockage sécurisé (Disque) si le store n'est pas encore hydraté
+    if (!token) {
+      token = await secureGet('token');
+    }
     
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
 
-    // 2. 🔍 Log de l'URL complète pour le débogage
-    // Tu devrais voir : [API] ➡️ GET https://site-justice-mobile.onrender.com/api/complaints/my-complaints
+    // Logging détaillé
     const fullUrl = `${config.baseURL || ''}${config.url}`;
-    console.log(`[API] ➡️  ${config.method?.toUpperCase()} ${fullUrl}`);
+    console.log(`[API] ➡️ ${config.method?.toUpperCase()} ${fullUrl}`);
     
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
 /**
- * 📥 INTERCEPTEUR DE RÉPONSE (RESPONSE)
- * Gestion centralisée des erreurs.
+ * 📥 INTERCEPTEUR DE RÉPONSE
  */
 api.interceptors.response.use(
   (response) => {
@@ -53,31 +53,35 @@ api.interceptors.response.use(
     return response;
   },
   async (error: AxiosError) => {
-    const originalRequest = error.config;
+    const backendMessage = (error.response?.data as any)?.message;
+    const status = error.response?.status;
 
     // CAS 1 : Session expirée (401)
-    if (error.response?.status === 401) {
+    if (status === 401) {
       console.warn("[API] ⛔ Session expirée (401). Déconnexion...");
       useAuthStore.getState().logout();
-      return Promise.reject(new Error("Votre session a expiré. Veuillez vous reconnecter."));
+      return Promise.reject(new Error(backendMessage || "Votre session a expiré."));
     }
 
     // CAS 2 : Accès interdit (403)
-    if (error.response?.status === 403) {
-        console.warn("[API] ⛔ Accès interdit (403).");
-        return Promise.reject(new Error("Droits insuffisants pour cette action."));
+    if (status === 403) {
+      console.warn("[API] ⛔ Accès interdit (403). Vérifiez les permissions du rôle.");
+      return Promise.reject(new Error(backendMessage || "Droits insuffisants."));
     }
 
-    // CAS 3 : Problème Réseau
+    // CAS 3 : Réseau / Timeout
     if (error.code === 'ECONNABORTED' || error.message.includes('Network Error')) {
-      console.error(`[API] ⚠️ Erreur Réseau vers : ${originalRequest?.baseURL}`);
-      return Promise.reject(new Error("Impossible de contacter le serveur. Vérifiez votre connexion."));
+      return Promise.reject(new Error("Serveur injoignable."));
     }
 
-    // CAS 4 : Erreur Serveur (500)
-    if (error.response?.status && error.response.status >= 500) {
-      console.error(`[API] 🔥 Erreur Serveur ${error.response.status}`);
-      return Promise.reject(new Error("Erreur temporaire du serveur. Réessayez plus tard."));
+    // CAS 4 : Validation (400)
+    if (status === 400) {
+      return Promise.reject(new Error(backendMessage || "Données invalides."));
+    }
+
+    // CAS 5 : Erreur Serveur (500)
+    if (status && status >= 500) {
+      return Promise.reject(new Error("Erreur technique sur le serveur e-Justice."));
     }
 
     return Promise.reject(error);

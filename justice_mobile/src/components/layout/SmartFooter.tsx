@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, TouchableOpacity, Text, StyleSheet, Platform } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, FontAwesome5 } from '@expo/vector-icons'; // Ajout de FontAwesome5 pour la balance
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Stores & Thème
@@ -19,44 +19,71 @@ export default function SmartFooter() {
 
   const userRole = (user?.role || "citizen").toLowerCase();
 
-  // Définition des menus par rôle alignée sur les noms de Stacks corrigés
+  // Définition exhaustive des menus par rôle
   const menuItems = useMemo(() => {
     switch (userRole) {
       case 'admin':
         return [
           { icon: 'home', label: 'Accueil', target: 'AdminHome' },
-          { icon: 'people', label: 'Agents', target: 'AdminUsers' }, // ✅ Nom du Stack corrigé
-          { icon: 'business', label: 'Unités', target: 'ManageStations' }, // ✅ Nom du Stack corrigé
+          { icon: 'people', label: 'Agents', target: 'AdminUsers' }, 
+          { icon: 'business', label: 'Unités', target: 'ManageStations' }, 
           { icon: 'stats-chart', label: 'Stats', target: 'AdminStats' },
         ];
-      case 'police':
+
+      case 'officier_police':
       case 'commissaire':
-      case 'opj':
+      case 'inspecteur':
+      case 'opj_gendarme':
+      case 'gendarme':
         return [
           { icon: 'home', label: 'Accueil', target: 'PoliceHome' },
           { icon: 'folder-open', label: 'Dossiers', target: 'PoliceComplaints' },
           { icon: 'add-circle', label: 'Nouveau PV', target: 'PolicePVScreen', highlight: true },
           { icon: 'map', label: 'Carte', target: 'NationalMap' },
         ];
-      case 'judge':
+
       case 'prosecutor':
+        return [
+          { icon: 'home', label: 'Accueil', target: 'ProsecutorHome' },
+          { icon: 'list', label: 'Parquet', target: 'ProsecutorCaseList' },
+          { icon: 'stats-chart', label: 'Analyse', target: 'ProsecutorDashboard' },
+        ];
+
+      case 'judge':
         return [
           { icon: 'home', label: 'Accueil', target: 'JudgeHome' },
           { icon: 'calendar', label: 'Audiences', target: 'JudgeHearing' },
-          { icon: 'document-lock', label: 'Décisions', target: 'JudgeDecisions' },
+          { icon: 'document-text', label: 'Décisions', target: 'JudgeDecisions' },
           { icon: 'search', label: 'Recherche', target: 'WarrantSearch' },
         ];
-      case 'clerk':
+
+      case 'greffier':
         return [
           { icon: 'home', label: 'Accueil', target: 'ClerkHome' },
           { icon: 'calendar', label: 'Calendrier', target: 'ClerkCalendar' },
           { icon: 'layers', label: 'Rôles', target: 'ClerkComplaints' },
+          { icon: 'add-circle', label: 'Enrôler', target: 'ClerkRegisterCase', highlight: true },
         ];
+
+      case 'lawyer':
+        return [
+          { icon: 'home', label: 'Accueil', target: 'LawyerTracking' },
+          { icon: 'briefcase', label: 'Dossiers', target: 'LawyerCaseList' },
+          { icon: 'calendar', label: 'Audiences', target: 'LawyerCalendar' },
+        ];
+
+      case 'bailiff':
+        return [
+          { icon: 'home', label: 'Accueil', target: 'BailiffHome' },
+          { icon: 'send', label: 'Missions', target: 'BailiffMissions' },
+          { icon: 'calendar', label: 'Agenda', target: 'BailiffCalendar' },
+        ];
+
       default: // Citoyen
         return [
           { icon: 'home', label: 'Accueil', target: 'CitizenHome' },
           { icon: 'add-circle', label: 'Plainte', target: 'CitizenCreateComplaint', highlight: true },
-          { icon: 'list', label: 'Mes Suivis', target: 'CitizenMyComplaints' },
+          { icon: 'list', label: 'Suivis', target: 'CitizenMyComplaints' },
           { icon: 'book', label: 'Annuaire', target: 'CitizenDirectory' },
         ];
     }
@@ -64,12 +91,12 @@ export default function SmartFooter() {
 
   // Détermination de la couleur d'accentuation selon le rôle
   const getActiveColor = () => {
-    switch (userRole) {
-      case 'admin': return '#1E293B';
-      case 'police': return '#1E3A8A';
-      case 'judge': return '#7C2D12';
-      default: return theme.color;
-    }
+    if (userRole === 'admin') return '#1E293B';
+    if (['officier_police', 'commissaire', 'inspecteur'].includes(userRole)) return '#1E3A8A';
+    if (userRole.includes('gendarme')) return '#065F46';
+    if (['judge', 'prosecutor', 'greffier'].includes(userRole)) return '#7C2D12';
+    if (['lawyer', 'bailiff'].includes(userRole)) return '#4338CA';
+    return theme.color;
   };
 
   const activeColor = getActiveColor();
@@ -142,7 +169,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: -25, // Élévation du bouton central
+    marginTop: -25, 
     elevation: 5,
     shadowColor: '#000',
     shadowOpacity: 0.3,

@@ -1,10 +1,8 @@
-// PATH: src/services/notification.service.ts
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import api from "./api";
-import { useAuthStore } from "../stores/useAuthStore";
 
 /**
  * ✅ INTERFACE DES NOTIFICATIONS
@@ -13,13 +11,16 @@ export interface NotificationItem {
   id: string;
   title: string;
   body: string;
-  data?: any;           // Données liées (ex: { caseId: 102 })
+  data?: {
+    screen?: string;
+    sosId?: string | number;
+    caseId?: string | number;
+  };
   createdAt: string;
   isRead: boolean;
-  type?: 'status_change' | 'new_hearing' | 'new_decision' | 'admin_alert';
+  type?: 'status_change' | 'new_hearing' | 'new_decision' | 'admin_alert' | 'sos_alert';
 }
 
-// Configuration globale du comportement (en premier plan)
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -29,7 +30,7 @@ Notifications.setNotificationHandler({
 });
 
 /**
- * 📥 RÉCUPÉRATION DE L'HISTORIQUE (INBOX)
+ * 📥 RÉCUPÉRATION DE L'HISTORIQUE
  */
 export const getMyNotifications = async (): Promise<NotificationItem[]> => {
   try {
@@ -42,20 +43,19 @@ export const getMyNotifications = async (): Promise<NotificationItem[]> => {
 };
 
 /**
- * 📲 ENREGISTREMENT DU TOKEN PUSH (MOBILE)
- * Synchronise l'appareil physique avec le compte utilisateur e-Justice.
+ * 📲 ENREGISTREMENT DU TOKEN PUSH
  */
 export async function registerForPushNotificationsAsync() {
-  // 🛡️ Sécurité Web & Émulateur
   if (Platform.OS === 'web') return null;
+  
   if (!Device.isDevice) {
-    console.warn("🔔 [NOTIF] Notifications Push désactivées (Émulateur/Simulateur)");
+    console.warn("🔔 [NOTIF] Mode simulateur : pas de token push physique.");
     return null;
   }
 
   let token: string | undefined;
 
-  // A. Vérification des permissions
+  // 1. Permissions
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
   
@@ -65,64 +65,53 @@ export async function registerForPushNotificationsAsync() {
   }
 
   if (finalStatus !== 'granted') {
-    console.warn("🔔 [NOTIF] Permissions refusées par l'utilisateur.");
+    console.warn("🔔 [NOTIF] Permissions refusées.");
     return null;
   }
 
-  // B. Récupération du Token Expo
+  // 2. Récupération du Token
   try {
-    const projectId = 
-      Constants.expoConfig?.extra?.eas?.projectId ?? 
-      Constants.easConfig?.projectId;
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
     
-    if (!projectId) {
-      throw new Error("Project ID manquant. Vérifiez app.json.");
-    }
+    if (!projectId) throw new Error("Project ID manquant.");
 
     token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
     
-    // C. Synchronisation avec le Backend
     if (token) {
-      await api.patch('/users/push-token', { pushToken: token });
-      console.log("✅ [NOTIF] Push Token synchronisé avec succès.");
+      // ✅ On tente la synchro, mais on ne bloque pas si l'utilisateur n'est pas loggé
+      api.patch('/users/push-token', { pushToken: token })
+         .then(() => console.log("✅ [NOTIF] Token synchronisé."))
+         .catch(err => console.log("⏳ [NOTIF] Token généré, en attente de connexion pour synchro."));
     }
   } catch (error) {
-    console.error("❌ [NOTIF] Échec liaison token:", error);
+    console.error("❌ [NOTIF] Erreur token:", error);
   }
 
-  // D. Configuration du canal Android (Canal prioritaire Justice)
+  // 3. Configuration des Canaux Android (CRITIQUE POUR SOS)
   if (Platform.OS === 'android') {
+    // Canal Standard
     await Notifications.setNotificationChannelAsync('default', {
-      name: 'Notifications e-Justice Niger',
+      name: 'Standard',
+      importance: Notifications.AndroidImportance.DEFAULT,
+    });
+
+    // 🚨 Canal Urgence SOS (Haute priorité)
+    await Notifications.setNotificationChannelAsync('sos-alerts', {
+      name: 'Alertes SOS & Urgences',
       importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#006400', // Vert drapeau Niger
+      vibrationPattern: [0, 500, 200, 500],
+      lightColor: '#FF0000', // Rouge alerte
+      sound: 'default', // Idéalement, un son personnalisé ici
     });
   }
 
   return token;
 }
 
-/**
- * 🛠️ ACTIONS DE LECTURE
- */
-
-// Marquer une notification spécifique comme lue
 export const markAsRead = async (notificationId: string) => {
   try {
-    const res = await api.patch(`/notifications/${notificationId}/read`);
-    return res.data;
+    await api.patch(`/notifications/${notificationId}/read`);
   } catch (error) {
     console.error(`[NOTIF SERVICE] Erreur lecture ${notificationId}:`, error);
-  }
-};
-
-// Marquer toutes les notifications comme lues
-export const markAllAsRead = async () => {
-  try {
-    const res = await api.patch('/notifications/read-all');
-    return res.data;
-  } catch (error) {
-    console.error("[NOTIF SERVICE] Erreur lecture globale:", error);
   }
 };

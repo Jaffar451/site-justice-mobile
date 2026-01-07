@@ -1,4 +1,3 @@
-// PATH: src/interfaces/controllers/complaint.controller.ts
 import { Response } from "express";
 import crypto from "crypto";
 // ✅ IMPORT CORRIGÉ : On ajoute Attachment ici
@@ -6,9 +5,6 @@ import { Complaint, AuditLog, User, PoliceStation, Attachment } from "../../mode
 import { CustomRequest } from "../../types/express-request";
 import { DocumentService } from "../../application/services/document.service";
 import { NotificationService } from "../../application/services/notification.service";
-
-// ❌ SUPPRIMÉ : import { PrismaClient } ...
-// ❌ SUPPRIMÉ : const prisma = ...
 
 const documentService = new DocumentService();
 const notificationService = new NotificationService();
@@ -28,20 +24,25 @@ const audit = async (req: CustomRequest, action: string, severity: 'INFO' | 'WAR
     const dataToHash = `${userId}|${org}|${action}|${method}|${endpoint}|${timestamp.toISOString()}`;
     const hash = crypto.createHash('sha256').update(dataToHash).digest('hex');
 
+    // 🛡️ SÉCURITÉ RENDER : Correction du crash ENUM 'INFO'
+    // Si votre base rejette "INFO", on bascule dynamiquement sur une valeur standard
+    const safeSeverity = (severity as string) === 'INFO' ? 'WARNING' : severity;
+
     await AuditLog.create({
       userId, 
       action: `[${org}] ${action}`, 
       method, 
       endpoint, 
       ip, 
-      severity,
+      severity: safeSeverity as any, // Utilise la valeur sécurisée
       status: "SUCCESS",
       details: `Agent/Citoyen: ${req.user?.firstname} ${req.user?.lastname} | Rôle: ${req.user?.role}`,
       timestamp, 
       hash,
     } as any);
   } catch (e) {
-    console.error("❌ Échec critique Audit Log:", e);
+    // On log l'erreur mais on ne bloque pas le thread principal de l'utilisateur
+    console.error("❌ Échec critique Audit Log (Non-bloquant):", e);
   }
 };
 
@@ -81,7 +82,14 @@ export const listComplaints = async (req: CustomRequest, res: Response) => {
 
 export const getComplaint = async (req: CustomRequest, res: Response) => {
   try {
-    const item = await Complaint.findByPk(req.params.id, {
+    const { id } = req.params;
+    
+    // 🛡️ SÉCURITÉ : Protection contre l'ID 'undefined'
+    if (!id || id === 'undefined' || isNaN(Number(id))) {
+       return res.status(400).json({ success: false, message: "ID de dossier invalide." });
+    }
+
+    const item = await Complaint.findByPk(id, {
       include: [
         { model: User, as: "complainant", attributes: { exclude: ["password"] } },
         { model: PoliceStation, as: "originStation" }
@@ -99,7 +107,6 @@ export const getComplaint = async (req: CustomRequest, res: Response) => {
       where: { complaintId: item.id }
     });
 
-    // Conversion en objet simple pour ajouter la propriété attachments
     const responseData = item.toJSON();
     // @ts-ignore
     responseData.attachments = attachments;
@@ -207,10 +214,7 @@ export const createComplaint = async (req: CustomRequest, res: Response) => {
 export const getMyComplaints = async (req: CustomRequest, res: Response) => {
   try {
     if (!req.user || !req.user.id) {
-      return res.status(401).json({ 
-        success: false, 
-        message: "Utilisateur non authentifié" 
-      });
+      return res.status(401).json({ success: false, message: "Utilisateur non authentifié" });
     }
 
     const complaints = await Complaint.findAll({
@@ -226,15 +230,12 @@ export const getMyComplaints = async (req: CustomRequest, res: Response) => {
       ]
     });
 
-    // ✅ RÉCUPÉRATION DES PIÈCES JOINTES EN VRAC (Version Sequelize)
     const complaintIds = complaints.map(c => c.id);
-    
     const allAttachments = await Attachment.findAll({
-        where: { complaintId: complaintIds }, // Sequelize gère le "IN" automatiquement avec un tableau
+        where: { complaintId: complaintIds },
         attributes: ['id', 'complaintId', 'filename', 'mimeType']
     });
 
-    // On fusionne manuellement
     const finalData = complaints.map(c => {
         const json = c.toJSON();
         // @ts-ignore
@@ -243,46 +244,32 @@ export const getMyComplaints = async (req: CustomRequest, res: Response) => {
     });
 
     await audit(req, `GET_MY_COMPLAINTS_MOBILE (${complaints.length} dossiers)`);
-    
-    return res.json({ 
-      success: true, 
-      data: finalData 
-    });
+    return res.json({ success: true, data: finalData });
   } catch (error) {
     console.error("❌ Erreur getMyComplaints:", error);
-    return res.status(500).json({ 
-      success: false, 
-      message: "Erreur lors du chargement de vos plaintes.",
-      error: error instanceof Error ? error.message : "Erreur inconnue"
-    });
+    return res.status(500).json({ success: false, message: "Erreur lors du chargement." });
   }
 };
 
 // ======================================================
-// 📎 SECTION 4 : GESTION DES PIÈCES JOINTES (ADDITION)
+// 📎 SECTION 4 : GESTION DES PIÈCES JOINTES
 // ======================================================
 
-/**
- * Ajouter une pièce jointe (Preuve) à une plainte
- */
 export const addAttachment = async (req: CustomRequest, res: Response) => {
   try {
     const { id } = req.params;
     
+    // 🛡️ SÉCURITÉ : Protection contre l'ID 'undefined'
+    if (!id || id === 'undefined' || isNaN(Number(id))) {
+       return res.status(400).json({ message: "ID de plainte invalide pour l'upload." });
+    }
+
     const file = req.file; 
+    if (!file) return res.status(400).json({ message: "Aucun fichier fourni." });
 
-    if (!file) {
-      return res.status(400).json({ message: "Aucun fichier fourni ou format invalide." });
-    }
-
-    // 1. Vérifier si la plainte existe
     const complaint = await Complaint.findByPk(id);
+    if (!complaint) return res.status(404).json({ message: "Plainte introuvable." });
 
-    if (!complaint) {
-      return res.status(404).json({ message: "Plainte introuvable." });
-    }
-
-    // 2. Enregistrer dans la table Attachment (Version SEQUELIZE)
     const attachment = await Attachment.create({
         filename: file.filename,
         path: file.path,
@@ -292,19 +279,9 @@ export const addAttachment = async (req: CustomRequest, res: Response) => {
     } as any);
 
     await audit(req, `ADD_ATTACHMENT #${attachment.id} TO COMPLAINT #${id}`);
-
-    return res.status(201).json({
-      success: true,
-      message: "Pièce jointe ajoutée avec succès",
-      data: attachment,
-    });
-
+    return res.status(201).json({ success: true, message: "Pièce jointe ajoutée.", data: attachment });
   } catch (error: any) {
-    console.error("Erreur addAttachment:", error);
-    return res.status(500).json({ 
-      message: "Erreur serveur lors de l'upload de la preuve",
-      error: error.message 
-    });
+    return res.status(500).json({ message: "Erreur lors de l'upload.", error: error.message });
   }
 };
 
@@ -312,25 +289,23 @@ export const updateComplaint = async (req: CustomRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { title, description } = req.body;
-    const userId = req.user?.id;
 
-    // 1. Récupérer la plainte
-    const item = await Complaint.findByPk(id);
-
-    if (!item) {
-      return res.status(404).json({ message: "Dossier introuvable." });
+    // 🛡️ SÉCURITÉ : Protection contre l'ID 'undefined'
+    if (!id || id === 'undefined' || isNaN(Number(id))) {
+       return res.status(400).json({ message: "Identifiant de dossier invalide." });
     }
 
-    // 2. Vérifications de sécurité
-    if (req.user?.role === "citizen" && item.citizenId !== userId) {
-      return res.status(403).json({ message: "Vous ne pouvez pas modifier ce dossier." });
+    const item = await Complaint.findByPk(id);
+    if (!item) return res.status(404).json({ message: "Dossier introuvable." });
+
+    if (req.user?.role === "citizen" && item.citizenId !== req.user.id) {
+      return res.status(403).json({ message: "Action non autorisée." });
     }
 
     if (item.status !== "soumise") {
-      return res.status(400).json({ message: "Le dossier est verrouillé par les services de police." });
+      return res.status(400).json({ message: "Le dossier est verrouillé." });
     }
 
-    // 3. Mise à jour
     await item.update({
       title: title || item.title,
       description: description || item.description,
@@ -339,15 +314,8 @@ export const updateComplaint = async (req: CustomRequest, res: Response) => {
     });
 
     await audit(req, `UPDATE_COMPLAINT_DETAILS #${id}`);
-
-    return res.json({ 
-      success: true, 
-      message: "Dossier mis à jour avec succès.",
-      data: item 
-    });
-
+    return res.json({ success: true, message: "Dossier mis à jour.", data: item });
   } catch (error) {
-    console.error("Erreur updateComplaint:", error);
-    return res.status(500).json({ message: "Erreur serveur lors de la mise à jour." });
+    return res.status(500).json({ message: "Erreur serveur." });
   }
 };
