@@ -27,7 +27,6 @@ import SmartFooter from "../../components/layout/SmartFooter";
 import { getComplaintById, validateToParquet, updateComplaint } from "../../services/complaint.service";
 
 export default function CommissaireReviewScreen({ navigation, route }: PoliceScreenProps<'CommissaireReview'>) {
-  // ✅ 2. Thème Dynamique
   const { theme, isDark } = useAppTheme();
   const primaryColor = theme.colors.primary;
   
@@ -46,10 +45,11 @@ export default function CommissaireReviewScreen({ navigation, route }: PoliceScr
   };
 
   // 📥 Récupération des données
-  const { data: complaint, isLoading } = useQuery({
+  const { data: complaint, isLoading, isError } = useQuery({
     queryKey: ["complaint", complaintId],
     queryFn: () => getComplaintById(complaintId),
     enabled: !!complaintId,
+    retry: 1, // On ne réessaie qu'une fois si échec
   });
 
   // ✍️ Mutation : Accorder le Visa
@@ -86,7 +86,8 @@ export default function CommissaireReviewScreen({ navigation, route }: PoliceScr
     }
   };
 
-  if (isLoading || !complaint) {
+  // 🔄 CHARGEMENT
+  if (isLoading) {
     return (
       <ScreenContainer withPadding={false}>
         <AppHeader title="Examen de procédure" showBack />
@@ -95,6 +96,22 @@ export default function CommissaireReviewScreen({ navigation, route }: PoliceScr
           <Text style={[styles.loaderText, { color: colors.textSub }]}>Récupération des pièces...</Text>
         </View>
       </ScreenContainer>
+    );
+  }
+
+  // ❌ ERREUR (404 ou Réseau)
+  if (isError || !complaint) {
+    return (
+        <ScreenContainer withPadding={false}>
+          <AppHeader title="Erreur" showBack />
+          <View style={[styles.center, { backgroundColor: colors.bgMain }]}>
+            <Ionicons name="alert-circle-outline" size={50} color="#EF4444" />
+            <Text style={{ marginTop: 10, color: colors.textMain, fontWeight: 'bold' }}>Dossier introuvable</Text>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={{marginTop: 20}}>
+                <Text style={{color: primaryColor, fontWeight:'bold'}}>Retour au bureau</Text>
+            </TouchableOpacity>
+          </View>
+        </ScreenContainer>
     );
   }
 
@@ -116,7 +133,7 @@ export default function CommissaireReviewScreen({ navigation, route }: PoliceScr
             <Text style={styles.whiteLabel}>VISA DU COMMISSAIRE REQUIS</Text>
           </View>
           <Text style={styles.whiteOffenceTitle}>
-            {complaint.provisionalOffence || "Information Judiciaire"}
+            {complaint.provisionalOffence || complaint.title || "Information Judiciaire"}
           </Text>
         </View>
 

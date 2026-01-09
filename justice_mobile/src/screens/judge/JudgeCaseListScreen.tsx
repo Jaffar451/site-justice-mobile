@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   View, 
   Text, 
@@ -9,53 +9,41 @@ import {
   StatusBar, 
   Alert, 
   DimensionValue,
-  Platform
+  Platform,
+  ActivityIndicator,
+  RefreshControl
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useQuery } from '@tanstack/react-query';
 
 // ✅ 1. Architecture & Thème
-import { useAppTheme } from '../../theme/AppThemeProvider'; // ✅ Utilisation du hook dynamique
+import { useAppTheme } from '../../theme/AppThemeProvider'; 
 import { JudgeScreenProps } from '../../types/navigation';
 import ScreenContainer from '../../components/layout/ScreenContainer';
 import AppHeader from '../../components/layout/AppHeader';
 import SmartFooter from '../../components/layout/SmartFooter';
 
-const MOCK_CASES = [
-  {
-    id: '2025-NP-042',
-    dbId: 101, 
-    type: 'new',
-    offence: 'Vol aggravé avec violence',
-    suspect: 'Hassan Bako',
-    prosecutor: 'Procureur de la République',
-    dateReceived: 'À l\'instant',
-    detentionStatus: 'Déféré (GAV terminée)',
-    urgent: true,
-    progress: 0
-  },
-  {
-    id: '2024-INST-89',
-    dbId: 102,
-    type: 'ongoing',
-    offence: 'Détournement de deniers publics',
-    suspect: 'Moussa K.',
-    prosecutor: 'Parquet Spécial',
-    dateReceived: '12 Nov 2024',
-    detentionStatus: 'Liberté Provisoire',
-    progress: 65 
-  },
-  {
-    id: '2024-INST-102',
-    dbId: 103,
-    type: 'ongoing',
-    offence: 'Trafic de stupéfiants',
-    suspect: 'Inconnu (X)',
-    prosecutor: 'Procureur TGI Niamey',
-    dateReceived: '05 Jan 2025',
-    detentionStatus: 'Mandat de Dépôt',
-    progress: 30
-  }
-];
+// Services
+import api from '../../services/api';
+
+// --- TYPES ---
+interface ApiCase {
+  id: number;
+  trackingCode: string;
+  title: string; // Offence
+  description: string;
+  status: string; // 'transmise_parquet', 'instruction', 'cloture'
+  suspectName?: string; // Si dispo dans l'objet principal ou relation
+  createdAt: string;
+  detentionStatus?: string; // 'liberte', 'detention', 'controle'
+}
+
+// Fonction de récupération
+const fetchJudgeCases = async () => {
+  // On récupère toutes les plaintes assignées au cabinet (ou filtrées par statut)
+  const { data } = await api.get('/complaints'); 
+  return data as ApiCase[];
+};
 
 export default function JudgeCaseList({ navigation }: JudgeScreenProps<'JudgeCaseList'>) {
   // ✅ 2. Thème Dynamique
@@ -72,32 +60,65 @@ export default function JudgeCaseList({ navigation }: JudgeScreenProps<'JudgeCas
     textMain: isDark ? "#FFFFFF" : "#1E293B",
     textSub: isDark ? "#94A3B8" : "#64748B",
     border: isDark ? "#334155" : "#E2E8F0",
-    inputBg: isDark ? "#0F172A" : "#F8FAFC",
+    inputBg: isDark ? "#1E293B" : "#FFFFFF",
     tabActive: primaryColor + (isDark ? "30" : "15"),
   };
 
-  const filteredData = MOCK_CASES.filter(c => 
-    c.type === activeTab && 
-    (c.suspect.toLowerCase().includes(searchQuery.toLowerCase()) || c.id.includes(searchQuery))
-  );
+  // Récupération Données Réelles
+  const { data: rawCases, isLoading, refetch, isRefetching } = useQuery({
+    queryKey: ['judge-cases'],
+    queryFn: fetchJudgeCases
+  });
 
-  const handleEnrollment = (item: typeof MOCK_CASES[0]) => {
+  // Filtrage et Transformation
+  const filteredData = useMemo(() => {
+    if (!rawCases) return [];
+
+    return rawCases.filter(c => {
+        // Logique de tri par onglet
+        const isNew = c.status === 'transmise_parquet' || c.status === 'attente_validation'; // Nouveaux dossiers
+        const isOngoing = c.status === 'instruction' || c.status === 'en_cours'; // Dossiers en cours
+
+        if (activeTab === 'new' && !isNew) return false;
+        if (activeTab === 'ongoing' && !isOngoing) return false;
+
+        // Logique de recherche
+        const search = searchQuery.toLowerCase();
+        return (
+            (c.title && c.title.toLowerCase().includes(search)) ||
+            (c.trackingCode && c.trackingCode.toLowerCase().includes(search)) ||
+            (c.suspectName && c.suspectName.toLowerCase().includes(search))
+        );
+    }).map(c => ({
+        // Mapping vers format UI
+        id: c.trackingCode || `RG-${c.id}`,
+        dbId: c.id,
+        type: (c.status === 'transmise_parquet' || c.status === 'attente_validation') ? 'new' : 'ongoing',
+        offence: c.title || "Qualification en attente",
+        suspect: c.suspectName || "Inconnu (X)",
+        dateReceived: new Date(c.createdAt).toLocaleDateString('fr-FR'),
+        detentionStatus: c.detentionStatus || "Libre",
+        progress: c.status === 'cloture' ? 100 : (c.status === 'instruction' ? 50 : 0)
+    }));
+  }, [rawCases, activeTab, searchQuery]);
+
+  const handleEnrollment = (item: any) => {
     const title = "Enrôlement du Réquisitoire";
-    const msg = `Accepter le dossier RG ${item.id} et convoquer le suspect pour Première Comparution ?`;
+    const msg = `Accepter le dossier ${item.id} et convoquer le suspect pour Première Comparution ?`;
 
     if (Platform.OS === 'web') {
         const confirm = window.confirm(`${title} : ${msg}`);
-        if (confirm) navigation.navigate('JudgeCaseDetail', { caseId: item.dbId });
+        if (confirm) navigation.navigate('CaseDetail', { caseId: item.dbId });
     } else {
         Alert.alert(title, msg, [
           { text: "Plus tard", style: "cancel" },
-          { text: "Enrôler", onPress: () => navigation.navigate('JudgeCaseDetail', { caseId: item.dbId }) }
+          { text: "Enrôler", onPress: () => navigation.navigate('CaseDetail', { caseId: item.dbId }) }
         ]);
     }
   };
 
-  const renderItem = ({ item }: { item: typeof MOCK_CASES[0] }) => {
-    const isNew = item.type === 'new';
+  const renderItem = ({ item }: { item: any }) => {
+    const isNew = activeTab === 'new';
 
     return (
       <TouchableOpacity 
@@ -107,11 +128,11 @@ export default function JudgeCaseList({ navigation }: JudgeScreenProps<'JudgeCas
             isNew && { borderLeftWidth: 8 }
         ]}
         activeOpacity={0.8}
-        onPress={() => navigation.navigate('JudgeCaseDetail', { caseId: item.dbId })}
+        onPress={() => navigation.navigate('CaseDetail', { caseId: item.dbId })}
       >
         <View style={styles.cardContent}>
           <View style={styles.cardHeader}>
-            <Text style={[styles.rgNumber, { color: isNew ? primaryColor : colors.textSub }]}>RG {item.id}</Text>
+            <Text style={[styles.rgNumber, { color: isNew ? primaryColor : colors.textSub }]}>{item.id}</Text>
             {item.detentionStatus === 'Mandat de Dépôt' && (
               <View style={[styles.mdBadge, { backgroundColor: isDark ? "#450A0A" : "#FEE2E2" }]}>
                 <Ionicons name="lock-closed" size={10} color="#EF4444" />
@@ -120,7 +141,7 @@ export default function JudgeCaseList({ navigation }: JudgeScreenProps<'JudgeCas
             )}
           </View>
           
-          <Text style={[styles.offenceTitle, { color: colors.textMain }]}>{item.offence}</Text>
+          <Text style={[styles.offenceTitle, { color: colors.textMain }]} numberOfLines={2}>{item.offence}</Text>
           
           <View style={styles.row}>
             <Ionicons name="person-outline" size={14} color={colors.textSub} />
@@ -144,16 +165,16 @@ export default function JudgeCaseList({ navigation }: JudgeScreenProps<'JudgeCas
           )}
 
           {isNew ? (
-             <View style={[styles.newActionRow, { borderTopColor: colors.border }]}>
-               <Text style={styles.receivedTime}>Reçu : {item.dateReceived}</Text>
-               <TouchableOpacity 
-                 style={[styles.enrollBtn, { backgroundColor: primaryColor }]}
-                 onPress={() => handleEnrollment(item)}
-               >
-                 <Text style={styles.enrollText}>ENRÔLER</Text>
-                 <Ionicons name="enter-outline" size={16} color="#FFF" />
-               </TouchableOpacity>
-             </View>
+              <View style={[styles.newActionRow, { borderTopColor: colors.border }]}>
+                <Text style={styles.receivedTime}>Reçu : {item.dateReceived}</Text>
+                <TouchableOpacity 
+                  style={[styles.enrollBtn, { backgroundColor: primaryColor }]}
+                  onPress={() => handleEnrollment(item)}
+                >
+                  <Text style={styles.enrollText}>ENRÔLER</Text>
+                  <Ionicons name="enter-outline" size={16} color="#FFF" />
+                </TouchableOpacity>
+              </View>
           ) : (
             <View style={styles.footerRow}>
                <Text style={[styles.statusText, { color: colors.textSub }]}>{item.detentionStatus}</Text>
@@ -178,6 +199,7 @@ export default function JudgeCaseList({ navigation }: JudgeScreenProps<'JudgeCas
             placeholderTextColor={colors.textSub}
             style={[styles.searchInput, { color: colors.textMain }]}
             onChangeText={setSearchQuery}
+            value={searchQuery}
           />
         </View>
 
@@ -193,7 +215,7 @@ export default function JudgeCaseList({ navigation }: JudgeScreenProps<'JudgeCas
             <Text style={[styles.tabText, { color: colors.textSub }, activeTab === 'new' && { color: primaryColor, fontWeight: '900' }]}>
               Nouveaux PV
             </Text>
-            {activeTab === 'new' && <View style={[styles.badgeDot, { backgroundColor: '#EF4444' }]} />}
+            {activeTab === 'new' && filteredData.length > 0 && <View style={[styles.badgeDot, { backgroundColor: '#EF4444' }]} />}
           </TouchableOpacity>
           
           <TouchableOpacity 
@@ -212,19 +234,28 @@ export default function JudgeCaseList({ navigation }: JudgeScreenProps<'JudgeCas
       </View>
 
       <View style={{ flex: 1, backgroundColor: colors.bgMain }}>
-        <FlatList 
-            data={filteredData}
-            keyExtractor={item => item.id}
-            renderItem={renderItem}
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-            ListEmptyComponent={
-            <View style={styles.emptyView}>
-                <Ionicons name="file-tray-outline" size={60} color={colors.border} />
-                <Text style={[styles.emptyText, { color: colors.textSub }]}>Aucun dossier dans cette section.</Text>
+        {isLoading ? (
+            <View style={styles.center}>
+                <ActivityIndicator size="large" color={primaryColor} />
             </View>
-            }
-        />
+        ) : (
+            <FlatList 
+                data={filteredData}
+                keyExtractor={item => item.id}
+                renderItem={renderItem}
+                contentContainerStyle={styles.listContent}
+                showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={primaryColor} />
+                }
+                ListEmptyComponent={
+                <View style={styles.emptyView}>
+                    <Ionicons name="file-tray-outline" size={60} color={colors.border} />
+                    <Text style={[styles.emptyText, { color: colors.textSub }]}>Aucun dossier dans cette section.</Text>
+                </View>
+                }
+            />
+        )}
       </View>
 
       <SmartFooter />
@@ -233,6 +264,7 @@ export default function JudgeCaseList({ navigation }: JudgeScreenProps<'JudgeCas
 }
 
 const styles = StyleSheet.create({
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   filterSection: { padding: 20, paddingBottom: 15, borderBottomWidth: 1 },
   searchBox: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, height: 50, borderRadius: 16, marginBottom: 15, borderWidth: 1 },
   searchInput: { flex: 1, marginLeft: 10, fontSize: 14, fontWeight: '600' },

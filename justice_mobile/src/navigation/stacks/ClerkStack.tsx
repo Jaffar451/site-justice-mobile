@@ -1,3 +1,4 @@
+// PATH: src/navigation/stacks/ClerkStack.tsx
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../types/navigation';
@@ -17,16 +18,25 @@ import ClerkProsecutionScreen from '../../screens/clerk/ClerkProsecutionScreen';
 import ClerkReleaseScreen from '../../screens/clerk/ClerkReleaseScreen';
 import ClerkConfiscationScreen from '../../screens/clerk/ClerkConfiscationScreen';
 
+// --- Écrans Profil & Système ---
+import ProfileScreen from '../../screens/Profile/ProfileScreen';
+import EditProfileScreen from '../../screens/Profile/EditProfileScreen';
+import NotificationsScreen from '../../screens/admin/AdminNotificationsScreen'; 
+
 // --- Écrans Partagés & Support ---
-import NationalMapScreen from '../../screens/admin/NationalMapScreen'; // ✅ Pour la géolocalisation des dossiers
-import WarrantSearchScreen from '../../screens/police/WarrantSearchScreen'; // ✅ Pour la vérification des mandats
-import ProfileScreen from '../../screens/Profile/ProfileScreen'; // ✅ Requis par AppHeader
+import NationalMapScreen from '../../screens/admin/NationalMapScreen';
+import WarrantSearchScreen from '../../screens/police/WarrantSearchScreen';
+import UserGuideScreen from '../../screens/shared/UserGuideScreen';
+import SupportScreen from '../../screens/shared/SupportScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export const ClerkStack = () => (
   <Stack.Navigator 
-    screenOptions={{ headerShown: false }}
+    screenOptions={{ 
+      headerShown: false,
+      animation: 'slide_from_right'
+    }}
     initialRouteName="ClerkHome"
   >
     {/* ==========================================
@@ -40,22 +50,22 @@ export const ClerkStack = () => (
         ⚖️ ENRÔLEMENT & INSTRUCTION
     ========================================== */}
     <Stack.Screen name="ClerkRegisterCase" component={ClerkRegisterCaseScreen as any} />
-    <Stack.Screen name="ClerkEvidence" component={ClerkEvidenceScreen} />
-    <Stack.Screen name="ClerkWitness" component={ClerkWitnessScreen} />
+    <Stack.Screen name="ClerkEvidence" component={ClerkEvidenceScreen as any} />
+    <Stack.Screen name="ClerkWitness" component={ClerkWitnessScreen as any} />
 
     {/* ==========================================
         📅 CALENDRIER & AUDIENCES
     ========================================== */}
     <Stack.Screen name="ClerkCalendar" component={ClerkCalendarScreen as any} />
-    <Stack.Screen name="ClerkHearing" component={ClerkHearingsScreen as any} />
+    <Stack.Screen name="ClerkHearings" component={ClerkHearingsScreen as any} />
     <Stack.Screen name="ClerkHearingDetails" component={ClerkHearingDetailsScreen as any} />
     <Stack.Screen name="ClerkAdjournHearing" component={ClerkAdjournHearingScreen as any} />
 
     {/* ==========================================
         📜 EXÉCUTION DES DÉCISIONS
     ========================================== */}
-    <Stack.Screen name="ClerkProsecution" component={ClerkProsecutionScreen} />
-    <Stack.Screen name="ClerkRelease" component={ClerkReleaseScreen} />
+    <Stack.Screen name="ClerkProsecution" component={ClerkProsecutionScreen as any} />
+    <Stack.Screen name="ClerkRelease" component={ClerkReleaseScreen as any} />
     <Stack.Screen name="ClerkConfiscation" component={ClerkConfiscationScreen as any} />
 
     {/* ==========================================
@@ -65,9 +75,13 @@ export const ClerkStack = () => (
     <Stack.Screen name="WarrantSearch" component={WarrantSearchScreen as any} />
 
     {/* ==========================================
-        👤 COMPTE & PARAMÈTRES (Sécurité Header)
+        👤 COMPTE, NOTIFICATIONS & SUPPORT
     ========================================== */}
     <Stack.Screen name="Profile" component={ProfileScreen} />
+    <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+    <Stack.Screen name="Notifications" component={NotificationsScreen as any} />
+    <Stack.Screen name="UserGuide" component={UserGuideScreen} />
+    <Stack.Screen name="Support" component={SupportScreen} />
 
   </Stack.Navigator>
 );

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useState, useMemo } from "react";
 import { 
   View, 
   Text, 
@@ -11,12 +11,12 @@ import {
   StatusBar,
   Platform
 } from "react-native";
-import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
+import { useQuery } from "@tanstack/react-query";
 
 // ✅ 1. Imports Architecture
 import { useAuthStore } from "../../stores/useAuthStore";
-import { useAppTheme } from "../../theme/AppThemeProvider"; // ✅ Hook dynamique
+import { useAppTheme } from "../../theme/AppThemeProvider";
 import { JudgeScreenProps } from "../../types/navigation";
 
 // Composants
@@ -42,13 +42,7 @@ export default function JudgeDecisionsScreen({ navigation }: JudgeScreenProps<'J
   const { theme, isDark } = useAppTheme();
   const primaryColor = theme.colors.primary; 
   
-  const { user } = useAuthStore();
-
-  const [decisions, setDecisions] = useState<DecisionCase[]>([]);
-  const [filteredDecisions, setFilteredDecisions] = useState<DecisionCase[]>([]);
   const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
 
   // 🎨 PALETTE DYNAMIQUE
   const colors = {
@@ -60,66 +54,89 @@ export default function JudgeDecisionsScreen({ navigation }: JudgeScreenProps<'J
     inputBg: isDark ? "#0F172A" : "#F1F5F9",
   };
 
-  const loadDecisions = async () => {
-    try {
+  // ✅ 3. Fetch avec React Query
+  const { data: rawDecisions, isLoading, refetch, isRefetching } = useQuery({
+    queryKey: ['judge-decisions-history'],
+    queryFn: async () => {
       const data = await getMyComplaints();
-      const archives = data.filter((c: any) => 
+      // On ne garde que les dossiers clôturés/jugés
+      return data.filter((c: any) => 
         ["closed", "decision", "resolved", "jugée", "non_lieu", "classée_sans_suite"].includes(c.status)
-      );
-      
-      archives.sort((a: any, b: any) => {
+      ) as DecisionCase[];
+    }
+  });
+
+  // ✅ 4. Filtrage et Tri (Memoïsé)
+  const filteredDecisions = useMemo(() => {
+    if (!rawDecisions) return [];
+
+    let results = [...rawDecisions];
+
+    // Tri par date décroissante (plus récent en premier)
+    results.sort((a, b) => {
         const dateA = new Date(a.updatedAt || a.filedAt || a.createdAt).getTime();
         const dateB = new Date(b.updatedAt || b.filedAt || b.createdAt).getTime();
         return dateB - dateA;
-      });
+    });
 
-      setDecisions(archives as DecisionCase[]);
-      setFilteredDecisions(archives as DecisionCase[]);
-    } catch (error) {
-      console.error("Erreur registre:", error);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  useEffect(() => { loadDecisions(); }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      loadDecisions();
-    }, [])
-  );
-
-  const handleSearch = (text: string) => {
-    setSearch(text);
-    if (text.trim() === "") {
-      setFilteredDecisions(decisions);
-    } else {
-      const lower = text.toLowerCase();
-      const filtered = decisions.filter(d => 
+    // Filtre de recherche
+    if (search.trim()) {
+      const lower = search.toLowerCase();
+      results = results.filter(d => 
         (d.provisionalOffence?.toLowerCase() || "").includes(lower) || 
         d.id.toString().includes(lower)
       );
-      setFilteredDecisions(filtered);
     }
-  };
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    loadDecisions();
-  };
+    return results;
+  }, [rawDecisions, search]);
 
   const getVerdictBadge = (verdict?: string) => {
     const v = (verdict || "").toUpperCase();
     
-    if (v.includes("RELAXE") || v.includes("INNOCENT")) {
+    if (v.includes("RELAXE") || v.includes("INNOCENT") || v.includes("ACQUITTAL")) {
       return { color: "#10B981", label: "RELAXÉ", icon: "shield-checkmark-outline" };
     }
     if (v.includes("NON_LIEU") || v.includes("DISMISSED")) {
       return { color: "#64748B", label: "NON-LIEU", icon: "archive-outline" };
     }
+    // Par défaut
     return { color: "#EF4444", label: "CONDAMNATION", icon: "hammer-outline" };
+  };
+
+  const renderItem = ({ item }: { item: DecisionCase }) => {
+    const badge = getVerdictBadge(item.verdict);
+    
+    return (
+      <TouchableOpacity
+        activeOpacity={0.85}
+        style={[styles.card, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
+        // On renvoie vers le détail du dossier pour voir l'historique complet
+        onPress={() => navigation.navigate("CaseDetail", { caseId: item.id })}
+      >
+        <View style={styles.cardHeader}>
+          <Text style={[styles.caseId, { color: primaryColor }]}>MINUTE RG #{item.id}</Text>
+          <Text style={[styles.date, { color: colors.textSub }]}>
+            {new Date(item.updatedAt || item.filedAt).toLocaleDateString("fr-FR")}
+          </Text>
+        </View>
+
+        <Text style={[styles.title, { color: colors.textMain }]} numberOfLines={2}>
+          {item.provisionalOffence || "Information Judiciaire close"}
+        </Text>
+
+        <View style={[styles.footerRow, { borderTopColor: colors.border }]}>
+          <View style={[styles.badgeContainer, { backgroundColor: badge.color + "15" }]}>
+            <Ionicons name={badge.icon as any} size={14} color={badge.color} />
+            <Text style={[styles.badgeText, { color: badge.color }]}>{badge.label}</Text>
+          </View>
+          <View style={styles.actionLink}>
+            <Text style={[styles.actionText, { color: primaryColor }]}>Consulter l'acte</Text>
+            <Ionicons name="chevron-forward" size={16} color={primaryColor} />
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
   };
 
   return (
@@ -135,17 +152,17 @@ export default function JudgeDecisionsScreen({ navigation }: JudgeScreenProps<'J
           placeholderTextColor={colors.textSub}
           style={[styles.searchInput, { color: colors.textMain }]}
           value={search}
-          onChangeText={handleSearch}
+          onChangeText={setSearch}
         />
         {search.length > 0 && (
-          <TouchableOpacity onPress={() => handleSearch("")}>
+          <TouchableOpacity onPress={() => setSearch("")}>
             <Ionicons name="close-circle" size={20} color={colors.textSub} />
           </TouchableOpacity>
         )}
       </View>
 
       <View style={[styles.body, { backgroundColor: colors.bgMain }]}>
-        {loading && !refreshing ? (
+        {isLoading && !isRefetching ? (
           <View style={styles.center}>
             <ActivityIndicator size="large" color={primaryColor} />
             <Text style={[styles.loadingText, { color: colors.textSub }]}>Accès au coffre-fort numérique...</Text>
@@ -157,7 +174,7 @@ export default function JudgeDecisionsScreen({ navigation }: JudgeScreenProps<'J
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={primaryColor} />
+              <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={primaryColor} />
             }
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
@@ -167,39 +184,7 @@ export default function JudgeDecisionsScreen({ navigation }: JudgeScreenProps<'J
                 </Text>
               </View>
             }
-            renderItem={({ item }) => {
-              const badge = getVerdictBadge(item.verdict);
-              
-              return (
-                <TouchableOpacity
-                  activeOpacity={0.85}
-                  style={[styles.card, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
-                  onPress={() => navigation.navigate("JudgeCaseDetail", { caseId: item.id })}
-                >
-                  <View style={styles.cardHeader}>
-                    <Text style={[styles.caseId, { color: primaryColor }]}>MINUTE RG #{item.id}</Text>
-                    <Text style={[styles.date, { color: colors.textSub }]}>
-                      {new Date(item.updatedAt || item.filedAt).toLocaleDateString("fr-FR")}
-                    </Text>
-                  </View>
-
-                  <Text style={[styles.title, { color: colors.textMain }]} numberOfLines={2}>
-                    {item.provisionalOffence || "Information Judiciaire close"}
-                  </Text>
-
-                  <View style={[styles.footerRow, { borderTopColor: colors.border }]}>
-                    <View style={[styles.badgeContainer, { backgroundColor: badge.color + "15" }]}>
-                      <Ionicons name={badge.icon as any} size={14} color={badge.color} />
-                      <Text style={[styles.badgeText, { color: badge.color }]}>{badge.label}</Text>
-                    </View>
-                    <View style={styles.actionLink}>
-                      <Text style={[styles.actionText, { color: primaryColor }]}>Consulter l'acte</Text>
-                      <Ionicons name="chevron-forward" size={16} color={primaryColor} />
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              );
-            }}
+            renderItem={renderItem}
           />
         )}
       </View>

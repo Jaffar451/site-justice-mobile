@@ -15,7 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 // ✅ 1. Imports Architecture
 import { useAuthStore } from "../../stores/useAuthStore";
-import { useAppTheme } from "../../theme/AppThemeProvider"; // ✅ Hook dynamique
+import { useAppTheme } from "../../theme/AppThemeProvider";
 import { JudgeScreenProps } from "../../types/navigation";
 
 // Composants
@@ -28,7 +28,7 @@ import { updateDecision } from "../../services/decision.service";
 
 type AssetType = "MONEY" | "VEHICLE" | "WEAPON" | "DRUGS" | "OTHER";
 
-interface ConfiscatedItem {
+export interface ConfiscatedItem {
   id: string;
   description: string;
   type: AssetType;
@@ -41,8 +41,10 @@ export default function JudgeConfiscationScreen({ route, navigation }: JudgeScre
   const primaryColor = theme.colors.primary;
   const { user } = useAuthStore();
   
-  const params = route.params as any;
-  const { caseId, decisionId } = params || { caseId: "N/A", decisionId: null };
+  // Sécurisation des paramètres
+  const params = route.params as { caseId: number; decisionId?: number } | undefined;
+  const caseId = params?.caseId || "N/A";
+  const decisionId = params?.decisionId;
 
   const [itemDesc, setItemDesc] = useState("");
   const [selectedType, setSelectedType] = useState<AssetType>("OTHER");
@@ -58,7 +60,7 @@ export default function JudgeConfiscationScreen({ route, navigation }: JudgeScre
     textMain: isDark ? "#FFFFFF" : "#1E293B",
     textSub: isDark ? "#94A3B8" : "#64748B",
     border: isDark ? "#334155" : "#E2E8F0",
-    inputBg: isDark ? "#0F172A" : "#FFFFFF",
+    inputBg: isDark ? "#1E293B" : "#FFFFFF",
     formBg: isDark ? "#1E293B" : "#F8FAFC",
   };
 
@@ -88,12 +90,16 @@ export default function JudgeConfiscationScreen({ route, navigation }: JudgeScre
       return;
     }
 
+    if (!decisionId) {
+        Alert.alert("Erreur", "Aucune décision associée à ce dossier.");
+        return;
+    }
+
     const title = "Signer l'Ordonnance";
     const msg = `Vous allez statuer sur ${items.length} scellé(s). Confirmer ?`;
 
     if (Platform.OS === 'web') {
-        const confirm = window.confirm(`${title} : ${msg}`);
-        if (confirm) executeFinalize();
+        if (window.confirm(`${title} : ${msg}`)) executeFinalize();
     } else {
         Alert.alert(title, msg, [
           { text: "Réviser", style: "cancel" },
@@ -110,11 +116,17 @@ export default function JudgeConfiscationScreen({ route, navigation }: JudgeScre
         confiscationDate: new Date().toISOString(),
         judgeSignature: `SIG-${user?.id}-${Date.now()}`,
       };
-      await updateDecision(decisionId, payload as any);
       
-      if (Platform.OS === 'web') window.alert("✅ Ordonnance signée numériquement.");
+      // Appel API réel
+      await updateDecision(decisionId!, payload);
+      
+      const successMsg = "Ordonnance de confiscation signée numériquement.";
+      if (Platform.OS === 'web') window.alert(`✅ ${successMsg}`);
+      else Alert.alert("Succès", successMsg);
+      
       navigation.goBack();
-    } catch (error) {
+    } catch (error: any) {
+      console.error(error);
       Alert.alert("Erreur", "Échec de l'enregistrement de l'ordonnance.");
     } finally {
       setLoading(false);
@@ -149,7 +161,7 @@ export default function JudgeConfiscationScreen({ route, navigation }: JudgeScre
             Information Judiciaire : RG #{caseId}
           </Text>
           <Text style={[styles.infoSub, { color: colors.textSub }]}>
-            Magistrat Signataire : Juge {user?.lastname}
+            Magistrat Signataire : Juge {user?.lastname?.toUpperCase()}
           </Text>
         </View>
 

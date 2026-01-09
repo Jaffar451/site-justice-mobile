@@ -15,9 +15,9 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-// ✅ 1. Imports Architecture
+// ✅ 1. Imports Architecture Alignés
 import { useAuthStore } from "../../stores/useAuthStore";
-import { useAppTheme } from "../../theme/AppThemeProvider"; // ✅ Hook dynamique
+import { useAppTheme } from "../../theme/AppThemeProvider";
 import { JudgeScreenProps } from "../../types/navigation";
 
 // Composants
@@ -28,19 +28,20 @@ import SmartFooter from "../../components/layout/SmartFooter";
 // Services
 import { updateComplaint } from "../../services/complaint.service";
 
-export default function JudgeProsecutionScreen({ route, navigation }: JudgeScreenProps<'JudgeCaseDetail'>) {
+export default function JudgeProsecutionScreen({ route, navigation }: JudgeScreenProps<'JudgeProsecution'>) {
   // ✅ 2. Thème Dynamique & Auth
   const { theme, isDark } = useAppTheme();
   const primaryColor = theme.colors.primary;
   const { user } = useAuthStore();
   
-  const params = route.params as any;
-  const { caseId, personName } = params || { caseId: 0, personName: "Le Prévenu" };
+  // Récupération sécurisée des paramètres
+  const params = route.params as { caseId: number; personName?: string };
+  const { caseId, personName = "Le Prévenu" } = params || { caseId: 0 };
 
   const [charges, setCharges] = useState("");
   const [legalArticles, setLegalArticles] = useState("");
   const [observations, setObservations] = useState("");
-  const [isFelony, setIsFelony] = useState(false); 
+  const [isFelony, setIsFelony] = useState(false); // Crime (true) vs Délit (false)
   const [loading, setLoading] = useState(false);
 
   // 🎨 PALETTE DYNAMIQUE
@@ -52,7 +53,7 @@ export default function JudgeProsecutionScreen({ route, navigation }: JudgeScree
     border: isDark ? "#334155" : "#E2E8F0",
     inputBg: isDark ? "#0F172A" : "#FFFFFF",
     headerBg: isDark ? "#1E293B" : "#F8FAFC",
-    felonyColor: "#EF4444",
+    felonyColor: "#EF4444", // Rouge pour les Crimes
   };
 
   const handleConfirmProsecution = async () => {
@@ -66,8 +67,7 @@ export default function JudgeProsecutionScreen({ route, navigation }: JudgeScree
     const msg = `Clore l'instruction et renvoyer ${personName} devant la juridiction ? \n\nNature : ${isFelony ? "CRIMINELLE" : "DÉLICTUELLE"}`;
 
     if (Platform.OS === 'web') {
-        const confirm = window.confirm(`${title} : ${msg}`);
-        if (confirm) submitProsecution();
+        if (window.confirm(`${title} : ${msg}`)) submitProsecution();
     } else {
         Alert.alert(title, msg, [
           { text: "Réviser", style: "cancel" },
@@ -91,8 +91,11 @@ export default function JudgeProsecutionScreen({ route, navigation }: JudgeScree
         }
       } as any);
       
-      if (Platform.OS === 'web') window.alert("✅ Dossier Transmis au rôle pour jugement.");
-      navigation.navigate("JudgeHome");
+      const successMsg = "Dossier Transmis au rôle pour jugement.";
+      if (Platform.OS === 'web') window.alert(`✅ ${successMsg}`);
+      
+      // Retour au tableau de bord
+      navigation.navigate("JudgeDashboard");
     } catch (error) {
       Alert.alert("Erreur", "L'acte n'a pas pu être enregistré.");
     } finally {

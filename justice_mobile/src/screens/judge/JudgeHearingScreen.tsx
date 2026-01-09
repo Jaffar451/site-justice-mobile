@@ -16,7 +16,7 @@ import { useQuery } from "@tanstack/react-query";
 
 // ✅ 1. Imports Architecture
 import { useAuthStore } from "../../stores/useAuthStore";
-import { useAppTheme } from "../../theme/AppThemeProvider"; // ✅ Hook dynamique
+import { useAppTheme } from "../../theme/AppThemeProvider";
 import { JudgeScreenProps } from "../../types/navigation";
 
 // Composants
@@ -27,25 +27,25 @@ import SmartFooter from "../../components/layout/SmartFooter";
 // Services
 import { getAllHearings } from "../../services/hearing.service";
 
+// ✅ CORRECTION 2 : Mise à jour de l'interface locale pour correspondre au service
 interface Hearing {
   id: number;
   caseId: number;
   date: string;
   room: string;
-  type: "preliminary" | "trial" | "verdict";
+  // On autorise 'string' générique pour éviter les conflits si le backend envoie un autre type
+  type: "preliminary" | "trial" | "verdict" | string; 
   trackingCode?: string;
-  parties?: string; 
+  parties?: string; // ✅ Ajouté pour corriger l'erreur 2339
 }
 
 export default function JudgeHearingScreen({ navigation }: JudgeScreenProps<'JudgeCalendar'>) {
-  // ✅ 2. Thème Dynamique
   const { theme, isDark } = useAppTheme();
   const primaryColor = theme.colors.primary;
   
   const { user } = useAuthStore(); 
   const [filter, setFilter] = useState<"today" | "upcoming">("today");
 
-  // 🎨 PALETTE DYNAMIQUE
   const colors = {
     bgMain: isDark ? "#0F172A" : "#F8FAFC",
     bgCard: isDark ? "#1E293B" : "#FFFFFF",
@@ -59,7 +59,10 @@ export default function JudgeHearingScreen({ navigation }: JudgeScreenProps<'Jud
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["judge-hearings"],
-    queryFn: getAllHearings,
+    queryFn: async () => {
+      const res = await getAllHearings();
+      return res as Hearing[]; // Cast explicite pour la sécurité
+    },
   });
 
   useFocusEffect(
@@ -73,7 +76,7 @@ export default function JudgeHearingScreen({ navigation }: JudgeScreenProps<'Jud
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    return (data as Hearing[])
+    return data
       .filter(h => {
         const hDate = new Date(h.date);
         hDate.setHours(0, 0, 0, 0);
@@ -95,13 +98,17 @@ export default function JudgeHearingScreen({ navigation }: JudgeScreenProps<'Jud
         trial: { color: primaryColor, label: "PROCÈS", icon: "people-outline" },
         preliminary: { color: "#F59E0B", label: "INSTRUCTION", icon: "document-text-outline" }
     };
-    const currentType = typeStyles[item.type] || typeStyles.preliminary;
+
+    // ✅ CORRECTION 1 : Sécurisation de l'accès par clé (Error 7053)
+    // On force le type de la clé, et si elle n'existe pas, on prend le fallback
+    const styleKey = item.type as keyof typeof typeStyles;
+    const currentType = typeStyles[styleKey] || typeStyles.preliminary;
 
     return (
       <TouchableOpacity 
         activeOpacity={0.8}
         style={[styles.card, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
-        onPress={() => navigation.navigate("JudgeCaseDetail", { caseId: item.caseId })}
+        onPress={() => navigation.navigate("CaseDetail", { caseId: item.caseId })}
       >
         <View style={[styles.dateBox, { backgroundColor: colors.dateBox }]}>
           <Text style={[styles.dateDay, { color: primaryColor }]}>{dayStr}</Text>
@@ -116,6 +123,7 @@ export default function JudgeHearingScreen({ navigation }: JudgeScreenProps<'Jud
             </View>
           </View>
           
+          {/* ✅ Utilisation sécurisée de item.parties */}
           <Text style={[styles.partiesText, { color: colors.textSub }]} numberOfLines={1}>
              {item.parties || "Ministère Public C/ Inconnu"}
           </Text>
@@ -142,7 +150,6 @@ export default function JudgeHearingScreen({ navigation }: JudgeScreenProps<'Jud
       <StatusBar barStyle="light-content" />
       <AppHeader title="Rôle d'Audience" showMenu={true} />
 
-      {/* 🏛️ BANDEAU DU CABINET */}
       <View style={[styles.cabinetBanner, { backgroundColor: colors.bgCard, borderBottomColor: colors.border }]}>
           <View>
             <Text style={[styles.cabinetTitle, { color: colors.textMain }]}>
@@ -156,7 +163,6 @@ export default function JudgeHearingScreen({ navigation }: JudgeScreenProps<'Jud
       </View>
 
       <View style={{ flex: 1, backgroundColor: colors.bgMain }}>
-        {/* 📑 SELECTEUR SEGMENTÉ */}
         <View style={[styles.filterContainer, { backgroundColor: colors.segmentBg }]}>
             <TouchableOpacity 
             style={[styles.filterBtn, filter === "today" && { backgroundColor: colors.segmentActive }]}
@@ -239,5 +245,5 @@ const styles = StyleSheet.create({
   
   emptyContainer: { alignItems: "center", marginTop: 100, paddingHorizontal: 40 },
   emptyTitle: { fontSize: 18, fontWeight: '900', marginTop: 15 },
-  emptyText: { textAlign: 'center', fontSize: 14, fontWeight: '500', marginTop: 8 }
+  emptyText: { textAlign: 'center', fontSize: 14, fontWeight: '500', marginTop: 8 },
 });

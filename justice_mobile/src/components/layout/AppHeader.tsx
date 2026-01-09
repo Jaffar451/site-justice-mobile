@@ -1,3 +1,4 @@
+// PATH: src/components/layout/AppHeader.tsx
 import React, { useMemo } from "react";
 import { 
   View, 
@@ -39,9 +40,10 @@ const HIT_SLOP: Insets = { top: 15, bottom: 15, left: 15, right: 15 };
 const AppHeader = ({ 
   title, 
   showBack = false, 
-  onBack,                 
+  onBack,                
   showMenu = false,
   onMenuPress,            
+  showHelp = false,
   white = false,
   onProfilePress, 
   onHomePress,    
@@ -58,34 +60,38 @@ const AppHeader = ({
   const userRole = (user?.role || "citizen").toLowerCase();
   const unread = useNotificationStore((s) => s.list.filter((n) => !n.read).length);
 
-  // 🎨 Identité visuelle par corps d'État (Niger e-Justice)
+  // 🎨 Identité visuelle par corps d'État
   const roleStyles = useMemo(() => {
     switch (userRole) {
-      case "admin": 
-        return { main: "#1E293B", content: "#FFFFFF" }; // Gris Charbon Admin
+      case "admin": return { main: "#1E293B", content: "#FFFFFF" };
       case "officier_police": 
       case "commissaire": 
-      case "inspecteur":
-        return { main: "#1E3A8A", content: "#FFFFFF" }; // Bleu Police
+      case "inspecteur": return { main: "#1E3A8A", content: "#FFFFFF" };
       case "opj_gendarme":
-      case "gendarme":
-        return { main: "#065F46", content: "#FFFFFF" }; // Vert Gendarmerie
+      case "gendarme": return { main: "#065F46", content: "#FFFFFF" };
       case "judge":
       case "prosecutor":
-      case "greffier": 
-        return { main: "#7C2D12", content: "#FFFFFF" }; // Bordeaux Justice
+      case "greffier": return { main: "#7C2D12", content: "#FFFFFF" };
       case "bailiff": 
-      case "lawyer":
-        return { main: "#4338CA", content: "#FFFFFF" }; // Indigo Auxiliaires
-      default: 
-        return { main: "#0891B2", content: "#FFFFFF" }; // Cyan Citoyen
+      case "lawyer": return { main: "#4338CA", content: "#FFFFFF" };
+      default: return { main: "#0891B2", content: "#FFFFFF" };
     }
   }, [userRole]);
 
   const headerBg = white ? (isDark ? "#121212" : "#FFFFFF") : roleStyles.main;
   const iconAndTextColor = white ? (isDark ? "#FFFFFF" : theme.colors.text) : roleStyles.content;
 
-  // 🏠 Routage Home intelligent pour éviter les erreurs de Navigator
+  // ✅ SÉCURITÉ MENU LATÉRAL (Le correctif est ici)
+  const handleMenuAction = () => {
+    if (onMenuPress) return onMenuPress();
+    try {
+      // Tente d'ouvrir le menu, si pas de Drawer, ne fait rien (évite le crash)
+      navigation.dispatch(DrawerActions.toggleDrawer());
+    } catch (error) {
+      console.log("⚠️ Menu latéral non disponible sur cet écran");
+    }
+  };
+
   const handleHomeAction = () => {
     if (onHomePress) return onHomePress();
     
@@ -93,16 +99,23 @@ const AppHeader = ({
       admin: "AdminHome", 
       officier_police: "PoliceHome",
       inspecteur: "PoliceHome",
-      commissaire: "CommissaireDashboard",
+      commissaire: "CommissaireDashboard", 
+      prosecutor: "ProsecutorDashboard", 
       judge: "JudgeHome", 
-      prosecutor: "ProsecutorHome",
       greffier: "ClerkHome",
-      bailiff: "BailiffHome",
+      bailiff: "BailiffMissions",
+      lawyer: "LawyerTracking",
       citizen: "CitizenHome",
-      lawyer: "LawyerTracking"
     };
     
-    navigation.navigate(roleRoutes[userRole] || "CitizenHome");
+    const target = roleRoutes[userRole] || "CitizenHome";
+    
+    try {
+        navigation.navigate(target);
+    } catch (e) {
+        console.warn(`Route ${target} introuvable.`);
+        navigation.navigate("Profile");
+    }
   };
 
   const handleGoBack = () => {
@@ -111,19 +124,13 @@ const AppHeader = ({
   };
 
   const handleSos = () => {
-    const msg = "URGENCE SOS\n\nVoulez-vous envoyer une alerte d'urgence immédiate aux forces de l'ordre ?";
+    const msg = "URGENCE SOS\n\nVoulez-vous envoyer une alerte d'urgence immédiate ?";
     if (Platform.OS === 'web') {
-      if (window.confirm(msg)) {
-        window.alert("🚨 ALERTE ENVOYÉE : Géolocalisation transmise au PC Police.");
-      }
+      if (window.confirm(msg)) window.alert("🚨 ALERTE ENVOYÉE");
     } else {
       Alert.alert("URGENCE SOS", msg, [
           { text: "Annuler", style: "cancel" },
-          { 
-            text: "ENVOYER", 
-            style: "destructive", 
-            onPress: () => Alert.alert("🚨 ALERTE ENVOYÉE", "Géolocalisation transmise au PC Police.") 
-          }
+          { text: "ENVOYER", style: "destructive", onPress: () => Alert.alert("🚨 ALERTE ENVOYÉE") }
         ]
       );
     }
@@ -134,11 +141,12 @@ const AppHeader = ({
       styles.container, 
       { 
         backgroundColor: headerBg,
-        paddingTop: insets.top, 
+        paddingTop: insets.top, // Gère la StatusBar transparente
         borderBottomWidth: white ? 1 : 0,
         borderBottomColor: isDark ? "#222" : "#E2E8F0",
       },
-      Platform.OS === 'web' && { top: 0, position: 'fixed' as any, left: 0, right: 0 }
+      // Fix pour le web sticky header
+      Platform.OS === 'web' && { top: 0, position: 'sticky' as any, zIndex: 999 } 
     ]}>
       <StatusBar 
         barStyle={white && !isDark ? "dark-content" : "light-content"} 
@@ -154,20 +162,23 @@ const AppHeader = ({
               <Ionicons name="arrow-back" size={24} color={iconAndTextColor} />
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity 
-              onPress={() => onMenuPress ? onMenuPress() : navigation.dispatch(DrawerActions.toggleDrawer())} 
-              style={styles.iconButton} 
-              hitSlop={HIT_SLOP}
-            >
-              <Ionicons name="menu-sharp" size={28} color={iconAndTextColor} />
-            </TouchableOpacity>
+            // Affiche le menu uniquement si showMenu est true
+            showMenu && (
+                <TouchableOpacity 
+                onPress={handleMenuAction} 
+                style={styles.iconButton} 
+                hitSlop={HIT_SLOP}
+                >
+                <Ionicons name="menu-sharp" size={28} color={iconAndTextColor} />
+                </TouchableOpacity>
+            )
           )}
-          <Text numberOfLines={1} style={[styles.title, { color: iconAndTextColor, marginLeft: 8 }]}>
+          <Text numberOfLines={1} style={[styles.title, { color: iconAndTextColor, marginLeft: showMenu || showBack ? 0 : 8 }]}>
             {title}
           </Text>
         </View>
 
-        {/* DROITE : SOS, Home, Settings, Notifs, Profile */}
+        {/* DROITE : Actions contextuelles */}
         <View style={styles.rightContainer}>
           
           {showSos && (
@@ -175,6 +186,12 @@ const AppHeader = ({
               <Ionicons name="alert-circle" size={18} color="#FFF" />
               <Text style={styles.sosText}>SOS</Text>
             </TouchableOpacity>
+          )}
+
+          {showHelp && (
+             <TouchableOpacity onPress={() => navigation.navigate("Support")} style={styles.iconButton} hitSlop={HIT_SLOP}>
+               <Ionicons name="help-circle-outline" size={22} color={iconAndTextColor} />
+             </TouchableOpacity>
           )}
 
           {rightIcon && (
@@ -187,6 +204,7 @@ const AppHeader = ({
             <Ionicons name="home" size={22} color={iconAndTextColor} />
           </TouchableOpacity>
 
+          {/* Settings Admin ou User */}
           <TouchableOpacity 
             onPress={() => navigation.navigate(userRole === 'admin' ? "AdminSettings" : "Settings")} 
             style={styles.iconButton} 
@@ -195,14 +213,17 @@ const AppHeader = ({
             <Ionicons name="settings-outline" size={22} color={iconAndTextColor} />
           </TouchableOpacity>
 
-          {route.name !== "Notifications" && (
+          {/* Notifs (caché si déjà sur l'écran notif) */}
+          {route.name !== "Notifications" && route.name !== "AdminNotifications" && (
               <TouchableOpacity 
                 onPress={() => navigation.navigate(userRole === 'admin' ? "AdminNotifications" : "Notifications")} 
                 style={styles.iconButton} 
                 hitSlop={HIT_SLOP}
               >
-                  <Ionicons name="notifications" size={22} color={iconAndTextColor} />
-                  {unread > 0 && <NotificationBadge count={unread} />}
+                  <View>
+                    <Ionicons name="notifications" size={22} color={iconAndTextColor} />
+                    {unread > 0 && <NotificationBadge count={unread} />}
+                  </View>
               </TouchableOpacity>
           )}
 
@@ -254,10 +275,6 @@ const styles = StyleSheet.create({
     marginRight: 4,
     gap: 3,
     elevation: 3,
-    shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    shadowOffset: { width: 0, height: 1 }
   },
   sosText: {
     color: "#FFF",

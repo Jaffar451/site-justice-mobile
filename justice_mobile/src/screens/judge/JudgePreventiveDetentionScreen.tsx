@@ -18,7 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 // ✅ 1. Imports Architecture Alignés
 import { useAuthStore } from "../../stores/useAuthStore";
-import { useAppTheme } from "../../theme/AppThemeProvider"; // ✅ Hook dynamique
+import { useAppTheme } from "../../theme/AppThemeProvider";
 import { JudgeScreenProps } from "../../types/navigation";
 
 // Composants
@@ -39,7 +39,7 @@ const PRISONS = [
   { id: "ouallam", name: "Maison d'Arrêt de Ouallam" },
 ];
 
-export default function JudgePreventiveDetentionScreen({ route, navigation }: JudgeScreenProps<'JudgeCaseDetail'>) {
+export default function JudgePreventiveDetentionScreen({ route, navigation }: JudgeScreenProps<'JudgePreventiveDetention'>) {
   // ✅ 2. Thème Dynamique & Auth
   const { theme, isDark } = useAppTheme();
   const primaryColor = theme.colors.primary;
@@ -61,7 +61,7 @@ export default function JudgePreventiveDetentionScreen({ route, navigation }: Ju
     textMain: isDark ? "#FFFFFF" : "#1E293B",
     textSub: isDark ? "#94A3B8" : "#64748B",
     border: isDark ? "#334155" : "#E2E8F0",
-    inputBg: isDark ? "#0F172A" : "#FFFFFF",
+    inputBg: isDark ? "#1E293B" : "#FFFFFF",
     alertBg: isDark ? "#450A0A" : "#FEF2F2",
     alertText: isDark ? "#FCA5A5" : "#EF4444",
   };
@@ -77,8 +77,7 @@ export default function JudgePreventiveDetentionScreen({ route, navigation }: Ju
     const msg = `Vous ordonnez l'incarcération de ${personName} à la ${selectedPrison.name}. Confirmer ?`;
 
     if (Platform.OS === 'web') {
-        const confirm = window.confirm(`${title} : ${msg}`);
-        if (confirm) executeDetention();
+        if (window.confirm(`${title} : ${msg}`)) executeDetention();
     } else {
         Alert.alert(title, msg, [
           { text: "Réviser", style: "cancel" },
@@ -90,6 +89,7 @@ export default function JudgePreventiveDetentionScreen({ route, navigation }: Ju
   const executeDetention = async () => {
     setLoading(true);
     try {
+      // Mise à jour des détails de détention
       await updateComplaint(caseId, {
         detentionDetails: {
           prisonId: selectedPrison?.id,
@@ -99,12 +99,15 @@ export default function JudgePreventiveDetentionScreen({ route, navigation }: Ju
           issuedAt: new Date().toISOString(),
           judgeSignature: `JUDGE-${user?.id}-${Date.now()}`
         }
-      } as any);
+      } as any); // Cast 'as any' temporaire si l'interface n'est pas encore à jour
 
-      await updateComplaintStatus(caseId, "instruction");
+      // Mise à jour du statut global du dossier
+      await updateComplaintStatus(caseId, "instruction"); // Ou "detention_provisoire"
 
       if (Platform.OS === 'web') window.alert("✅ Mandat de dépôt signé.");
-      navigation.navigate("JudgeHome");
+      
+      // Retour au cabinet
+      navigation.navigate("JudgeDashboard"); 
     } catch (error) {
       Alert.alert("Erreur Système", "Échec de la signature numérique.");
     } finally {

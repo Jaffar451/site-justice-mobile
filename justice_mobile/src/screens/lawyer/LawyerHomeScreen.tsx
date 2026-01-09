@@ -1,4 +1,4 @@
-// PATH: src/screens/prosecutor/ProsecutorHomeScreen.tsx
+// PATH: src/screens/lawyer/LawyerHomeScreen.tsx
 import React, { useState, useEffect, useCallback } from "react";
 import { 
   View, 
@@ -8,7 +8,6 @@ import {
   ScrollView, 
   Dimensions, 
   StatusBar, 
-  Alert, 
   ActivityIndicator,
   RefreshControl 
 } from "react-native";
@@ -20,8 +19,8 @@ import { useFocusEffect } from "@react-navigation/native";
 // ✅ Architecture
 import { useAuthStore } from "../../stores/useAuthStore";
 import { useAppTheme } from "../../theme/AppThemeProvider";
-import { ProsecutorScreenProps } from "../../types/navigation";
-import { getProsecutorStats } from "../../services/stats.service";
+import { LawyerScreenProps } from "../../types/navigation";
+import { getProsecutorStats } from "../../services/stats.service"; // On réutilise la logique de comptage
 
 // Composants
 import ScreenContainer from "../../components/layout/ScreenContainer";
@@ -32,12 +31,13 @@ const { width } = Dimensions.get("window");
 const gap = 12;
 const itemWidth = (width - 44) / 2;
 
-export default function ProsecutorHomeScreen({ navigation }: ProsecutorScreenProps<'ProsecutorDashboard'>) {
+export default function LawyerHomeScreen({ navigation }: LawyerScreenProps<'LawyerHome'>) {
   const { theme, isDark } = useAppTheme();
   const { user } = useAuthStore();
   
-  // 🔴 Bordeaux Parquet (Identité visuelle de la magistrature debout au Niger)
-  const primaryColor = "#7C2D12"; 
+  // 🏅 Palette Avocat (Or / Navy)
+  const primaryColor = isDark ? "#D4AF37" : "#1E293B"; 
+  const accentColor = "#D4AF37"; // Gold
 
   // 🕒 HORLOGE TEMPS RÉEL
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -47,9 +47,9 @@ export default function ProsecutorHomeScreen({ navigation }: ProsecutorScreenPro
     return () => clearInterval(timer);
   }, []);
 
-  // 🔄 RÉCUPÉRATION DES STATISTIQUES (React Query)
+  // 🔄 RÉCUPÉRATION DES STATS DU CABINET
   const { data: stats, isLoading, refetch, isRefetching } = useQuery({
-    queryKey: ["prosecutor-stats"],
+    queryKey: ["lawyer-stats"],
     queryFn: getProsecutorStats,
   });
 
@@ -72,36 +72,36 @@ export default function ProsecutorHomeScreen({ navigation }: ProsecutorScreenPro
   };
 
   const services = [
-    { id: "cases", title: "Dossiers", icon: "folder-open", color: primaryColor, route: "ProsecutorCaseList", desc: "Traiter les PV" },
-    { id: "calendar", title: "Audiences", icon: "calendar", color: "#EA580C", route: "ProsecutorCalendar", desc: "Rôle du jour" },
-    { id: "warrants", title: "Mandats", icon: "shield-checkmark", color: "#6366F1", route: "WarrantSearch", desc: "Écrous & Recherche" },
-    { id: "stats", title: "Statistiques", icon: "bar-chart", color: "#059669", route: "ProsecutorCaseList", desc: "Volume d'activité" }
+    { id: "portfolio", title: "Mon Répertoire", icon: "briefcase", color: primaryColor, route: "LawyerCaseList", desc: "Dossiers constitués" },
+    { id: "agenda", title: "Mon Agenda", icon: "calendar", color: "#EA580C", route: "LawyerCalendar", desc: "Audiences fixées" },
+    { id: "tracking", title: "Suivi RPVA", icon: "sync", color: "#6366F1", route: "LawyerTracking", desc: "État des procédures" },
+    { id: "notifs", title: "Notifications", icon: "notifications", color: accentColor, route: "Notifications", desc: "Alertes du Greffe" }
   ];
 
   return (
     <ScreenContainer withPadding={false}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-      <AppHeader title="Espace Procureur" showMenu={true} />
+      <AppHeader title="Cabinet d'Avocat" showMenu={true} />
 
       <ScrollView 
-        style={[styles.scrollView, { backgroundColor: colors.bgMain }]}
+        style={{ backgroundColor: colors.bgMain }}
         contentContainerStyle={styles.container} 
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={primaryColor} />
+          <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={accentColor} />
         }
       >
-        {/* 👋 BIENVENUE & DATE */}
+        {/* 👋 BIENVENUE */}
         <View style={styles.welcomeSection}>
           <View style={styles.headerTop}>
             <View style={{ flex: 1 }}>
               <Text style={[styles.welcomeSub, { color: colors.textSub }]}>{dateFull}</Text>
               <Text style={[styles.welcomeTitle, { color: colors.textMain }]}>
-                M. le Procureur <Text style={{ color: primaryColor }}>{user?.lastname || ""}</Text>
+                Maître <Text style={{ color: accentColor }}>{user?.lastname || ""}</Text>
               </Text>
             </View>
             <LinearGradient 
-              colors={[primaryColor, '#991B1B']} 
+              colors={[primaryColor, isDark ? '#000' : '#334155']} 
               style={styles.clockBadge}
             >
               <Text style={styles.clockText}>{timeString}</Text>
@@ -109,46 +109,46 @@ export default function ProsecutorHomeScreen({ navigation }: ProsecutorScreenPro
           </View>
         </View>
 
-        {/* 🏛️ RÉCAPITULATIF D'ACTIVITÉ */}
+        {/* 🏛️ TABLEAU DE BORD (CARTE MAITRE) */}
         <TouchableOpacity 
           activeOpacity={0.9}
           style={[styles.heroCard, { backgroundColor: primaryColor }]}
-          onPress={() => navigation.navigate("ProsecutorCaseList" as any)}
+          onPress={() => navigation.navigate("LawyerCaseList")}
         >
           <View style={{ zIndex: 2, flex: 1 }}>
-            <Text style={styles.heroTitle}>Activité du Parquet</Text>
+            <Text style={styles.heroTitle}>Activité du Cabinet</Text>
             {isLoading ? (
-                <ActivityIndicator color="#FFF" style={{ alignSelf: 'flex-start', marginVertical: 20 }} />
+                <ActivityIndicator color={accentColor} style={{ alignSelf: 'flex-start', marginVertical: 20 }} />
             ) : (
                 <View style={styles.statsRow}>
                     <View style={styles.statItem}>
-                      <Text style={styles.statVal}>{stats?.nouveaux || 0}</Text>
-                      <Text style={styles.statLbl}>NOUVEAUX</Text>
+                      <Text style={[styles.statVal, { color: accentColor }]}>{stats?.total || 0}</Text>
+                      <Text style={styles.statLbl}>DOSSIERS</Text>
                     </View>
                     <View style={styles.statDivider} />
                     <View style={styles.statItem}>
-                      <Text style={styles.statVal}>{stats?.enCours || 0}</Text>
-                      <Text style={styles.statLbl}>EN COURS</Text>
+                      <Text style={[styles.statVal, { color: accentColor }]}>04</Text>
+                      <Text style={styles.statLbl}>AUDIENCES</Text>
                     </View>
                     <View style={styles.statDivider} />
                     <View style={styles.statItem}>
-                      <Text style={styles.statVal}>{stats?.urgences || 0}</Text>
-                      <Text style={styles.statLbl}>URGENCES</Text>
+                      <Text style={[styles.statVal, { color: accentColor }]}>{stats?.urgences || 0}</Text>
+                      <Text style={styles.statLbl}>DÉLAIS</Text>
                     </View>
                 </View>
             )}
             <View style={styles.heroBtn}>
-              <Text style={[styles.heroBtnText, { color: primaryColor }]}>RÉORIENTER LES DOSSIERS</Text>
+              <Text style={[styles.heroBtnText, { color: primaryColor }]}>CONSULTER LE RÉPERTOIRE</Text>
               <Ionicons name="arrow-forward" size={16} color={primaryColor} />
             </View>
           </View>
           <View style={styles.heroIconWrapper}>
-            <Ionicons name="scale" size={140} color="rgba(255,255,255,0.1)" />
+            <Ionicons name="ribbon" size={140} color="rgba(212,175,55,0.1)" />
           </View>
         </TouchableOpacity>
 
-        {/* 🛠️ OUTILS DE GESTION */}
-        <Text style={[styles.sectionTitle, { color: colors.textSub }]}>Outils de Gestion</Text>
+        {/* 🛠️ SERVICES MÉTIERS */}
+        <Text style={[styles.sectionTitle, { color: colors.textSub }]}>Gestion du Cabinet</Text>
         <View style={styles.gridContainer}>
           {services.map((s) => (
             <TouchableOpacity 
@@ -166,17 +166,17 @@ export default function ProsecutorHomeScreen({ navigation }: ProsecutorScreenPro
           ))}
         </View>
 
-        {/* 🚨 ALERTES DÉLAIS */}
-        <View style={[styles.infoCard, { borderColor: '#EF4444' }]}>
+        {/* 🚨 ALERTES PROCÉDURALES */}
+        <View style={[styles.infoCard, { borderColor: isDark ? colors.border : '#E2E8F0' }]}>
           <LinearGradient 
-            colors={isDark ? ['#450A0A', '#7F1D1D'] : ['#FEF2F2', '#FEE2E2']} 
+            colors={isDark ? ['#1E293B', '#0F172A'] : ['#F8FAFC', '#F1F5F9']} 
             style={styles.infoGradient}
           >
-            <Ionicons name="alert-circle" size={24} color="#EF4444" />
+            <Ionicons name="time" size={24} color={accentColor} />
             <View style={{ flex: 1 }}>
-              <Text style={styles.infoTitle}>Surveillance des Délais</Text>
-              <Text style={[styles.infoText, { color: isDark ? "#FCA5A5" : "#991B1B" }]}>
-                {stats?.clotures ? `Action requise : ${stats.clotures} dossiers en attente.` : "Aucune alerte de délai aujourd'hui."}
+              <Text style={[styles.infoTitle, { color: accentColor }]}>Délais de Conclusions</Text>
+              <Text style={[styles.infoText, { color: colors.textSub }]}>
+                Affaire RG #452 : Vos conclusions en défense sont attendues avant le 12/01/2026.
               </Text>
             </View>
           </LinearGradient>
@@ -190,7 +190,6 @@ export default function ProsecutorHomeScreen({ navigation }: ProsecutorScreenPro
 }
 
 const styles = StyleSheet.create({
-  scrollView: { flex: 1 },
   container: { padding: 16, paddingTop: 10 },
   welcomeSection: { marginBottom: 25 },
   headerTop: { flexDirection: 'row', alignItems: 'center' },
@@ -202,7 +201,7 @@ const styles = StyleSheet.create({
   heroTitle: { color: "#FFF", fontSize: 18, fontWeight: "900", marginBottom: 20, textTransform: 'uppercase' },
   statsRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 25 },
   statItem: { alignItems: 'center', flex: 1 },
-  statVal: { color: '#FFF', fontSize: 26, fontWeight: '900' },
+  statVal: { fontSize: 26, fontWeight: '900' },
   statLbl: { color: 'rgba(255,255,255,0.7)', fontSize: 9, fontWeight: '800' },
   statDivider: { width: 1, height: 35, backgroundColor: 'rgba(255,255,255,0.15)' },
   heroBtn: { backgroundColor: "#FFF", alignSelf: "flex-start", paddingHorizontal: 16, paddingVertical: 12, borderRadius: 14, flexDirection: "row", alignItems: "center", gap: 8 },
@@ -216,7 +215,6 @@ const styles = StyleSheet.create({
   gridDesc: { fontSize: 11, fontWeight: "600" },
   infoCard: { marginTop: 25, borderRadius: 24, overflow: 'hidden', borderWidth: 1 },
   infoGradient: { padding: 22, flexDirection: "row", gap: 15, alignItems: "center" },
-  // ✅ STYLES CORRIGÉS
-  infoTitle: { fontWeight: "900", fontSize: 14, marginBottom: 4, color: "#EF4444" },
+  infoTitle: { fontWeight: "900", fontSize: 14, marginBottom: 4 },
   infoText: { fontSize: 12, fontWeight: "500", lineHeight: 18 },
 });

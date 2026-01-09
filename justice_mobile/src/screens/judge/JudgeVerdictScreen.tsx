@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 // ✅ 1. Imports Architecture Alignés
 import { useAuthStore } from "../../stores/useAuthStore";
-import { useAppTheme } from "../../theme/AppThemeProvider"; // ✅ Hook dynamique
+import { useAppTheme } from "../../theme/AppThemeProvider";
 import { JudgeScreenProps } from "../../types/navigation";
 
 // Composants
@@ -27,7 +27,8 @@ import SmartFooter from '../../components/layout/SmartFooter';
 // Services
 import { updateComplaint } from '../../services/complaint.service';
 
-export default function JudgeVerdictScreen({ route, navigation }: JudgeScreenProps<'JudgeCaseDetail'>) {
+// ✅ Correction du typage de la route
+export default function JudgeVerdictScreen({ route, navigation }: JudgeScreenProps<'JudgeVerdict'>) {
   // ✅ 2. Thème Dynamique & Auth
   const { theme, isDark } = useAppTheme();
   const primaryColor = theme.colors.primary;
@@ -63,8 +64,7 @@ export default function JudgeVerdictScreen({ route, navigation }: JudgeScreenPro
     const msg = "Le prononcé est irréversible et immédiatement exécutoire. Confirmez-vous la signature ?";
 
     if (Platform.OS === 'web') {
-        const confirm = window.confirm(`${title} : ${msg}`);
-        if (confirm) executeSubmit();
+        if (window.confirm(`${title} : ${msg}`)) executeSubmit();
     } else {
         Alert.alert(title, msg, [
           { text: "Réviser", style: "cancel" },
@@ -91,6 +91,8 @@ export default function JudgeVerdictScreen({ route, navigation }: JudgeScreenPro
       } as any);
 
       if (Platform.OS === 'web') window.alert("✅ Justice Rendue : Verdict scellé numériquement.");
+      
+      // Retour au dashboard ou à la liste
       navigation.popToTop();
     } catch (error) {
       Alert.alert("Erreur", "Échec de l'enregistrement sur le registre sécurisé.");

@@ -15,7 +15,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 
 // ✅ 1. Imports Architecture
-import { useAppTheme } from '../../theme/AppThemeProvider'; // ✅ Hook dynamique
+import { useAppTheme } from '../../theme/AppThemeProvider'; 
 import { useAuthStore } from "../../stores/useAuthStore";
 
 // Composants
@@ -43,6 +43,7 @@ const JudgeCaseDetailScreen = () => {
   const { theme, isDark } = useAppTheme();
   const primaryColor = theme.colors.primary;
   
+  // Sécurisation des paramètres
   const route = useRoute<any>(); 
   const caseId = route.params?.id || route.params?.caseId;
   
@@ -74,6 +75,7 @@ const JudgeCaseDetailScreen = () => {
       const data = await getComplaintById(caseId);
       setComplaint(data as ExtendedCase);
     } catch (err: any) {
+      console.error(err);
       Alert.alert("Accès Refusé", "Impossible de charger les pièces du dossier.");
       navigation.goBack();
     } finally {
@@ -83,12 +85,15 @@ const JudgeCaseDetailScreen = () => {
 
   useEffect(() => { fetchData(); }, [caseId]);
 
+  // URL QR Code sécurisée
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`https://justice.ne/verify/${complaint?.trackingCode || complaint?.id}`)}`;
 
   if (isLoading) return (
     <ScreenContainer withPadding={false}>
       <AppHeader title="Examen du dossier" showBack />
-      <View style={[styles.center, { backgroundColor: colors.bgMain }]}><ActivityIndicator size="large" color={primaryColor} /></View>
+      <View style={[styles.center, { backgroundColor: colors.bgMain }]}>
+          <ActivityIndicator size="large" color={primaryColor} />
+      </View>
     </ScreenContainer>
   );
 

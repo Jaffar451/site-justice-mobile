@@ -16,7 +16,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 
 // ✅ 1. Imports Architecture
-import { useAppTheme } from "../../theme/AppThemeProvider"; // ✅ Hook dynamique
+import { useAppTheme } from "../../theme/AppThemeProvider";
 import { JudgeScreenProps } from "../../types/navigation";
 import { useAuthStore } from "../../stores/useAuthStore";
 
@@ -25,17 +25,18 @@ import ScreenContainer from "../../components/layout/ScreenContainer";
 import AppHeader from "../../components/layout/AppHeader";
 import SmartFooter from "../../components/layout/SmartFooter";
 
-// Simulation de service
-const registerAppeal = async (data: any) => {
-  return new Promise((resolve) => setTimeout(resolve, 1500));
-};
+// ✅ Import du Service Réel
+import { registerAppeal } from "../../services/appeal.service";
 
 export default function JudgeAppealScreen({ route, navigation }: JudgeScreenProps<'JudgeAppeal'>) {
   // ✅ 2. Thème Dynamique
   const { theme, isDark } = useAppTheme();
   const { user } = useAuthStore();
   
-  const { caseId, personName = "Le Prévenu" } = route.params;
+  // Sécurisation des paramètres
+  const params = route.params as { caseId: number; personName?: string };
+  const caseId = params?.caseId;
+  const personName = params?.personName || "Le Prévenu";
 
   // États du formulaire
   const [appellant, setAppellant] = useState<"DEFENDANT" | "PROSECUTOR" | "CIVIL_PARTY">("DEFENDANT");
@@ -50,14 +51,14 @@ export default function JudgeAppealScreen({ route, navigation }: JudgeScreenProp
     textMain: isDark ? "#FFFFFF" : "#1E293B",
     textSub: isDark ? "#94A3B8" : "#64748B",
     border: isDark ? "#334155" : "#E2E8F0",
-    inputBg: isDark ? "#0F172A" : "#FFFFFF",
+    inputBg: isDark ? "#1E293B" : "#FFFFFF",
     appealPrimary: "#F57C00", // Orange Recours
     appealBg: isDark ? "#432706" : "#FFF8E1",
   };
 
   const handleConfirmAppeal = () => {
     if (!grounds.trim()) {
-      const msg = "Veuillez préciser les moyens d'appel pour la Cour.";
+      const msg = "Veuillez préciser les moyens d'appel pour la Cour (min. 10 caractères).";
       Platform.OS === 'web' ? window.alert(msg) : Alert.alert("Motivation requise", msg);
       return;
     }
@@ -66,8 +67,7 @@ export default function JudgeAppealScreen({ route, navigation }: JudgeScreenProp
     const msg = "Cet acte suspend l'exécution (sauf provisoire) et saisit la Cour d'Appel. Confirmer ?";
 
     if (Platform.OS === 'web') {
-        const confirm = window.confirm(`${title} : ${msg}`);
-        if (confirm) submitAppeal();
+        if (window.confirm(`${title} : ${msg}`)) submitAppeal();
     } else {
         Alert.alert(title, msg, [
           { text: "Réviser", style: "cancel" },
@@ -77,10 +77,13 @@ export default function JudgeAppealScreen({ route, navigation }: JudgeScreenProp
   };
 
   const submitAppeal = async () => {
+    if (!caseId) return Alert.alert("Erreur", "Identifiant du dossier manquant.");
+
     setLoading(true);
     try {
+      // ✅ Appel API Réel
       await registerAppeal({
-        caseId,
+        caseId: Number(caseId),
         appellant,
         grounds: grounds.trim(),
         isSuspensive: suspensive,
@@ -88,12 +91,15 @@ export default function JudgeAppealScreen({ route, navigation }: JudgeScreenProp
         date: new Date().toISOString()
       });
       
-      if (Platform.OS === 'web') window.alert("✅ Recours Enregistré au dossier numérique.");
-      else Alert.alert("Recours Enregistré", "La déclaration d'appel a été versée au dossier numérique.");
+      const successMsg = "Recours Enregistré : La déclaration d'appel a été versée au dossier numérique.";
+      
+      if (Platform.OS === 'web') window.alert(`✅ ${successMsg}`);
+      else Alert.alert("Recours Enregistré", successMsg);
       
       navigation.goBack();
-    } catch (error) {
-      Alert.alert("Erreur de Greffe", "L'enregistrement de l'acte a échoué.");
+    } catch (error: any) {
+      console.error(error);
+      Alert.alert("Erreur de Greffe", error.message || "L'enregistrement de l'acte a échoué.");
     } finally {
       setLoading(false);
     }
@@ -128,7 +134,7 @@ export default function JudgeAppealScreen({ route, navigation }: JudgeScreenProp
                 SAISINE DE LA COUR D'APPEL
               </Text>
               <Text style={[styles.headerSub, { color: colors.textMain }]}>
-                Dossier RG #{caseId} • Juge : {user?.lastname}
+                Dossier RG #{caseId} • Juge : {user?.lastname?.toUpperCase()}
               </Text>
             </View>
           </View>

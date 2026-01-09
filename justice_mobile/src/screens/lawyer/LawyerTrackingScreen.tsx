@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { 
   View, 
   Text, 
@@ -11,10 +11,11 @@ import {
   Platform
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { useQuery } from "@tanstack/react-query";
+import { useFocusEffect } from "@react-navigation/native";
 
 // ✅ 1. Imports Architecture Alignés
-import { getAppTheme } from "../../theme";
+import { useAppTheme } from "../../theme/AppThemeProvider";
 import { useAuthStore } from "../../stores/useAuthStore";
 import { LawyerScreenProps } from "../../types/navigation";
 
@@ -23,74 +24,69 @@ import ScreenContainer from "../../components/layout/ScreenContainer";
 import AppHeader from "../../components/layout/AppHeader";
 import SmartFooter from "../../components/layout/SmartFooter";
 
-interface CaseTracking {
-  id: number;
-  rg_number: string;
-  status: string;
-  room_number: string | null;
-  floor: string | null;
-  court_name: string;
-  updated_at: string;
-}
+// Services
+import { getAllComplaints, Complaint } from "../../services/complaint.service";
 
 export default function LawyerTrackingScreen({ navigation }: LawyerScreenProps<'LawyerTracking'>) {
-  // ✅ 2. Thème & Auth (Zustand)
-  const theme = getAppTheme();
-  const primaryColor = theme.color;
+  // ✅ 2. Thème & Auth
+  const { theme, isDark } = useAppTheme();
+  // Couleur Or pour l'avocat
+  const primaryColor = isDark ? "#D4AF37" : theme.colors.primary; 
   const { user } = useAuthStore();
   
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [cases, setCases] = useState<CaseTracking[]>([]);
-
-  /**
-   * 📥 RÉCUPÉRATION DES AFFAIRES (Mock aligné sur la logique Niger Justice)
-   */
-  const fetchCases = async () => {
-    try {
-      // Simulation pour le développement
-      setTimeout(() => {
-          setCases([
-            { id: 1, rg_number: "452/RP/2025", status: "Audience", room_number: "02", floor: "1er", court_name: "TGI Niamey", updated_at: "23/12/2025" },
-            { id: 2, rg_number: "118/RG/2024", status: "Instruction", room_number: null, floor: "2ème", court_name: "TGI Niamey", updated_at: "20/12/2025" }
-          ]);
-          setLoading(false);
-          setRefreshing(false);
-      }, 800);
-    } catch (error) {
-      console.error("Erreur tracking avocat:", error);
-      setLoading(false);
-      setRefreshing(false);
-    }
+  // 🎨 PALETTE DYNAMIQUE
+  const colors = {
+    bgMain: isDark ? "#0F172A" : "#F8FAFC",
+    bgCard: isDark ? "#1E293B" : "#FFFFFF",
+    textMain: isDark ? "#FFFFFF" : "#1E293B",
+    textSub: isDark ? "#94A3B8" : "#64748B",
+    border: isDark ? "#334155" : "#E2E8F0",
+    locationBg: isDark ? "#0F172A" : "#F8FAFC",
+    iconBg: isDark ? "#334155" : "#FFFFFF",
   };
 
-  useEffect(() => { fetchCases(); }, []);
+  /**
+   * 📥 RÉCUPÉRATION DES DONNÉES (React Query)
+   */
+  const { data: cases, isLoading, refetch, isRefetching } = useQuery({
+    queryKey: ["lawyer-tracking"],
+    queryFn: getAllComplaints, // Idéalement, une route filtrée par avocat côté backend
+  });
 
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    fetchCases();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
+
+  // Filtrage local (si nécessaire) pour ne garder que les dossiers actifs
+  const activeCases = useMemo(() => {
+    if (!cases) return [];
+    // On peut filtrer pour ne garder que ceux qui ont un numéro RG (donc en justice)
+    return (cases as Complaint[]).filter(c => c.trackingCode || c.id);
+  }, [cases]);
 
   /**
    * 🎨 GESTION DES STATUTS (Code Couleur Judiciaire)
    */
   const getStatusStyle = (status: string) => {
     switch (status.toLowerCase()) {
-      case 'audience': return { color: "#10B981", bg: "#DCFCE7" }; // Vert
+      case 'audience_programmée': return { color: "#10B981", bg: "#DCFCE7" }; // Vert
       case 'instruction': return { color: "#3B82F6", bg: "#DBEAFE" }; // Bleu
-      case 'délibéré': return { color: "#F59E0B", bg: "#FEF3C7" }; // Orange
-      default: return { color: "#64748B", bg: "#F1F5F9" }; // Gris
+      case 'transmise_parquet': return { color: "#F59E0B", bg: "#FEF3C7" }; // Orange
+      case 'jugée': return { color: "#64748B", bg: "#F1F5F9" }; // Gris
+      default: return { color: "#64748B", bg: "#F1F5F9" };
     }
   };
 
-  const renderItem = ({ item }: { item: CaseTracking }) => {
+  const renderItem = ({ item }: { item: Complaint }) => {
     const statusConfig = getStatusStyle(item.status);
 
     return (
       <TouchableOpacity 
         activeOpacity={0.85}
         onPress={() => navigation.navigate("LawyerCaseDetail", { caseId: item.id })}
-        style={[styles.card, { backgroundColor: "#FFF", borderColor: "#F1F5F9" }]}
+        style={[styles.card, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
       >
         {/* Header : RG & Badge Statut */}
         <View style={styles.headerRow}>
@@ -98,37 +94,42 @@ export default function LawyerTrackingScreen({ navigation }: LawyerScreenProps<'
             <View style={[styles.iconBox, { backgroundColor: primaryColor + "15" }]}>
                 <Ionicons name="document-text" size={18} color={primaryColor} />
             </View>
-            <Text style={[styles.rgNumber, { color: "#1E293B" }]}>{item.rg_number}</Text>
+            <Text style={[styles.rgNumber, { color: colors.textMain }]}>
+                {item.trackingCode || `RG-${item.id}/25`}
+            </Text>
           </View>
           <View style={[styles.statusBadge, { backgroundColor: statusConfig.bg }]}>
             <Text style={[styles.statusText, { color: statusConfig.color }]}>
-              {item.status.toUpperCase()}
+              {item.status.toUpperCase().replace('_', ' ')}
             </Text>
           </View>
         </View>
         
         {/* Localisation Physique au Palais */}
-        <View style={styles.locationBlock}>
-          <View style={styles.iconCircle}>
+        <View style={[styles.locationBlock, { backgroundColor: colors.locationBg }]}>
+          <View style={[styles.iconCircle, { backgroundColor: colors.iconBg }]}>
             <Ionicons name="location" size={20} color="#EF4444" />
           </View>
           <View style={{ marginLeft: 12, flex: 1 }}>
-            <Text style={styles.locationLabel}>EMPLACEMENT DU DOSSIER</Text>
-            <Text style={[styles.roomText, { color: "#1E293B" }]}>
-               {item.room_number ? `Salle ${item.room_number}` : "Bureau du Greffe"} 
-               {item.floor ? ` • ${item.floor} Étage` : ""}
+            <Text style={[styles.locationLabel, { color: colors.textSub }]}>EMPLACEMENT DU DOSSIER</Text>
+            <Text style={[styles.roomText, { color: colors.textMain }]}>
+               {item.station?.name || "Bureau du Greffe Central"} 
             </Text>
           </View>
-          <Ionicons name="chevron-forward" size={18} color="#CBD5E1" />
+          <Ionicons name="chevron-forward" size={18} color={colors.textSub} />
         </View>
         
         {/* Footer : Juridiction */}
-        <View style={styles.footerRow}>
+        <View style={[styles.footerRow, { borderTopColor: colors.border }]}>
           <View style={styles.courtInfo}>
-            <Ionicons name="business-outline" size={14} color="#94A3B8" />
-            <Text style={styles.courtName}>{item.court_name}</Text>
+            <Ionicons name="business-outline" size={14} color={colors.textSub} />
+            <Text style={[styles.courtName, { color: colors.textSub }]}>
+                Tribunal de Grande Instance
+            </Text>
           </View>
-          <Text style={styles.dateText}>Màj : {item.updated_at}</Text>
+          <Text style={[styles.dateText, { color: colors.textSub }]}>
+              Màj : {new Date(item.updatedAt || item.filedAt).toLocaleDateString("fr-FR")}
+          </Text>
         </View>
       </TouchableOpacity>
     );
@@ -139,32 +140,32 @@ export default function LawyerTrackingScreen({ navigation }: LawyerScreenProps<'
       <StatusBar barStyle="light-content" />
       <AppHeader title="Suivi des Affaires" showMenu={true} />
 
-      <View style={styles.mainContainer}>
+      <View style={[styles.mainContainer, { backgroundColor: colors.bgMain }]}>
         <View style={styles.pageHeader}>
-          <Text style={styles.title}>Répertoire Actif</Text>
-          <Text style={styles.subtitle}>Suivi temps-réel de l'acheminement des dossiers</Text>
+          <Text style={[styles.title, { color: colors.textMain }]}>Répertoire Actif</Text>
+          <Text style={[styles.subtitle, { color: colors.textSub }]}>Suivi temps-réel de l'acheminement des dossiers</Text>
         </View>
 
-        {loading && !refreshing ? (
+        {isLoading && !isRefetching ? (
           <View style={styles.center}>
             <ActivityIndicator size="large" color={primaryColor} />
-            <Text style={styles.loadingText}>Accès au registre numérique...</Text>
+            <Text style={[styles.loadingText, { color: colors.textSub }]}>Accès au registre numérique...</Text>
           </View>
         ) : (
           <FlatList
-            data={cases}
+            data={activeCases}
             renderItem={renderItem}
             keyExtractor={(item) => item.id.toString()}
             contentContainerStyle={styles.listContainer}
             showsVerticalScrollIndicator={false}
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={primaryColor} />
+              <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={primaryColor} />
             }
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
-                <Ionicons name="folder-open-outline" size={64} color="#E2E8F0" />
-                <Text style={styles.emptyTitle}>Aucun dossier suivi</Text>
-                <Text style={styles.emptySub}>
+                <Ionicons name="folder-open-outline" size={64} color={colors.border} />
+                <Text style={[styles.emptyTitle, { color: colors.textSub }]}>Aucun dossier suivi</Text>
+                <Text style={[styles.emptySub, { color: colors.textSub }]}>
                   Vous n'êtes actuellement rattaché à aucune affaire en cours.
                 </Text>
               </View>
@@ -173,17 +174,16 @@ export default function LawyerTrackingScreen({ navigation }: LawyerScreenProps<'
         )}
       </View>
 
-      {/* ✅ SmartFooter autonome avec rôle avocat */}
       <SmartFooter />
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  mainContainer: { flex: 1, backgroundColor: "#F8FAFC", paddingHorizontal: 16, paddingTop: 15 },
+  mainContainer: { flex: 1, paddingHorizontal: 16, paddingTop: 15 },
   pageHeader: { marginBottom: 20 },
-  title: { fontSize: 24, fontWeight: "900", color: "#1E293B", letterSpacing: -0.5 },
-  subtitle: { fontSize: 13, color: "#94A3B8", marginTop: 4, fontWeight: "600" },
+  title: { fontSize: 24, fontWeight: "900", letterSpacing: -0.5 },
+  subtitle: { fontSize: 13, marginTop: 4, fontWeight: "600" },
   listContainer: { paddingBottom: 120 },
   
   card: { 
@@ -200,22 +200,22 @@ const styles = StyleSheet.create({
   statusBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
   statusText: { fontSize: 10, fontWeight: "900", letterSpacing: 0.5 },
   
-  locationBlock: { flexDirection: "row", alignItems: "center", padding: 16, borderRadius: 18, backgroundColor: "#F8FAFC" },
-  iconCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#FFF", justifyContent: 'center', alignItems: 'center', elevation: 1 },
-  locationLabel: { fontSize: 9, fontWeight: "900", color: "#94A3B8", letterSpacing: 1, marginBottom: 2 },
+  locationBlock: { flexDirection: "row", alignItems: "center", padding: 16, borderRadius: 18 },
+  iconCircle: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', elevation: 1 },
+  locationLabel: { fontSize: 9, fontWeight: "900", letterSpacing: 1, marginBottom: 2 },
   roomText: { fontSize: 15, fontWeight: "800" },
   
   footerRow: { 
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', 
-    marginTop: 18, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#F1F5F9'
+    marginTop: 18, paddingTop: 12, borderTopWidth: 1,
   },
   courtInfo: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  courtName: { fontSize: 12, color: "#64748B", fontWeight: "700" },
-  dateText: { fontSize: 11, color: "#94A3B8", fontWeight: "600" },
+  courtName: { fontSize: 12, fontWeight: "700" },
+  dateText: { fontSize: 11, fontWeight: "600" },
 
   center: { flex: 1, justifyContent: "center", alignItems: "center", marginTop: 50 },
-  loadingText: { marginTop: 15, color: "#64748B", fontWeight: "700", fontSize: 13 },
+  loadingText: { marginTop: 15, fontWeight: "700", fontSize: 13 },
   emptyContainer: { alignItems: "center", marginTop: 80, paddingHorizontal: 40 },
-  emptyTitle: { fontSize: 18, fontWeight: "900", color: "#64748B", marginTop: 15 },
-  emptySub: { fontSize: 14, color: "#94A3B8", textAlign: "center", marginTop: 8, lineHeight: 20, fontWeight: "500" }
+  emptyTitle: { fontSize: 18, fontWeight: "900", marginTop: 15 },
+  emptySub: { fontSize: 14, textAlign: "center", marginTop: 8, lineHeight: 20, fontWeight: "500" }
 });

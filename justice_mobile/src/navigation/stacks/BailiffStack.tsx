@@ -3,9 +3,9 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../types/navigation';
 
 // --- Écrans Huissier (Bailiff) ---
+import BailiffHomeScreen from '../../screens/bailiff/BailiffHomeScreen'; // ✅ Ajouté
 import BailiffMissionsScreen from '../../screens/bailiff/BailiffMissionsScreen';
-// Note: Ajoutez ici d'autres écrans huissier (ex: BailiffMissionDetail) si existants
-
+import BailiffCalendarScreen from '../../screens/bailiff/BailiffCalendarScreen';
 // --- Écrans Partagés (Système & Support) ---
 import NationalMapScreen from '../../screens/admin/NationalMapScreen';
 import WarrantSearchScreen from '../../screens/police/WarrantSearchScreen';
@@ -21,13 +21,22 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export const BailiffStack = () => (
   <Stack.Navigator 
-    screenOptions={{ headerShown: false }}
-    initialRouteName="BailiffMissions"
+    screenOptions={{ 
+      headerShown: false,
+      animation: 'slide_from_right' 
+    }}
+    initialRouteName="BailiffHome" // ✅ Le Dashboard est désormais l'accueil
   >
+    {/* ==========================================
+        🏠 ACCUEIL & TABLEAU DE BORD
+    ========================================== */}
+    <Stack.Screen name="BailiffHome" component={BailiffHomeScreen} />
+
     {/* ==========================================
         📜 MISSIONS DE L'HUISSIER (Métier)
     ========================================== */}
     <Stack.Screen name="BailiffMissions" component={BailiffMissionsScreen} />
+    <Stack.Screen name="BailiffCalendar" component={BailiffCalendarScreen} />
     {/* <Stack.Screen name="BailiffMissionDetail" component={BailiffMissionDetailScreen as any} /> */}
 
     {/* ==========================================

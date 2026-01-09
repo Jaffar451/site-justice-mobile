@@ -1,20 +1,36 @@
 import React, { ReactNode } from "react";
-import { View, StyleSheet, StatusBar, Platform, ViewStyle, StyleProp } from "react-native";
+import { 
+  View, 
+  StyleSheet, 
+  StatusBar, 
+  Platform, 
+  ViewStyle, 
+  StyleProp, 
+  SafeAreaView 
+} from "react-native";
 import { useAppTheme } from "../../theme/AppThemeProvider";
 
 interface ScreenContainerProps {
   children: ReactNode;
   withPadding?: boolean;
   style?: StyleProp<ViewStyle>;
+  backgroundColor?: string;
+  useSafeArea?: boolean;
 }
 
-const ScreenContainer = ({ children, withPadding = true, style }: ScreenContainerProps) => {
+const ScreenContainer = ({ 
+  children, 
+  withPadding = true, 
+  style, 
+  backgroundColor,
+  useSafeArea = false 
+}: ScreenContainerProps) => {
   const { theme, isDark } = useAppTheme();
 
   /**
    * ✅ STYLE WEB : 
-   * On utilise 'fixed' pour le container principal sur Web pour éviter le double scroll
-   * et on ajuste le padding-top pour le Header (60px à 80px selon votre Header).
+   * Gestion du scroll et de la hauteur viewport
+   * Correction TypeScript : Double cast pour accepter '100vh'
    */
   const webStyle = Platform.select({
     web: {
@@ -22,16 +38,17 @@ const ScreenContainer = ({ children, withPadding = true, style }: ScreenContaine
       width: '100vw',
       display: 'flex',
       flexDirection: 'column',
-      // On retire le paddingTop ici s'il est déjà géré par le composant interne ou le ScrollView
-      paddingTop: 60, 
-    } as any,
+      overflow: 'hidden',
+    } as unknown as ViewStyle, 
     default: {}
   });
+
+  const ContainerComponent = useSafeArea ? SafeAreaView : View;
 
   return (
     <View style={[
       styles.main, 
-      { backgroundColor: theme.colors.background },
+      { backgroundColor: backgroundColor || theme.colors.background },
       webStyle
     ]}>
       <StatusBar 
@@ -40,32 +57,21 @@ const ScreenContainer = ({ children, withPadding = true, style }: ScreenContaine
         backgroundColor="transparent" 
       />
       
-      <View style={[
+      <ContainerComponent style={[
         styles.container, 
         withPadding && styles.padding, 
-        // ✅ Sur Mobile, on évite que le contenu colle trop au Header
-        Platform.OS !== 'web' && { marginTop: 5 }, 
         style
       ]}>
         {children}
-      </View>
+      </ContainerComponent>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  main: { 
-    flex: 1,
-    // ✅ Sur Android, on utilise la hauteur de la barre d'état pour éviter le chevauchement
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 
-  },
-  container: { 
-    flex: 1,
-    width: '100%',
-  },
-  padding: { 
-    paddingHorizontal: 16 
-  },
+  main: { flex: 1 },
+  container: { flex: 1, width: '100%' },
+  padding: { paddingHorizontal: 16 },
 });
 
 export default ScreenContainer;

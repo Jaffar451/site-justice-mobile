@@ -11,12 +11,17 @@ export interface Decision {
   caseId: number;
   judgeId: number;
   content: string;      // Le corps de la décision (Le "Par ces motifs")
-  verdict: "guilty" | "not_guilty" | "dismissed" | "acquittal" | "conviction";
+  verdict: "guilty" | "not_guilty" | "dismissed" | "acquittal" | "conviction" | string; // 'string' ajouté pour flexibilité
   date: string;         // Date du prononcé
   isSigned: boolean;    // ✅ État de la signature électronique
   signatureDate?: string;
   createdAt?: string;
   updatedAt?: string;
+
+  // ✅ CHAMPS AJOUTÉS POUR LA CONFISCATION (Fix TS Error 2559)
+  confiscations?: any[]; 
+  confiscationDate?: string;
+  judgeSignature?: string;
 }
 
 /**
@@ -29,7 +34,8 @@ const allow = (...authorizedRoles: string[]) => {
   
   if (!role || !authorizedRoles.includes(role)) {
     const errorMsg = `Accès refusé — Le rôle '${role}' n'est pas autorisé à effectuer cette action.`;
-    console.error(`[Security] ${errorMsg}`);
+    console.warn(`[Security] ${errorMsg}`);
+    // On peut choisir de throw ou juste warn selon la stratégie, ici throw pour bloquer
     throw new Error(errorMsg);
   }
 };
@@ -39,7 +45,7 @@ const allow = (...authorizedRoles: string[]) => {
  */
 export const getDecisionByCase = async (caseId: number): Promise<Decision> => {
   // Le citoyen peut voir la décision s'il est partie au procès
-  allow("judge", "clerk", "admin", "citizen", "prosecutor");
+  allow("judge", "clerk", "admin", "citizen", "prosecutor", "lawyer");
   const res = await api.get<Decision>(`/decisions/case/${caseId}`);
   return res.data;
 };
@@ -89,10 +95,12 @@ export const signDecision = async (id: number) => {
 /**
  * 📝 MODIFIER UNE DÉCISION
  * Possible tant que la décision n'est pas verrouillée/signée.
+ * Accepte maintenant les champs de confiscation grâce à l'interface mise à jour.
  */
 export const updateDecision = async (id: number, payload: Partial<Decision>) => {
   allow("judge");
-  const res = await api.put(`/decisions/${id}`, payload);
+  // Utilisation de PATCH car c'est une modification partielle
+  const res = await api.patch(`/decisions/${id}`, payload);
   return res.data;
 };
 

@@ -1,7 +1,9 @@
+// PATH: src/navigation/stacks/StationStack.tsx
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../../types/navigation';
 
-// --- Écrans Admin / Unités ---
+// --- Écrans Admin / Unités (Logistique) ---
 import ManageStationsScreen from '../../screens/admin/ManageStationsScreen';
 import NationalMapScreen from '../../screens/admin/NationalMapScreen';
 import AdminUsersScreen from '../../screens/admin/AdminUsersScreen';
@@ -17,42 +19,29 @@ import MyDownloadsScreen from '../../screens/citizen/MyDownloadsScreen';
 import UserGuideScreen from '../../screens/shared/UserGuideScreen';
 import SupportScreen from '../../screens/shared/SupportScreen';
 
-export type StationStackParamList = {
-  ManageStations: undefined;
-  NationalMap: undefined;
-  AdminUsers: undefined;
-  AdminStats: undefined;
-  Profile: undefined;
-  EditProfile: undefined;
-  Settings: undefined;
-  Notifications: undefined;
-  SosDetail: { sosId: string | number };
-  WarrantSearch: undefined;
-  MyDownloads: undefined;
-  UserGuide: undefined;
-  Support: undefined;
-};
-
-const Stack = createNativeStackNavigator<StationStackParamList>();
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export const StationStack = () => (
   <Stack.Navigator 
-    screenOptions={{ headerShown: false }}
+    screenOptions={{ 
+      headerShown: false,
+      animation: 'slide_from_right'
+    }}
     initialRouteName="ManageStations"
   >
     {/* ==========================================
         🏢 GESTION DU TERRITOIRE & UNITÉS
     ========================================== */}
-    <Stack.Screen name="ManageStations" component={ManageStationsScreen} />
+    <Stack.Screen name="ManageStations" component={ManageStationsScreen as any} />
     <Stack.Screen name="NationalMap" component={NationalMapScreen as any} />
 
     {/* ==========================================
         👥 AGENTS ET RESSOURCES HUMAINES
     ========================================== */}
-    <Stack.Screen name="AdminUsers" component={AdminUsersScreen} />
+    <Stack.Screen name="AdminUsers" component={AdminUsersScreen as any} />
 
     {/* ==========================================
-        📊 ANALYSE ET PERFORMANCE
+        📊 ANALYSE ET PERFORMANCE GÉOGRAPHIQUE
     ========================================== */}
     <Stack.Screen name="AdminStats" component={AdminStatsScreen as any} />
 

@@ -15,7 +15,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 
 // ✅ 1. Imports Architecture
-import { useAppTheme } from "../../theme/AppThemeProvider"; // ✅ Hook dynamique
+import { useAppTheme } from "../../theme/AppThemeProvider";
 import { JudgeScreenProps } from "../../types/navigation";
 
 // Composants
@@ -23,7 +23,7 @@ import ScreenContainer from "../../components/layout/ScreenContainer";
 import AppHeader from "../../components/layout/AppHeader";
 import SmartFooter from "../../components/layout/SmartFooter";
 
-// Services
+// Services (Assurez-vous que ce service existe ou créez-le)
 import { createDecision } from "../../services/decision.service";
 
 const VERDICT_OPTIONS = [
@@ -37,7 +37,9 @@ export default function CreateDecisionScreen({ route, navigation }: JudgeScreenP
   const { theme, isDark } = useAppTheme();
   const primaryColor = theme.colors.primary; 
   
-  const { caseId } = route.params; 
+  // Sécurisation des paramètres
+  const params = route.params as { caseId: number } | undefined;
+  const caseId = params?.caseId; 
   
   const [content, setContent] = useState("");
   const [verdict, setVerdict] = useState("guilty");
@@ -50,13 +52,13 @@ export default function CreateDecisionScreen({ route, navigation }: JudgeScreenP
     textMain: isDark ? "#FFFFFF" : "#1E293B",
     textSub: isDark ? "#94A3B8" : "#64748B",
     border: isDark ? "#334155" : "#E2E8F0",
-    inputBg: isDark ? "#0F172A" : "#FFFFFF",
+    inputBg: isDark ? "#1E293B" : "#FFFFFF",
     infoCardBg: isDark ? "#0C4A6E" : "#F0F9FF",
   };
 
   const confirmPublish = () => {
     if (content.trim().length < 20) {
-      const msg = "Le jugement doit être motivé en fait et en droit pour être valide.";
+      const msg = "Le jugement doit être motivé en fait et en droit pour être valide (min. 20 caractères).";
       Platform.OS === 'web' ? window.alert(msg) : Alert.alert("Motivation requise", msg);
       return;
     }
@@ -65,8 +67,7 @@ export default function CreateDecisionScreen({ route, navigation }: JudgeScreenP
     const msg = "La publication de ce délibéré rend la décision exécutoire. Confirmer ?";
 
     if (Platform.OS === 'web') {
-        const confirm = window.confirm(`${title} : ${msg}`);
-        if (confirm) handlePublish();
+        if (window.confirm(`${title} : ${msg}`)) handlePublish();
     } else {
         Alert.alert(title, msg, [
           { text: "Réviser", style: "cancel" },
@@ -76,25 +77,48 @@ export default function CreateDecisionScreen({ route, navigation }: JudgeScreenP
   };
 
   const handlePublish = async () => {
+    if (!caseId) {
+        Alert.alert("Erreur", "Identifiant du dossier manquant.");
+        return;
+    }
+
     setIsLoading(true);
     try {
+      // Appel API réel
       await createDecision({
         caseId: Number(caseId),
         content: content.trim(),
         verdict,
         date: new Date().toISOString(),
-      } as any); 
+      }); 
       
-      if (Platform.OS === 'web') window.alert("⚖️ Justice Rendue : Jugement versé au dossier.");
-      else Alert.alert("⚖️ Justice Rendue", "Le jugement a été scellé et notifié aux parties.");
+      // Feedback Succès
+      if (Platform.OS === 'web') {
+          window.alert("⚖️ Justice Rendue : Jugement versé au dossier.");
+      } else {
+          Alert.alert("⚖️ Justice Rendue", "Le jugement a été scellé et notifié aux parties.");
+      }
       
       navigation.popToTop(); 
     } catch (error) {
+      console.error(error);
       Alert.alert("Erreur", "L'acte n'a pas pu être enregistré sur le serveur e-Justice.");
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Si pas d'ID, on affiche une erreur (sécurité)
+  if (!caseId) {
+      return (
+        <ScreenContainer>
+            <AppHeader title="Erreur" showBack />
+            <View style={{flex:1, justifyContent:'center', alignItems:'center'}}>
+                <Text style={{color: colors.textMain}}>Erreur : Aucun dossier sélectionné.</Text>
+            </View>
+        </ScreenContainer>
+      );
+  }
 
   return (
     <ScreenContainer withPadding={false}>

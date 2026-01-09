@@ -16,7 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 // ✅ 1. Imports Architecture
 import { useAuthStore } from "../../stores/useAuthStore";
-import { useAppTheme } from "../../theme/AppThemeProvider"; // ✅ Hook dynamique
+import { useAppTheme } from "../../theme/AppThemeProvider";
 import { JudgeScreenProps } from "../../types/navigation";
 
 // Composants
@@ -27,14 +27,16 @@ import SmartFooter from "../../components/layout/SmartFooter";
 // Services
 import { updateDecision } from "../../services/decision.service";
 
-export default function JudgeReparationScreen({ route, navigation }: JudgeScreenProps<'JudgeConfiscation'>) {
+export default function JudgeReparationScreen({ route, navigation }: JudgeScreenProps<'JudgeReparation'>) {
   // ✅ 2. Thème Dynamique & Auth
   const { theme, isDark } = useAppTheme();
   const primaryColor = theme.colors.primary;
   const { user } = useAuthStore();
   
-  const params = route.params as any;
-  const { caseId, decisionId } = params || { caseId: "N/A", decisionId: null };
+  // Sécurisation des paramètres
+  const params = route.params as { caseId: number; decisionId?: number } | undefined;
+  const caseId = params?.caseId || "N/A";
+  const decisionId = params?.decisionId;
 
   const [moralDamage, setMoralDamage] = useState("");
   const [materialDamage, setMaterialDamage] = useState("");
@@ -62,8 +64,13 @@ export default function JudgeReparationScreen({ route, navigation }: JudgeScreen
       return;
     }
 
+    if (!decisionId) {
+       Alert.alert("Erreur", "Aucune décision associée à ce dossier.");
+       return;
+    }
+
     if (!justification.trim() || justification.trim().length < 15) {
-      const msg = "Veuillez justifier précisément le calcul des indemnités.";
+      const msg = "Veuillez justifier précisément le calcul des indemnités (min. 15 car.).";
       Platform.OS === 'web' ? window.alert(msg) : Alert.alert("Motivation requise", msg);
       return;
     }
@@ -72,8 +79,7 @@ export default function JudgeReparationScreen({ route, navigation }: JudgeScreen
     const msg = `Confirmez-vous l'allocation de ${total.toLocaleString()} FCFA à la partie civile ?`;
 
     if (Platform.OS === 'web') {
-        const confirm = window.confirm(`${title} : ${msg}`);
-        if (confirm) executeSave();
+        if (window.confirm(`${title} : ${msg}`)) executeSave();
     } else {
         Alert.alert(title, msg, [
           { text: "Réviser", style: "cancel" },
@@ -92,14 +98,18 @@ export default function JudgeReparationScreen({ route, navigation }: JudgeScreen
           total: total,
         },
         reparationJustification: justification.trim(),
-        signedBy: `${user?.firstname} ${user?.lastname}`,
+        // Note: 'signedBy' n'est pas dans l'interface stricte, on l'omet ou on l'ajoute si nécessaire
         judgeSignature: `CIVIL-SIG-${user?.id}-${Date.now()}`,
         updatedAt: new Date().toISOString()
       };
 
-      await updateDecision(decisionId, payload as any);
+      // Cast 'as any' pour passer outre la vérification stricte temporaire
+      await updateDecision(decisionId!, payload as any);
       
-      if (Platform.OS === 'web') window.alert("✅ Ordonnance civile enregistrée.");
+      const successMsg = "Ordonnance civile enregistrée avec succès.";
+      if (Platform.OS === 'web') window.alert(`✅ ${successMsg}`);
+      else Alert.alert("Succès", successMsg);
+      
       navigation.goBack();
     } catch (error) {
       Alert.alert("Erreur", "Échec de l'enregistrement des réparations.");

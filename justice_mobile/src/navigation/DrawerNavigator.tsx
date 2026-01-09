@@ -1,3 +1,4 @@
+// PATH: src/navigation/DrawerNavigator.tsx
 import React, { useMemo } from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { 
@@ -6,13 +7,13 @@ import {
   DrawerItemList,
   DrawerContentComponentProps 
 } from "@react-navigation/drawer";
-import { Ionicons, FontAwesome5 } from "@expo/vector-icons"; // ✅ Ajout de FontAwesome5
+import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
 
-// Stores & Theme
+// ✅ Stores & Thème
 import { useAuthStore } from "../stores/useAuthStore";
 import { useAppTheme } from "../theme/AppThemeProvider";
 
-// ✅ IMPORT DES STACKS
+// ✅ Stacks Métiers
 import AdminStack from "./stacks/AdminStack";
 import PoliceStack from "./stacks/PoliceStack";
 import JudgeStack from "./stacks/JudgeStack";
@@ -29,33 +30,42 @@ import AboutScreen from "../screens/shared/AboutScreen";
 
 const Drawer = createDrawerNavigator();
 
+/**
+ * 🎨 Composant de contenu personnalisé pour le Drawer
+ * Gère l'identité visuelle du header selon le rôle.
+ */
 const CustomDrawerContent = (props: DrawerContentComponentProps) => {
   const { theme, isDark } = useAppTheme(); 
   const { user, logout } = useAuthStore();
 
   const config = useMemo(() => {
-    const role = user?.role || "";
+    const role = user?.role || "citizen";
     
+    // 🔵 Forces de l'Ordre
     if (["officier_police", "commissaire", "inspecteur"].includes(role)) 
         return { bg: "#1E3A8A", label: "FORCES DE SÉCURITÉ", icon: "shield-checkmark" };
     
+    // 🔴 Justice (Siège & Parquet)
     if (["judge", "prosecutor", "greffier"].includes(role)) 
-        return { bg: "#7C2D12", label: "CORPS JUDICIAIRE", icon: "balance-scale" }; // Sera utilisé avec FontAwesome
+        return { bg: "#7C2D12", label: "CORPS JUDICIAIRE", icon: "balance-scale" }; 
     
+    // 🌑 Administration
     if (role === "admin") 
         return { bg: "#1E293B", label: "ADMINISTRATION CENTRALE", icon: "settings-outline" };
     
+    // 🟢 Gendarmerie
     if (role.includes("gendarme"))
         return { bg: "#065F46", label: "GENDARMERIE NATIONALE", icon: "ribbon-outline" };
 
+    // 🏆 Citoyen
     return { bg: "#166534", label: "ESPACE CITOYEN", icon: "person-outline" };
   }, [user?.role]);
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      {/* 🏛️ HEADER DU DRAWER */}
       <View style={[styles.drawerHeader, { backgroundColor: config.bg }]}>
         <View style={styles.logoCircle}>
-            {/* ✅ Correction icône : Switch entre Ionicons et FontAwesome selon le nom */}
             {config.icon === "balance-scale" ? (
                 <FontAwesome5 name="balance-scale" size={24} color={config.bg} />
             ) : (
@@ -76,6 +86,7 @@ const CustomDrawerContent = (props: DrawerContentComponentProps) => {
         <DrawerItemList {...props} />
       </DrawerContentScrollView>
 
+      {/* 🚪 PIED DE PAGE (Déconnexion) */}
       <View style={[styles.drawerFooter, { borderTopColor: isDark ? "#2A2A2A" : "#F1F5F9" }]}>
         <TouchableOpacity onPress={logout} style={styles.logoutBtn}>
           <Ionicons name="log-out-outline" size={22} color="#EF4444" />
@@ -89,8 +100,6 @@ const CustomDrawerContent = (props: DrawerContentComponentProps) => {
 export default function DrawerNavigator() {
   const { theme, isDark } = useAppTheme();
   const user = useAuthStore((s) => s.user);
-  
-  // ✅ Cast en 'any' pour éviter l'erreur de comparaison involontaire si les types ne sont pas à jour
   const role = (user?.role as any) || "citizen";
 
   return (
@@ -101,9 +110,10 @@ export default function DrawerNavigator() {
         drawerActiveTintColor: theme.colors.primary,
         drawerInactiveTintColor: isDark ? "#94A3B8" : "#475569",
         drawerLabelStyle: { fontWeight: "700", marginLeft: -10 },
-        drawerItemStyle: { borderRadius: 8, marginHorizontal: 10, marginVertical: 2 },
+        drawerItemStyle: { borderRadius: 10, marginHorizontal: 10, marginVertical: 4 },
       }}
     >
+      {/* 🛡️ ADMINISTRATION */}
       {role === "admin" && (
         <Drawer.Screen name="AdminRoot" component={AdminStack} options={{
           drawerLabel: "Administration",
@@ -111,6 +121,7 @@ export default function DrawerNavigator() {
         }} />
       )}
 
+      {/* 🚓 POLICE & GENDARMERIE */}
       {(role === "officier_police" || role === "inspecteur" || role.includes("gendarme")) && (
         <Drawer.Screen name="PoliceRoot" component={PoliceStack} options={{
           drawerLabel: "Procédures OPJ",
@@ -118,6 +129,7 @@ export default function DrawerNavigator() {
         }} />
       )}
 
+      {/* 👮 COMMANDEMENT POLICE */}
       {role === "commissaire" && (
         <Drawer.Screen name="CommissaireRoot" component={CommissaireStack} options={{
           drawerLabel: "Gestion de l'Unité",
@@ -125,6 +137,7 @@ export default function DrawerNavigator() {
         }} />
       )}
 
+      {/* ⚖️ JUGE */}
       {role === "judge" && (
         <Drawer.Screen name="JudgeRoot" component={JudgeStack} options={{
           drawerLabel: "Cabinet de Jugement",
@@ -132,6 +145,7 @@ export default function DrawerNavigator() {
         }} />
       )}
 
+      {/* 🏛️ PROCUREUR */}
       {role === "prosecutor" && (
         <Drawer.Screen name="ProsecutorRoot" component={ProsecutorStack} options={{
           drawerLabel: "Parquet",
@@ -139,6 +153,7 @@ export default function DrawerNavigator() {
         }} />
       )}
 
+      {/* ✍️ GREFFIER */}
       {role === "greffier" && (
         <Drawer.Screen name="ClerkRoot" component={ClerkStack} options={{
           drawerLabel: "Greffe Juridictionnel",
@@ -146,13 +161,7 @@ export default function DrawerNavigator() {
         }} />
       )}
 
-      {role === "citizen" && (
-        <Drawer.Screen name="CitizenRoot" component={CitizenStack} options={{
-          drawerLabel: "Mon Espace Citoyen",
-          drawerIcon: ({ color }) => <Ionicons name="home-outline" size={22} color={color} />
-        }} />
-      )}
-
+      {/* 💼 AVOCAT */}
       {role === "lawyer" && (
         <Drawer.Screen name="LawyerRoot" component={LawyerStack} options={{
           drawerLabel: "Cabinet d'Avocat",
@@ -160,7 +169,7 @@ export default function DrawerNavigator() {
         }} />
       )}
       
-      {/* ✅ L'erreur 2367 disparaît grâce au cast 'as any' plus haut */}
+      {/* 🚲 HUISSIER */}
       {role === "bailiff" && (
         <Drawer.Screen name="BailiffRoot" component={BailiffStack} options={{
           drawerLabel: "Étude d'Huissier",
@@ -168,6 +177,15 @@ export default function DrawerNavigator() {
         }} />
       )}
 
+      {/* 🌍 CITOYEN */}
+      {role === "citizen" && (
+        <Drawer.Screen name="CitizenRoot" component={CitizenStack} options={{
+          drawerLabel: "Mon Espace Citoyen",
+          drawerIcon: ({ color }) => <Ionicons name="home-outline" size={22} color={color} />
+        }} />
+      )}
+
+      {/* 👤 OPTIONS COMMUNES */}
       <Drawer.Screen name="ProfileRoot" component={ProfileScreen} options={{
         drawerLabel: "Mon Compte",
         drawerIcon: ({ color }) => <Ionicons name="person-circle-outline" size={22} color={color} />

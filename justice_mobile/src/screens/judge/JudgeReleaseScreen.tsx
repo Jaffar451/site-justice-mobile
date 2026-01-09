@@ -3,20 +3,20 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   TextInput,
+  TouchableOpacity,
   ScrollView,
   Alert,
   ActivityIndicator,
-  StatusBar,
+  Platform,
   KeyboardAvoidingView,
-  Platform
+  StatusBar
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-// ✅ 1. Imports Architecture
+// ✅ 1. Imports Architecture Alignés
 import { useAuthStore } from "../../stores/useAuthStore";
-import { useAppTheme } from "../../theme/AppThemeProvider"; // ✅ Hook dynamique
+import { useAppTheme } from "../../theme/AppThemeProvider";
 import { JudgeScreenProps } from "../../types/navigation";
 
 // Composants
@@ -25,9 +25,10 @@ import AppHeader from "../../components/layout/AppHeader";
 import SmartFooter from "../../components/layout/SmartFooter";
 
 // Services
-import { updateComplaintStatus, updateComplaint } from "../../services/complaint.service";
+import { updateComplaint, updateComplaintStatus } from "../../services/complaint.service";
 
-export default function JudgeReleaseScreen({ route, navigation }: JudgeScreenProps<'JudgeCaseDetail'>) {
+// ✅ Correction du typage de la route
+export default function JudgeReleaseScreen({ route, navigation }: JudgeScreenProps<'JudgeRelease'>) {
   // ✅ 2. Thème Dynamique & Auth
   const { theme, isDark } = useAppTheme();
   const primaryColor = theme.colors.primary;
@@ -63,8 +64,7 @@ export default function JudgeReleaseScreen({ route, navigation }: JudgeScreenPro
     const msg = `Confirmez-vous la mise en liberté de ${personName} ? L'ordre sera transmis au Régisseur.`;
 
     if (Platform.OS === 'web') {
-        const confirm = window.confirm(`${title} : ${msg}`);
-        if (confirm) executeRelease();
+        if (window.confirm(`${title} : ${msg}`)) executeRelease();
     } else {
         Alert.alert(title, msg, [
           { text: "Annuler", style: "cancel" },
@@ -76,6 +76,9 @@ export default function JudgeReleaseScreen({ route, navigation }: JudgeScreenPro
   const executeRelease = async () => {
     setLoading(true);
     try {
+      // Détermination du nouveau statut du dossier
+      // Si provisoire -> dossier reste en instruction (ou statut spécifique "liberte_provisoire")
+      // Si définitive -> dossier clos (non-lieu)
       const newStatus = releaseType === "final" ? "non_lieu" : "instruction";
 
       await updateComplaint(caseId, {
@@ -90,7 +93,9 @@ export default function JudgeReleaseScreen({ route, navigation }: JudgeScreenPro
       await updateComplaintStatus(caseId, newStatus);
       
       if (Platform.OS === 'web') window.alert("✅ Ordre d'élargissement transmis.");
-      navigation.navigate("JudgeHome");
+      
+      // Retour au dashboard
+      navigation.navigate("JudgeDashboard");
     } catch (error) {
       Alert.alert("Erreur de Transmission", "L'acte n'a pas pu être signé numériquement.");
     } finally {
@@ -228,9 +233,9 @@ const styles = StyleSheet.create({
     marginTop: 35, 
     gap: 12,
     ...Platform.select({
-      ios: { shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 10 },
-      android: { elevation: 6 },
-      web: { boxShadow: "0px 4px 15px rgba(0,0,0,0.15)" }
+        ios: { shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 10 },
+        android: { elevation: 6 },
+        web: { boxShadow: "0px 4px 15px rgba(0,0,0,0.15)" }
     })
   },
   releaseBtnText: { color: "#FFF", fontWeight: "900", fontSize: 15, letterSpacing: 1 },

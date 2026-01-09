@@ -1,3 +1,4 @@
+// PATH: src/services/hearing.service.ts
 import api from "./api";
 import { useAuthStore } from "../stores/useAuthStore";
 import { format } from "date-fns"; // Assurez-vous d'avoir date-fns, sinon on utilisera une méthode native
@@ -19,6 +20,10 @@ export interface Hearing {
   type: "preliminary" | "trial" | "verdict" | string; 
   
   status: "scheduled" | "adjourned" | "completed" | "cancelled";
+  
+  // ✅ AJOUT POUR L'AFFICHAGE (Avocats/Juges)
+  parties?: string;           // Ex: "Ministère Public C/ M. Sani"
+
   judgeName?: string;         // Nom du juge président (pour l'affichage)
   notes?: string;             // Observations du Greffier
   createdAt?: string;
@@ -39,6 +44,7 @@ const allow = (...authorizedRoles: string[]) => {
     const errorMsg = `Accès refusé — Le rôle '${role || "inconnu"}' n'est pas autorisé.`;
     console.warn(`[Security] ${errorMsg}`);
     // On ne throw pas forcément pour ne pas crasher l'app, mais on bloque l'appel API ci-dessous
+    throw new Error(errorMsg);
   }
 };
 
@@ -62,7 +68,8 @@ const formatHearingData = (hearing: Hearing): Hearing => {
  * Utilisé par le Greffe pour la gestion quotidienne
  */
 export const getAllHearings = async (): Promise<Hearing[]> => {
-  allow("police", "clerk", "judge", "admin", "prosecutor");
+  // ✅ Ajout de "lawyer" pour l'agenda avocat
+  allow("police", "clerk", "judge", "admin", "prosecutor", "lawyer");
   
   try {
     const res = await api.get<Hearing[]>("/hearings");
@@ -80,7 +87,8 @@ export const getAllHearings = async (): Promise<Hearing[]> => {
  * 🔹 AUDIENCES LIÉES À UN DOSSIER SPÉCIFIQUE
  */
 export const getHearingsByCase = async (caseId: number): Promise<Hearing[]> => {
-  allow("clerk", "judge", "admin", "prosecutor", "citizen");
+  // ✅ Ajout de "lawyer" ici aussi
+  allow("clerk", "judge", "admin", "prosecutor", "citizen", "lawyer");
   
   try {
     const res = await api.get<Hearing[]>(`/hearings/case/${caseId}`);
@@ -102,7 +110,7 @@ export const createHearing = async (payload: {
   type: string;
   judgeName?: string;
 }) => {
-  allow("clerk", "admin");
+  allow("clerk", "admin"); // Seuls les greffiers programment
   try {
     const normalizedPayload = {
       case_id: payload.caseId,

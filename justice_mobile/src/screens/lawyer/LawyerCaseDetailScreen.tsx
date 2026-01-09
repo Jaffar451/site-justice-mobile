@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { 
   View, 
   Text, 
@@ -13,9 +13,10 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from 'expo-document-picker';
+import { useQuery } from "@tanstack/react-query";
 
 // ✅ 1. Imports Architecture
-import { getAppTheme } from "../../theme";
+import { useAppTheme } from "../../theme/AppThemeProvider";
 import { LawyerScreenProps } from "../../types/navigation";
 import { useAuthStore } from "../../stores/useAuthStore";
 
@@ -24,44 +25,50 @@ import ScreenContainer from "../../components/layout/ScreenContainer";
 import AppHeader from "../../components/layout/AppHeader";
 import SmartFooter from "../../components/layout/SmartFooter";
 
+// Services
+import { getComplaintById } from "../../services/complaint.service";
+
+// Interface étendue pour inclure les pièces jointes
+interface CaseDetail {
+  id: number;
+  trackingCode?: string;
+  status: string;
+  station?: { name: string };
+  attachments?: { id: number; filename: string; file_url: string; createdAt?: string }[];
+}
+
 export default function LawyerCaseDetailScreen({ route, navigation }: LawyerScreenProps<'LawyerCaseDetail'>) {
-  // ✅ 2. Thème via Helper
-  const theme = getAppTheme();
-  const primaryColor = theme.color;
+  // ✅ 2. Thème Dynamique
+  const { theme, isDark } = useAppTheme();
+  // Couleur Or pour les avocats (ou primaire du thème)
+  const primaryColor = isDark ? "#D4AF37" : theme.colors.primary; 
   const { user } = useAuthStore();
   
   const { caseId } = route.params; 
-  const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
-  const [caseData, setCaseData] = useState<any>(null);
 
-  /**
-   * 📥 RÉCUPÉRATION DES DONNÉES DU DOSSIER
-   */
-  const fetchDetails = async () => {
-    try {
-      setLoading(true);
-      // Simulation d'appel API
-      setTimeout(() => {
-        setCaseData({
-            rg_number: `RG-${caseId}/2025`,
-            status: "En Instruction",
-            room_number: "Salle 02",
-            floor: "1er Étage",
-            attachments: [
-              { id: 1, title: "PV d'audition initiale", created_at: new Date().toISOString(), file_url: "https://example.com/pv.pdf" },
-              { id: 2, title: "Rapport d'expertise", created_at: new Date().toISOString(), file_url: "https://example.com/expert.pdf" }
-            ]
-        });
-        setLoading(false);
-      }, 800);
-    } catch (error) {
-      setLoading(false);
-      Alert.alert("Erreur", "Impossible de charger le dossier.");
-    }
+  // 🎨 PALETTE DYNAMIQUE
+  const colors = {
+    bgMain: isDark ? "#0F172A" : "#F8FAFC",
+    bgCard: isDark ? "#1E293B" : "#FFFFFF",
+    textMain: isDark ? "#FFFFFF" : "#1E293B",
+    textSub: isDark ? "#94A3B8" : "#64748B",
+    border: isDark ? "#334155" : "#E2E8F0",
+    successBg: isDark ? "#064E3B" : "#DCFCE7",
+    dangerBg: isDark ? "#450A0A" : "#FEF2F2",
+    dangerIcon: isDark ? "#F87171" : "#DC2626",
   };
 
-  useEffect(() => { fetchDetails(); }, [caseId]);
+  /**
+   * 📥 RÉCUPÉRATION DES DONNÉES DU DOSSIER (React Query)
+   */
+  const { data: caseData, isLoading, refetch } = useQuery({
+    queryKey: ['lawyer-case-detail', caseId],
+    queryFn: async () => {
+        const data = await getComplaintById(caseId);
+        return data as CaseDetail;
+    }
+  });
 
   /**
    * ⚖️ DÉPÔT NUMÉRIQUE DE CONCLUSIONS (E-Barreau)
@@ -75,14 +82,16 @@ export default function LawyerCaseDetailScreen({ route, navigation }: LawyerScre
 
       if (result.canceled) return;
 
-      const file = result.assets[0];
       setUploading(true);
       
-      // Simulation d'upload vers le serveur du Ministère
+      // TODO: Remplacer par l'appel API réel d'upload
+      // await uploadDocument(caseId, result.assets[0]);
+      
+      // Simulation
       setTimeout(() => {
         setUploading(false);
         Alert.alert("Succès", "Vos conclusions ont été transmises au greffe et versées au dossier numérique.");
-        fetchDetails(); 
+        refetch(); // Rafraîchir la liste des pièces
       }, 1500);
 
     } catch (error) {
@@ -91,13 +100,13 @@ export default function LawyerCaseDetailScreen({ route, navigation }: LawyerScre
     }
   };
 
-  if (loading) return (
+  if (isLoading) return (
     <ScreenContainer withPadding={false}>
-        <AppHeader title="Chargement..." showBack />
-        <View style={styles.center}>
-            <ActivityIndicator size="large" color={primaryColor} />
-            <Text style={[styles.loadingText, { color: "#64748B" }]}>Accès au dossier numérique...</Text>
-        </View>
+       <AppHeader title="Chargement..." showBack />
+       <View style={[styles.center, { backgroundColor: colors.bgMain }]}>
+           <ActivityIndicator size="large" color={primaryColor} />
+           <Text style={[styles.loadingText, { color: colors.textSub }]}>Accès au dossier numérique...</Text>
+       </View>
     </ScreenContainer>
   );
 
@@ -106,34 +115,34 @@ export default function LawyerCaseDetailScreen({ route, navigation }: LawyerScre
       <StatusBar barStyle="light-content" />
       
       <AppHeader 
-        title={`RG #${caseData?.rg_number || caseId}`} 
+        title={`RG #${caseData?.trackingCode || caseId}`} 
         showBack={true} 
       />
       
       <ScrollView 
         showsVerticalScrollIndicator={false} 
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { backgroundColor: colors.bgMain }]}
       >
         
         {/* 🏛️ BANDEAU D'ÉTAT */}
-        <View style={[styles.statusCard, { backgroundColor: "#FFF", borderColor: "#F1F5F9" }]}>
+        <View style={[styles.statusCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
           <View style={styles.badgeRow}>
             <View style={[styles.statusBadge, { backgroundColor: primaryColor + '15' }]}>
                 <Text style={[styles.statusText, { color: primaryColor }]}>
-                    {caseData?.status?.toUpperCase()}
+                    {caseData?.status?.toUpperCase() || "EN COURS"}
                 </Text>
             </View>
-            <Text style={styles.caseType}>CABINET D'INSTRUCTION</Text>
+            <Text style={[styles.caseType, { color: colors.textSub }]}>CABINET D'INSTRUCTION</Text>
           </View>
           
-          <View style={[styles.locationBox, { backgroundColor: "#FEF2F2" }]}>
+          <View style={[styles.locationBox, { backgroundColor: colors.dangerBg }]}>
             <View style={styles.iconCircle}>
-                <Ionicons name="location" size={20} color="#DC2626" />
+                <Ionicons name="location" size={20} color={colors.dangerIcon} />
             </View>
             <View style={{ flex: 1, marginLeft: 15 }}>
-              <Text style={styles.locationLabel}>LOCALISATION AU TRIBUNAL</Text>
-              <Text style={styles.locationValue}>
-                {caseData?.room_number || "Palais de Justice"} • {caseData?.floor || "RDC"}
+              <Text style={[styles.locationLabel, { color: colors.dangerIcon }]}>LOCALISATION AU TRIBUNAL</Text>
+              <Text style={[styles.locationValue, { color: colors.textMain }]}>
+                {caseData?.station?.name || "Palais de Justice"}
               </Text>
             </View>
           </View>
@@ -141,7 +150,7 @@ export default function LawyerCaseDetailScreen({ route, navigation }: LawyerScre
 
         {/* ⚡ ACTION DE LA DÉFENSE */}
         <View style={styles.actionSection}>
-            <Text style={styles.sectionTitle}>Actions de la Défense</Text>
+            <Text style={[styles.sectionTitle, { color: colors.textMain }]}>Actions de la Défense</Text>
             <TouchableOpacity 
               activeOpacity={0.8}
               style={[styles.uploadBtn, { backgroundColor: primaryColor }]}
@@ -161,8 +170,8 @@ export default function LawyerCaseDetailScreen({ route, navigation }: LawyerScre
 
         {/* 📂 PIÈCES DE LA PROCÉDURE */}
         <View style={styles.headerPieces}>
-            <Text style={styles.sectionTitle}>Pièces au Dossier</Text>
-            <View style={styles.countBadge}>
+            <Text style={[styles.sectionTitle, { color: colors.textMain }]}>Pièces au Dossier</Text>
+            <View style={[styles.countBadge, { backgroundColor: isDark ? "#334155" : "#F1F5F9" }]}>
                 <Text style={styles.countText}>{caseData?.attachments?.length || 0}</Text>
             </View>
         </View>
@@ -172,27 +181,27 @@ export default function LawyerCaseDetailScreen({ route, navigation }: LawyerScre
             <TouchableOpacity 
               key={index} 
               activeOpacity={0.7}
-              style={[styles.docItem, { backgroundColor: "#FFF", borderColor: "#F1F5F9" }]}
+              style={[styles.docItem, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
               onPress={() => Linking.openURL(doc.file_url)}
             >
               <View style={[styles.iconBox, { backgroundColor: primaryColor + "10" }]}>
                 <Ionicons name="document-text" size={22} color={primaryColor} />
               </View>
               <View style={{ flex: 1, marginLeft: 14 }}>
-                <Text style={styles.docName} numberOfLines={1}>
-                    {doc.title || "Pièce jointe"}
+                <Text style={[styles.docName, { color: colors.textMain }]} numberOfLines={1}>
+                    {doc.filename || "Pièce jointe"}
                 </Text>
-                <Text style={styles.docDate}>
-                    Versé le : {new Date(doc.created_at).toLocaleDateString("fr-FR")}
+                <Text style={[styles.docDate, { color: colors.textSub }]}>
+                    Versé le : {doc.createdAt ? new Date(doc.createdAt).toLocaleDateString("fr-FR") : "Date inconnue"}
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={18} color="#CBD5E1" />
+              <Ionicons name="chevron-forward" size={18} color={colors.textSub} />
             </TouchableOpacity>
           ))
         ) : (
-          <View style={styles.emptyBox}>
-            <Ionicons name="file-tray-outline" size={48} color="#CBD5E1" />
-            <Text style={styles.emptyText}>
+          <View style={[styles.emptyBox, { borderColor: colors.border }]}>
+            <Ionicons name="file-tray-outline" size={48} color={colors.textSub} />
+            <Text style={[styles.emptyText, { color: colors.textSub }]}>
                 Aucune pièce n'a encore été versée au dossier numérique.
             </Text>
           </View>
@@ -210,7 +219,7 @@ export default function LawyerCaseDetailScreen({ route, navigation }: LawyerScre
 const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { marginTop: 15, fontWeight: "600", fontSize: 13 },
-  scrollContent: { padding: 16, paddingBottom: 100, backgroundColor: "#F8FAFC" },
+  scrollContent: { padding: 16, paddingBottom: 100 },
   
   statusCard: { 
     padding: 20, borderRadius: 24, marginBottom: 25, borderWidth: 1, elevation: 4, 
@@ -219,15 +228,15 @@ const styles = StyleSheet.create({
   badgeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   statusBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
   statusText: { fontSize: 10, fontWeight: "900", letterSpacing: 0.5 },
-  caseType: { fontSize: 10, fontWeight: "800", color: "#64748B", letterSpacing: 0.5 },
+  caseType: { fontSize: 10, fontWeight: "800", letterSpacing: 0.5 },
   
   locationBox: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 16 },
   iconCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#FFF", justifyContent: 'center', alignItems: 'center', elevation: 2 },
-  locationLabel: { fontSize: 9, fontWeight: "900", color: "#DC2626", letterSpacing: 1, marginBottom: 2 },
-  locationValue: { fontSize: 15, fontWeight: "800", color: "#1E293B" },
+  locationLabel: { fontSize: 9, fontWeight: "900", letterSpacing: 1, marginBottom: 2 },
+  locationValue: { fontSize: 15, fontWeight: "800" },
 
   actionSection: { marginBottom: 30 },
-  sectionTitle: { fontSize: 18, fontWeight: "900", letterSpacing: -0.5, marginBottom: 15, color: "#1E293B" },
+  sectionTitle: { fontSize: 18, fontWeight: "900", letterSpacing: -0.5, marginBottom: 15 },
   uploadBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', 
     paddingVertical: 18, borderRadius: 20, gap: 12, elevation: 4,
@@ -236,7 +245,7 @@ const styles = StyleSheet.create({
   uploadBtnText: { color: 'white', fontWeight: "900", fontSize: 14, letterSpacing: 0.5 },
 
   headerPieces: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 15 },
-  countBadge: { backgroundColor: "#F1F5F9", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+  countBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
   countText: { fontSize: 12, fontWeight: "800", color: "#64748B" },
   
   docItem: { 
@@ -244,12 +253,12 @@ const styles = StyleSheet.create({
     marginBottom: 12, borderWidth: 1,
   },
   iconBox: { width: 48, height: 48, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
-  docName: { fontWeight: "800", fontSize: 15, color: "#1E293B" },
-  docDate: { fontSize: 12, marginTop: 4, fontWeight: "500", color: "#64748B" },
+  docName: { fontWeight: "800", fontSize: 15 },
+  docDate: { fontSize: 12, marginTop: 4, fontWeight: "500" },
 
   emptyBox: { 
     padding: 40, alignItems: 'center', borderRadius: 24,
-    borderWidth: 2, borderColor: '#E2E8F0', borderStyle: 'dashed' 
+    borderWidth: 2, borderStyle: 'dashed' 
   },
-  emptyText: { textAlign: 'center', marginTop: 12, fontSize: 14, fontWeight: "500", color: "#64748B", lineHeight: 20 }
+  emptyText: { textAlign: 'center', marginTop: 12, fontSize: 14, fontWeight: "500", lineHeight: 20 }
 });

@@ -1,8 +1,9 @@
+// PATH: src/navigation/stacks/AdminStack.tsx
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../types/navigation';
 
-// --- Écrans de Gestion Admin ---
+// --- Écrans de Gestion Admin (Métier) ---
 import AdminHomeScreen from '../../screens/admin/AdminHomeScreen';
 import AdminUsersScreen from '../../screens/admin/AdminUsersScreen';
 import AdminCreateUserScreen from '../../screens/admin/AdminCreateUserScreen';
@@ -34,11 +35,14 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export const AdminStack = () => (
   <Stack.Navigator 
-    screenOptions={{ headerShown: false }}
+    screenOptions={{ 
+      headerShown: false,
+      animation: 'slide_from_right' 
+    }}
     initialRouteName="AdminHome"
   >
     {/* ==========================================
-        🏠 ACCUEIL & TABLEAU DE BORD
+        🏠 ACCUEIL & MONITORING
     ========================================== */}
     <Stack.Screen name="AdminHome" component={AdminHomeScreen} />
     <Stack.Screen name="AdminStats" component={AdminStatsScreen} />
@@ -57,7 +61,7 @@ export const AdminStack = () => (
     <Stack.Screen name="AdminCourts" component={AdminCourtsScreen} />
     <Stack.Screen name="AdminCreateCourt" component={AdminCreateCourtScreen} />
     <Stack.Screen name="ManageStations" component={ManageStationsScreen} />
-    <Stack.Screen name="NationalMap" component={NationalMapScreen} />
+    <Stack.Screen name="NationalMap" component={NationalMapScreen as any} />
 
     {/* ==========================================
         🛡️ SÉCURITÉ, AUDIT & MAINTENANCE
@@ -70,14 +74,12 @@ export const AdminStack = () => (
     <Stack.Screen name="AdminSettings" component={AdminSettingsScreen} />
 
     {/* ==========================================
-        👤 PROFIL & NOTIFICATIONS (Header/Footer)
+        👤 PROFIL & NOTIFICATIONS
     ========================================== */}
     <Stack.Screen name="Profile" component={ProfileScreen} />
     <Stack.Screen name="EditProfile" component={EditProfileScreen} />
-    <Stack.Screen name="AdminNotifications" component={AdminNotificationsScreen} />
-    {/* Alias pour la compatibilité avec les composants partagés */}
     <Stack.Screen name="Notifications" component={AdminNotificationsScreen as any} />
-    <Stack.Screen name="Settings" component={AdminSettingsScreen as any} />
+    <Stack.Screen name="AdminNotifications" component={AdminNotificationsScreen} />
 
     {/* ==========================================
         🗺️ OUTILS TRANSVERSAUX & SOS

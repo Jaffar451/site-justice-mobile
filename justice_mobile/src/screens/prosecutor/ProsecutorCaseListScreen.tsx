@@ -1,3 +1,4 @@
+// PATH: src/screens/prosecutor/ProsecutorCaseListScreen.tsx
 import React, { useState, useMemo } from "react";
 import { 
   View, 
@@ -8,24 +9,28 @@ import {
   TextInput, 
   StatusBar,
   Platform,
-  Keyboard
+  Keyboard,
+  ActivityIndicator,
+  RefreshControl
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useQuery } from "@tanstack/react-query";
 
-// ✅ Architecture & Store
+// ✅ Architecture & Services
 import { useAppTheme } from "../../theme/AppThemeProvider";
 import { ProsecutorScreenProps } from "../../types/navigation";
 import ScreenContainer from "../../components/layout/ScreenContainer";
 import AppHeader from "../../components/layout/AppHeader";
 import SmartFooter from "../../components/layout/SmartFooter";
+import api from "../../services/api";
 
-// Données simulées (Inspirées du système e-Justice Niger)
-const MOCK_CASES = [
-  { id: 401, title: "Vol avec effraction nocturne", suspect: "Adamou B. & Alassane S.", status: "nouveau", date: "02/01/2026", unit: "Commissariat Central Niamey" },
-  { id: 402, title: "Trafic transfrontalier (Saisie)", suspect: "Moussa K.", status: "en_cours", date: "01/01/2026", unit: "Gendarmerie Nationale - Maradi" },
-  { id: 403, title: "Détournement de deniers publics", suspect: "Habibou T.", status: "nouveau", date: "02/01/2026", unit: "DPJ Niamey" },
-  { id: 404, title: "Homicide involontaire", suspect: "Ibrahim J.", status: "instruction", date: "31/12/2025", unit: "Commissariat de Ville Zinder" },
-];
+// 📡 FONCTION API
+const fetchProsecutorCases = async () => {
+  const response = await api.get("/complaints"); 
+  // Filtrer côté client si l'API renvoie tout, ou côté serveur avec query params
+  // Ici on suppose que l'API renvoie la liste complète des plaintes transmises
+  return response.data;
+};
 
 export default function ProsecutorCaseListScreen({ navigation }: ProsecutorScreenProps<'ProsecutorCaseList'>) {
   const { isDark } = useAppTheme();
@@ -42,28 +47,50 @@ export default function ProsecutorCaseListScreen({ navigation }: ProsecutorScree
     divider: isDark ? "#334155" : "#F1F5F9",
   };
 
-  // Filtrage intelligent
+  // 🔄 RECUPERATION DES DONNEES (React Query)
+  const { data: cases, isLoading, refetch } = useQuery({
+    queryKey: ["prosecutor-cases"],
+    queryFn: fetchProsecutorCases,
+    initialData: [], // Evite le crash si undefined
+  });
+
+  // 🔍 FILTRAGE LOCAL (Search Bar)
   const filteredCases = useMemo(() => {
+    if (!cases) return [];
     const term = searchQuery.toLowerCase();
-    return MOCK_CASES.filter(c => 
-      c.title.toLowerCase().includes(term) ||
-      c.suspect.toLowerCase().includes(term) ||
-      c.id.toString().includes(term) ||
-      c.unit.toLowerCase().includes(term)
-    );
-  }, [searchQuery]);
+    
+    return cases.filter((c: any) => {
+        const title = c.title?.toLowerCase() || "";
+        const suspect = c.defendantName?.toLowerCase() || ""; // Adaptation selon votre modèle API
+        const ref = c.trackingCode?.toLowerCase() || "";
+        const unit = c.originStation?.name?.toLowerCase() || "";
+        
+        return title.includes(term) || suspect.includes(term) || ref.includes(term) || unit.includes(term);
+    });
+  }, [searchQuery, cases]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'nouveau': return { bg: isDark ? "#450A0A" : "#FEE2E2", text: "#EF4444", label: "À DÉCIDER" };
-      case 'en_cours': return { bg: isDark ? "#1E3A8A" : "#DBEAFE", text: "#3B82F6", label: "ENRÔLÉ" };
-      case 'instruction': return { bg: isDark ? "#14532D" : "#DCFCE7", text: "#10B981", label: "INSTRUIT" };
-      default: return { bg: colors.divider, text: colors.textSub, label: status.toUpperCase() };
+      // Adaptez ces status selon votre backend (ex: 'transmise_parquet', 'soumise')
+      case 'transmise_parquet': 
+      case 'nouveau': 
+        return { bg: isDark ? "#450A0A" : "#FEE2E2", text: "#EF4444", label: "À DÉCIDER" };
+      case 'en_cours': 
+        return { bg: isDark ? "#1E3A8A" : "#DBEAFE", text: "#3B82F6", label: "ENRÔLÉ" };
+      case 'instruction': 
+        return { bg: isDark ? "#14532D" : "#DCFCE7", text: "#10B981", label: "INSTRUIT" };
+      default: 
+        return { bg: colors.divider, text: colors.textSub, label: status?.toUpperCase() || "N/A" };
     }
   };
 
-  const renderCase = ({ item }: { item: typeof MOCK_CASES[0] }) => {
+  const renderCase = ({ item }: { item: any }) => {
     const badge = getStatusBadge(item.status);
+    // Formatage Date
+    const formattedDate = item.createdAt 
+        ? new Date(item.createdAt).toLocaleDateString("fr-FR") 
+        : "--/--";
+
     return (
       <TouchableOpacity 
         activeOpacity={0.8}
@@ -76,26 +103,34 @@ export default function ProsecutorCaseListScreen({ navigation }: ProsecutorScree
         <View style={styles.caseHeader}>
           <View style={styles.refContainer}>
             <Ionicons name="document-text" size={16} color={colors.justicePrimary} />
-            <Text style={[styles.caseRef, { color: colors.justicePrimary }]}>RG #{item.id}/2026</Text>
+            <Text style={[styles.caseRef, { color: colors.justicePrimary }]}>
+                {item.trackingCode || `PV #${item.id}`}
+            </Text>
           </View>
           <View style={[styles.badge, { backgroundColor: badge.bg }]}>
             <Text style={[styles.badgeText, { color: badge.text }]}>{badge.label}</Text>
           </View>
         </View>
 
-        <Text style={[styles.caseTitle, { color: colors.textMain }]} numberOfLines={2}>{item.title}</Text>
+        <Text style={[styles.caseTitle, { color: colors.textMain }]} numberOfLines={2}>
+            {item.title || "Infraction non qualifiée"}
+        </Text>
         
         <View style={styles.infoGrid}>
             <View style={styles.infoRow}>
                 <Ionicons name="person-circle-outline" size={16} color={colors.textSub} />
                 <Text style={[styles.infoText, { color: colors.textSub }]}>
-                    Mis en cause : <Text style={{color: colors.textMain, fontWeight: '700'}}>{item.suspect}</Text>
+                    Mis en cause : <Text style={{color: colors.textMain, fontWeight: '700'}}>
+                        {item.defendantName || "Inconnu"}
+                    </Text>
                 </Text>
             </View>
             <View style={styles.infoRow}>
                 <Ionicons name="business-outline" size={16} color={colors.textSub} />
                 <Text style={[styles.infoText, { color: colors.textSub }]}>
-                    Origine : <Text style={{color: colors.textMain}}>{item.unit}</Text>
+                    Origine : <Text style={{color: colors.textMain}}>
+                        {item.originStation?.name || "Non spécifié"}
+                    </Text>
                 </Text>
             </View>
         </View>
@@ -103,7 +138,7 @@ export default function ProsecutorCaseListScreen({ navigation }: ProsecutorScree
         <View style={[styles.footer, { borderTopColor: colors.divider }]}>
           <View style={styles.dateContainer}>
             <Ionicons name="time-outline" size={14} color={colors.textSub} />
-            <Text style={[styles.dateText, { color: colors.textSub }]}>Reçu le {item.date}</Text>
+            <Text style={[styles.dateText, { color: colors.textSub }]}>Reçu le {formattedDate}</Text>
           </View>
           <View style={styles.actionRow}>
             <Text style={[styles.actionText, { color: colors.justicePrimary }]}>DÉCIDER</Text>
@@ -123,13 +158,14 @@ export default function ProsecutorCaseListScreen({ navigation }: ProsecutorScree
       <View style={[styles.statsBar, { backgroundColor: colors.bgCard, borderBottomColor: colors.border }]}>
         <View style={styles.statItem}>
           <Text style={[styles.statValue, { color: "#EF4444" }]}>
-            {MOCK_CASES.filter(c => c.status === 'nouveau').length}
+            {/* Compte les dossiers "transmis" ou "nouveaux" */}
+            {cases.filter((c: any) => c.status === 'transmise_parquet' || c.status === 'nouveau').length}
           </Text>
           <Text style={[styles.statLabel, { color: colors.textSub }]}>URGENCES</Text>
         </View>
         <View style={[styles.statDivider, { backgroundColor: colors.divider }]} />
         <View style={styles.statItem}>
-          <Text style={[styles.statValue, { color: colors.justicePrimary }]}>{MOCK_CASES.length}</Text>
+          <Text style={[styles.statValue, { color: colors.justicePrimary }]}>{cases.length}</Text>
           <Text style={[styles.statLabel, { color: colors.textSub }]}>DOSSIERS REÇUS</Text>
         </View>
       </View>
@@ -155,20 +191,32 @@ export default function ProsecutorCaseListScreen({ navigation }: ProsecutorScree
           </View>
         </View>
 
-        <FlatList
-          data={filteredCases}
-          keyExtractor={item => item.id.toString()}
-          contentContainerStyle={styles.listPadding}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-          renderItem={renderCase}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Ionicons name="file-tray-outline" size={70} color={colors.border} />
-              <Text style={[styles.emptyText, { color: colors.textSub }]}>Aucune transmission trouvée.</Text>
+        {isLoading ? (
+            <View style={styles.center}>
+                <ActivityIndicator size="large" color={colors.justicePrimary} />
+                <Text style={[styles.loadingText, { color: colors.textSub }]}>Chargement des dossiers...</Text>
             </View>
-          }
-        />
+        ) : (
+            <FlatList
+              data={filteredCases}
+              keyExtractor={(item) => item.id.toString()}
+              contentContainerStyle={styles.listPadding}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              renderItem={renderCase}
+              refreshControl={
+                  <RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={colors.justicePrimary} />
+              }
+              ListEmptyComponent={
+                <View style={styles.emptyContainer}>
+                  <Ionicons name="file-tray-outline" size={70} color={colors.border} />
+                  <Text style={[styles.emptyText, { color: colors.textSub }]}>
+                      {searchQuery ? "Aucun résultat trouvé." : "Aucune transmission reçue pour le moment."}
+                  </Text>
+                </View>
+              }
+            />
+        )}
       </View>
 
       <SmartFooter />
@@ -177,6 +225,8 @@ export default function ProsecutorCaseListScreen({ navigation }: ProsecutorScree
 }
 
 const styles = StyleSheet.create({
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 20 },
+  loadingText: { marginTop: 10, fontSize: 13, fontWeight: '600' },
   statsBar: { flexDirection: 'row', paddingVertical: 15, borderBottomWidth: 1, elevation: 2 },
   statItem: { flex: 1, alignItems: 'center' },
   statValue: { fontSize: 20, fontWeight: '900' },

@@ -1,12 +1,14 @@
+// PATH: src/navigation/stacks/ProsecutorStack.tsx
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../types/navigation';
 
-// --- Écrans Procureur (Parquet) ---
+// --- Écrans Procureur (Le Parquet) ---
 import ProsecutorHomeScreen from '../../screens/prosecutor/ProsecutorHomeScreen';
 import ProsecutorCaseListScreen from '../../screens/prosecutor/ProsecutorCaseListScreen';
 import ProsecutorCaseDetailScreen from '../../screens/prosecutor/ProsecutorCaseDetailScreen';
 import ProsecutorAssignJudgeScreen from '../../screens/prosecutor/ProsecutorAssignJudgeScreen';
+import ProsecutorCalendarScreen from '../../screens/prosecutor/ProsecutorCalendarScreen';
 
 // --- Écrans Partagés (Imports Système) ---
 import NationalMapScreen from '../../screens/admin/NationalMapScreen';
@@ -23,16 +25,20 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export const ProsecutorStack = () => (
   <Stack.Navigator 
-    screenOptions={{ headerShown: false }}
+    screenOptions={{ 
+      headerShown: false,
+      animation: 'slide_from_right' // Transition pro pour la magistrature
+    }}
     initialRouteName="ProsecutorDashboard"
   >
     {/* ==========================================
         🏛️ DIRECTION DU PARQUET (Métier)
     ========================================== */}
     <Stack.Screen name="ProsecutorDashboard" component={ProsecutorHomeScreen as any} />
-    <Stack.Screen name="ProsecutorCaseList" component={ProsecutorCaseListScreen} />
+    <Stack.Screen name="ProsecutorCaseList" component={ProsecutorCaseListScreen as any} />
     <Stack.Screen name="ProsecutorCaseDetail" component={ProsecutorCaseDetailScreen as any} />
     <Stack.Screen name="ProsecutorAssignJudge" component={ProsecutorAssignJudgeScreen as any} />
+    <Stack.Screen name="ProsecutorCalendar" component={ProsecutorCalendarScreen as any} />
 
     {/* ==========================================
         👤 COMPTE & SYSTÈME (Header/Footer/Settings)
@@ -55,6 +61,7 @@ export const ProsecutorStack = () => (
     <Stack.Screen name="UserGuide" component={UserGuideScreen} />
     <Stack.Screen name="Support" component={SupportScreen} />
     <Stack.Screen name="MyDownloads" component={MyDownloadsScreen} />
+    <Stack.Screen name="HelpCenter" component={SupportScreen} />
 
   </Stack.Navigator>
 );

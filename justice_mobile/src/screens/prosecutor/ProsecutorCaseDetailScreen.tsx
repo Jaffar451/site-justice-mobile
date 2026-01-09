@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+// PATH: src/screens/prosecutor/ProsecutorCaseDetailScreen.tsx
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, StatusBar, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -9,60 +10,103 @@ import ScreenContainer from '../../components/layout/ScreenContainer';
 import AppHeader from '../../components/layout/AppHeader';
 import SmartFooter from '../../components/layout/SmartFooter';
 
-export default function ProsecutorCaseDetail() {
+// ✅ Import API
+import api from '../../services/api'; 
+
+export default function ProsecutorCaseDetailScreen() {
   const { theme, isDark } = useAppTheme();
   const navigation = useNavigation<any>();
   const route = useRoute();
   
-  // 🛡️ Récupération sécurisée du paramètre ID
+  // 🛡️ Récupération ID
   const params = route.params as { caseId: number };
   const id = params?.caseId;
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [caseData, setCaseData] = useState<any>(null);
 
-  // 🎨 PALETTE DYNAMIQUE
+  // 🎨 Palette
   const colors = {
     bgMain: isDark ? "#0F172A" : "#F8FAFC",
     bgCard: isDark ? "#1E293B" : "#FFFFFF",
     textMain: isDark ? "#FFFFFF" : "#1E293B",
     textSub: isDark ? "#94A3B8" : "#64748B",
     border: isDark ? "#334155" : "#E2E8F0",
-    justicePrimary: "#7C2D12", // Bordeaux Justice Institutionnel
+    justicePrimary: "#7C2D12",
     pdfBg: isDark ? "#450A0A" : "#FEE2E2",
   };
 
-  // Simulation des données (Format conforme aux PV nigériens)
-  const caseData = {
-    rg: id || "2026-NP-042",
-    unite: "Commissariat Central de Niamey",
-    opj: "Capitaine Idrissa Abdou",
-    type: "Vol aggravé avec violence",
-    suspect: "Adamou B. & Alassane S.",
-    statutGAV: "Active (32h écoulées)",
-    reçuLe: "07/01/2026 à 09:15",
-    resume: "Interpellation suite à une effraction nocturne au quartier Plateau. Usage d'armes blanches confirmé par les victimes. Objets saisis placés sous scellés e-Justice.",
-  };
+  // 📡 CHARGEMENT DES DONNÉES RÉELLES (BACKEND ONLY)
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadData = async () => {
+      if (!id) {
+        Alert.alert("Erreur", "Identifiant du dossier manquant.");
+        navigation.goBack();
+        return;
+      }
+
+      try {
+        console.log(`[API] Récupération du dossier #${id}...`);
+        const response = await api.get(`/complaints/${id}`);
+        
+        if (isMounted && response.data) {
+          const apiData = response.data;
+
+          // Mapping des données backend vers l'interface UI
+          setCaseData({
+            id: apiData.id,
+            rg: apiData.trackingCode || `ND-${apiData.id}`,
+            unite: apiData.originStation?.name || "Unité inconnue",
+            // Gestion sécurisée si l'officier n'est pas renseigné
+            opj: apiData.assignedOfficer 
+                 ? `${apiData.assignedOfficer.firstname} ${apiData.assignedOfficer.lastname}` 
+                 : "Non assigné",
+            type: apiData.title || "Qualification non définie",
+            suspect: apiData.defendantName || "Inconnu / X", // Assurez-vous que ce champ existe ou adaptez-le
+            statutGAV: apiData.custodyStatus || "Non spécifié",
+            reçuLe: apiData.createdAt 
+                    ? new Date(apiData.createdAt).toLocaleDateString("fr-FR") + " à " + new Date(apiData.createdAt).toLocaleTimeString("fr-FR", {hour: '2-digit', minute:'2-digit'})
+                    : "--/--",
+            resume: apiData.description || "Aucune description disponible.",
+          });
+        }
+      } catch (error: any) {
+        console.error("Erreur chargement dossier:", error);
+        
+        if (isMounted) {
+          const status = error.response?.status;
+          const msg = status === 404 
+            ? "Ce dossier est introuvable ou a été supprimé." 
+            : "Impossible de récupérer les données du serveur.";
+            
+          Alert.alert("Erreur de chargement", msg, [
+            { text: "Retour", onPress: () => navigation.goBack() }
+          ]);
+        }
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    loadData();
+    return () => { isMounted = false; };
+  }, [id]);
 
   const handleDecision = (type: 'instruction' | 'complement' | 'classement') => {
-    let title = "";
-    let msg = "";
+    const titles = {
+        instruction: "Ouverture d'Information",
+        complement: "Complément d'Enquête",
+        classement: "Classement sans suite"
+    };
+    const msgs = {
+        instruction: "Saisir un Juge d'Instruction et déférer les suspects ?",
+        complement: "Retourner le dossier à l'OPJ pour actes supplémentaires ?",
+        classement: "Confirmer l'extinction de l'action publique ?"
+    };
 
-    switch(type) {
-        case 'instruction':
-            title = "Ouverture d'Information";
-            msg = "Saisir un Juge d'Instruction et déférer les suspects ?";
-            break;
-        case 'complement':
-            title = "Complément d'Enquête";
-            msg = "Retourner le dossier à l'OPJ pour actes supplémentaires ?";
-            break;
-        case 'classement':
-            title = "Classement sans suite";
-            msg = "Confirmer l'extinction de l'action publique pour ce dossier ?";
-            break;
-    }
-
-    Alert.alert(title, msg, [
+    Alert.alert(titles[type], msgs[type], [
         { text: "Annuler", style: "cancel" },
         { 
           text: "Confirmer", 
@@ -72,18 +116,41 @@ export default function ProsecutorCaseDetail() {
     ]);
   };
 
-  const executeDecision = (type: string) => {
+  const executeDecision = async (type: string) => {
     setLoading(true);
-    // Simulation du scellage numérique blockchain/serveur
-    setTimeout(() => {
-      setLoading(false);
-      if (type === 'instruction') {
-        navigation.navigate("ProsecutorAssignJudge", { caseId: id });
-      } else {
-        navigation.goBack();
-      }
-    }, 1500);
+    try {
+        // TODO: Appeler l'API réelle pour enregistrer la décision ici
+        // await api.post(`/complaints/${id}/decision`, { decision: type });
+        
+        setTimeout(() => {
+            setLoading(false);
+            if (type === 'instruction') {
+                navigation.navigate("ProsecutorAssignJudge", { caseId: id });
+            } else {
+                Alert.alert("Succès", "Décision enregistrée.");
+                navigation.goBack();
+            }
+        }, 1000);
+    } catch (error) {
+        setLoading(false);
+        Alert.alert("Erreur", "Échec de l'enregistrement de la décision.");
+    }
   };
+
+  if (loading) {
+      return (
+          <ScreenContainer withPadding={false}>
+              <AppHeader title="Chargement..." showBack />
+              <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+                  <ActivityIndicator size="large" color={colors.justicePrimary} />
+                  <Text style={{marginTop: 10, color: colors.textSub}}>Synchronisation sécurisée...</Text>
+              </View>
+          </ScreenContainer>
+      );
+  }
+
+  // Sécurité si le rendu se fait alors que caseData est null (rare grâce au return du useEffect)
+  if (!caseData) return null;
 
   return (
     <ScreenContainer withPadding={false}>
@@ -120,7 +187,7 @@ export default function ProsecutorCaseDetail() {
           <Text style={[styles.sectionLabel, { color: colors.textSub }]}>MIS EN CAUSE & INFRACTION</Text>
           <View style={[styles.card, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
             <Text style={[styles.suspectName, { color: colors.textMain }]}>{caseData.suspect}</Text>
-            <Text style={[styles.infractionText, { color: colors.justicePrimary }]}>{caseData.type.toUpperCase()}</Text>
+            <Text style={[styles.infractionText, { color: colors.justicePrimary }]}>{caseData.type?.toUpperCase()}</Text>
             
             <View style={[styles.gavBadge, { backgroundColor: isDark ? "#422006" : "#FFFBEB", borderColor: isDark ? "#B4530950" : "#FBBF24" }]}>
                <Ionicons name="hourglass-outline" size={16} color="#F59E0B" />
@@ -176,8 +243,6 @@ export default function ProsecutorCaseDetail() {
           />
         </View>
 
-        {loading && <ActivityIndicator size="large" color={colors.justicePrimary} style={{ marginTop: 25 }} />}
-        
         <View style={{ height: 40 }} /> 
       </ScrollView>
 

@@ -16,7 +16,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
 
 // ✅ 1. Imports Architecture
-import { getAppTheme } from "../../theme";
+import { useAppTheme } from "../../theme/AppThemeProvider";
 import { LawyerScreenProps } from "../../types/navigation";
 
 // Composants
@@ -28,14 +28,26 @@ import SmartFooter from "../../components/layout/SmartFooter";
 import { getAllComplaints, Complaint } from "../../services/complaint.service";
 
 export default function LawyerCaseListScreen({ navigation }: LawyerScreenProps<'LawyerCaseList'>) {
-  // ✅ 2. Thème via Helper
-  const theme = getAppTheme();
-  const primaryColor = theme.color;
+  // ✅ 2. Thème Dynamique
+  const { theme, isDark } = useAppTheme();
+  // Couleur Or pour l'avocat (ou primaire du thème)
+  const primaryColor = isDark ? "#D4AF37" : theme.colors.primary; 
   
   const [search, setSearch] = useState("");
 
+  // 🎨 PALETTE DYNAMIQUE
+  const colors = {
+    bgMain: isDark ? "#0F172A" : "#F8FAFC",
+    bgCard: isDark ? "#1E293B" : "#FFFFFF",
+    textMain: isDark ? "#FFFFFF" : "#1E293B",
+    textSub: isDark ? "#94A3B8" : "#64748B",
+    border: isDark ? "#334155" : "#E2E8F0",
+    inputBg: isDark ? "#1E293B" : "#F8FAFC",
+    searchWrapper: isDark ? "#1E293B" : "#FFFFFF",
+  };
+
   // 🔄 Récupération des dossiers liés à l'avocat
-  const { data: cases, isLoading, refetch } = useQuery({
+  const { data: cases, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ["lawyer-cases"],
     queryFn: getAllComplaints,
   });
@@ -50,7 +62,11 @@ export default function LawyerCaseListScreen({ navigation }: LawyerScreenProps<'
   const filteredCases = useMemo(() => {
     if (!cases) return [];
     const term = search.toLowerCase();
+    
+    // On peut aussi ajouter un filtre pour ne montrer que les dossiers assignés à l'avocat
+    // (si le backend ne le fait pas déjà)
     return (cases as Complaint[]).filter(c => 
+      c.trackingCode?.toLowerCase().includes(term) ||
       c.id.toString().includes(term) ||
       (c.citizen?.firstname + " " + c.citizen?.lastname).toLowerCase().includes(term) ||
       (c.provisionalOffence || "").toLowerCase().includes(term)
@@ -63,8 +79,9 @@ export default function LawyerCaseListScreen({ navigation }: LawyerScreenProps<'
       audience_programmée: { label: "AUDIENCE", color: "#10B981" },
       transmise_parquet: { label: "AU PARQUET", color: "#3B82F6" },
       jugée: { label: "DÉCISION RENDUE", color: "#64748B" },
+      non_lieu: { label: "NON-LIEU", color: "#94A3B8" },
     };
-    return config[status] || { label: status.toUpperCase(), color: "#94A3B8" };
+    return config[status] || { label: status.toUpperCase().replace('_', ' '), color: "#94A3B8" };
   };
 
   const renderCaseItem = ({ item }: { item: Complaint }) => {
@@ -76,11 +93,12 @@ export default function LawyerCaseListScreen({ navigation }: LawyerScreenProps<'
     return (
       <TouchableOpacity 
         activeOpacity={0.85}
-        style={[styles.card, { backgroundColor: "#FFF", borderColor: "#F1F5F9" }]}
+        style={[styles.card, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
+        // ✅ Navigation vers le détail
         onPress={() => navigation.navigate("LawyerCaseDetail", { caseId: item.id })}
       >
         <View style={styles.cardHeader}>
-          <Text style={[styles.caseRef, { color: primaryColor }]}>N° RG {item.id}/2025</Text>
+          <Text style={[styles.caseRef, { color: primaryColor }]}>N° RG {item.trackingCode || item.id}</Text>
           <View style={[styles.badge, { backgroundColor: status.color + "15" }]}>
             <Text style={[styles.badgeText, { color: status.color }]}>{status.label}</Text>
           </View>
@@ -88,20 +106,22 @@ export default function LawyerCaseListScreen({ navigation }: LawyerScreenProps<'
 
         <View style={styles.clientRow}>
           <View style={styles.clientIcon}>
-             <Ionicons name="person-circle" size={42} color="#CBD5E1" />
+             <Ionicons name="person-circle" size={42} color={colors.textSub} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.clientName}>{clientName}</Text>
-            <Text style={styles.offenceText} numberOfLines={1}>
+            <Text style={[styles.clientName, { color: colors.textMain }]}>{clientName}</Text>
+            <Text style={[styles.offenceText, { color: colors.textSub }]} numberOfLines={1}>
               {item.provisionalOffence || "Qualification en cours d'examen"}
             </Text>
           </View>
         </View>
 
-        <View style={styles.cardFooter}>
+        <View style={[styles.cardFooter, { borderTopColor: colors.border }]}>
           <View style={styles.dateInfo}>
-            <Ionicons name="calendar-outline" size={12} color="#94A3B8" />
-            <Text style={styles.dateText}>Saisi le {new Date(item.filedAt).toLocaleDateString("fr-FR")}</Text>
+            <Ionicons name="calendar-outline" size={12} color={colors.textSub} />
+            <Text style={[styles.dateText, { color: colors.textSub }]}>
+                Saisi le {new Date(item.filedAt).toLocaleDateString("fr-FR")}
+            </Text>
           </View>
           <View style={styles.actionLink}>
             <Text style={[styles.linkText, { color: primaryColor }]}>Consulter</Text>
@@ -118,47 +138,51 @@ export default function LawyerCaseListScreen({ navigation }: LawyerScreenProps<'
       <AppHeader title="Portefeuille Dossiers" showBack />
 
       {/* 🔍 BARRE DE RECHERCHE DYNAMIQUE */}
-      <View style={styles.searchWrapper}>
-        <View style={styles.searchInputContainer}>
-          <Ionicons name="search" size={18} color="#94A3B8" />
+      <View style={[styles.searchWrapper, { backgroundColor: colors.searchWrapper, borderBottomColor: colors.border }]}>
+        <View style={[styles.searchInputContainer, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+          <Ionicons name="search" size={18} color={colors.textSub} />
           <TextInput
             placeholder="Rechercher client ou n° RG..."
-            placeholderTextColor="#94A3B8"
-            style={styles.input}
+            placeholderTextColor={colors.textSub}
+            style={[styles.input, { color: colors.textMain }]}
             value={search}
             onChangeText={setSearch}
           />
           {search.length > 0 && (
             <TouchableOpacity onPress={() => setSearch("")}>
-              <Ionicons name="close-circle" size={18} color="#94A3B8" />
+              <Ionicons name="close-circle" size={18} color={colors.textSub} />
             </TouchableOpacity>
           )}
         </View>
       </View>
 
-      {isLoading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={primaryColor} />
-          <Text style={styles.loaderText}>Accès au Barreau numérique...</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={filteredCases}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={renderCaseItem}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={primaryColor} />}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Ionicons name="folder-open-outline" size={64} color="#E2E8F0" />
-              <Text style={styles.emptyText}>
-                {search ? "Aucun dossier trouvé pour cette recherche." : "Vous n'avez aucun dossier actif dans votre portefeuille."}
-              </Text>
+      <View style={{ flex: 1, backgroundColor: colors.bgMain }}>
+        {isLoading && !isRefetching ? (
+            <View style={styles.center}>
+                <ActivityIndicator size="large" color={primaryColor} />
+                <Text style={[styles.loaderText, { color: colors.textSub }]}>Accès au Barreau numérique...</Text>
             </View>
-          }
-        />
-      )}
+        ) : (
+            <FlatList
+            data={filteredCases}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={renderCaseItem}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+                <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={primaryColor} />
+            }
+            ListEmptyComponent={
+                <View style={styles.emptyContainer}>
+                <Ionicons name="folder-open-outline" size={64} color={colors.border} />
+                <Text style={[styles.emptyText, { color: colors.textSub }]}>
+                    {search ? "Aucun dossier trouvé pour cette recherche." : "Vous n'avez aucun dossier actif dans votre portefeuille."}
+                </Text>
+                </View>
+            }
+            />
+        )}
+      </View>
 
       {/* ✅ SmartFooter autonome */}
       <SmartFooter />
@@ -168,13 +192,11 @@ export default function LawyerCaseListScreen({ navigation }: LawyerScreenProps<'
 
 const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  loaderText: { marginTop: 15, fontSize: 13, color: "#64748B", fontWeight: "600" },
+  loaderText: { marginTop: 15, fontSize: 13, fontWeight: "600" },
   
   searchWrapper: { 
     padding: 16, 
-    backgroundColor: "#FFF", 
     borderBottomWidth: 1, 
-    borderBottomColor: "#F1F5F9" 
   },
   searchInputContainer: { 
     flexDirection: "row", 
@@ -182,11 +204,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15, 
     height: 50, 
     borderRadius: 14, 
-    backgroundColor: "#F8FAFC",
     borderWidth: 1,
-    borderColor: "#E2E8F0"
   },
-  input: { flex: 1, marginLeft: 10, fontSize: 14, fontWeight: "500", color: "#1E293B" },
+  input: { flex: 1, marginLeft: 10, fontSize: 14, fontWeight: "500" },
   
   listContent: { padding: 16, paddingBottom: 120 },
   card: { 
@@ -206,22 +226,21 @@ const styles = StyleSheet.create({
   
   clientRow: { flexDirection: "row", alignItems: "center", marginBottom: 20 },
   clientIcon: { marginRight: 15 },
-  clientName: { fontSize: 17, fontWeight: "800", color: "#1E293B" },
-  offenceText: { fontSize: 12, fontWeight: "600", color: "#64748B", marginTop: 2 },
+  clientName: { fontSize: 17, fontWeight: "800" },
+  offenceText: { fontSize: 12, fontWeight: "600", marginTop: 2 },
   
   cardFooter: { 
     flexDirection: "row", 
     justifyContent: "space-between", 
     alignItems: "center", 
     borderTopWidth: 1, 
-    borderTopColor: "#F8FAFC", 
     paddingTop: 15 
   },
   dateInfo: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  dateText: { fontSize: 11, color: "#94A3B8", fontWeight: "700" },
+  dateText: { fontSize: 11, fontWeight: "700" },
   actionLink: { flexDirection: "row", alignItems: "center", gap: 6 },
   linkText: { fontSize: 12, fontWeight: "900", textTransform: 'uppercase' },
   
   emptyContainer: { alignItems: "center", marginTop: 100, paddingHorizontal: 40 },
-  emptyText: { fontSize: 14, fontWeight: "600", textAlign: "center", color: "#94A3B8", marginTop: 15, lineHeight: 22 }
+  emptyText: { fontSize: 14, fontWeight: "600", textAlign: "center", marginTop: 15, lineHeight: 22 }
 });

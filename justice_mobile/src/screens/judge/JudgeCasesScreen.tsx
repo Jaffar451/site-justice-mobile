@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useMemo } from "react";
 import { 
   View, 
   Text, 
@@ -10,11 +10,11 @@ import {
   StatusBar,
   Platform
 } from "react-native";
-import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
+import { useQuery } from "@tanstack/react-query";
 
 // ✅ 1. Imports Architecture
-import { useAppTheme } from "../../theme/AppThemeProvider"; // ✅ Hook dynamique
+import { useAppTheme } from "../../theme/AppThemeProvider";
 import { JudgeScreenProps } from "../../types/navigation";
 import { useAuthStore } from "../../stores/useAuthStore";
 
@@ -28,6 +28,8 @@ import { getAllComplaints, Complaint } from "../../services/complaint.service";
 
 interface ExtendedCase extends Complaint {
   trackingCode?: string;
+  caseNumber?: string;
+  provisionalOffence?: string;
 }
 
 interface CaseData {
@@ -39,14 +41,10 @@ interface CaseData {
   date: string;
 }
 
-export default function JudgeCasesScreen({ navigation }: JudgeScreenProps<'JudgeCaseList'>) {
-  // ✅ 2. Thème Dynamique
+export default function JudgeCasesScreen({ navigation }: JudgeScreenProps<'JudgeCases'>) {
   const { theme, isDark } = useAppTheme();
   const primaryColor = theme.colors.primary;
-  
   const { user } = useAuthStore();
-  const [cases, setCases] = useState<CaseData[]>([]);
-  const [loading, setLoading] = useState(true);
 
   // 🎨 PALETTE DYNAMIQUE
   const colors = {
@@ -58,16 +56,24 @@ export default function JudgeCasesScreen({ navigation }: JudgeScreenProps<'Judge
     bannerBg: isDark ? "#1E293B" : "#F8FAFC",
   };
 
-  const fetchCases = async () => {
-    setLoading(true);
-    try {
-      const rawData = await getAllComplaints() as ExtendedCase[];
-      
-      const relevantData = rawData.filter(c => 
-        ["instruction", "saisi_juge", "audience_programmée", "poursuite"].includes(c.status)
-      );
+  // ✅ 3. Fetch avec React Query
+  const { data: rawCases, isLoading, refetch, isRefetching } = useQuery({
+    queryKey: ['judge-cases-list'],
+    queryFn: async () => {
+      const data = await getAllComplaints();
+      return data as ExtendedCase[];
+    }
+  });
 
-      const formattedData: CaseData[] = relevantData.map((c) => ({
+  // ✅ 4. Filtrage et Formatage (Memoïsé)
+  const cases: CaseData[] = useMemo(() => {
+    if (!rawCases) return [];
+
+    return rawCases
+      .filter(c => 
+        ["instruction", "saisi_juge", "audience_programmée", "poursuite"].includes(c.status)
+      )
+      .map((c) => ({
         id: c.id,
         reference: c.trackingCode || c.caseNumber || `RG-${c.id}`,
         title: c.provisionalOffence || "Information Judiciaire ouverte",
@@ -75,20 +81,7 @@ export default function JudgeCasesScreen({ navigation }: JudgeScreenProps<'Judge
         plaintiff: c.citizen ? `${c.citizen.lastname} ${c.citizen.firstname}` : "Plainte Étatique",
         date: new Date(c.filedAt).toLocaleDateString("fr-FR")
       }));
-
-      setCases(formattedData);
-    } catch (error) {
-      console.error("Erreur registre juge:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useFocusEffect(
-    useCallback(() => {
-      fetchCases();
-    }, [])
-  );
+  }, [rawCases]);
 
   const getStatusStyle = (status: string) => {
     switch(status) {
@@ -116,7 +109,8 @@ export default function JudgeCasesScreen({ navigation }: JudgeScreenProps<'Judge
             borderColor: colors.border
           }
         ]}
-        onPress={() => navigation.navigate("JudgeCaseDetail", { caseId: item.id })} 
+        // ✅ Navigation vers le détail
+        onPress={() => navigation.navigate("CaseDetail", { caseId: item.id })} 
       >
         <View style={styles.header}>
           <Text style={[styles.ref, { color: primaryColor }]}>{item.reference}</Text>
@@ -155,36 +149,36 @@ export default function JudgeCasesScreen({ navigation }: JudgeScreenProps<'Judge
           <View style={styles.row}>
             <Ionicons name="ribbon-outline" size={16} color={primaryColor} style={{ marginRight: 8 }} />
             <Text style={[styles.bannerText, { color: colors.textSub }]}>
-              Magistrat : <Text style={[styles.boldText, { color: colors.textMain }]}>Juge {user?.lastname}</Text>
+              Magistrat : <Text style={[styles.boldText, { color: colors.textMain }]}>{user?.lastname?.toUpperCase()}</Text>
             </Text>
           </View>
           <Text style={[styles.caseCount, { color: primaryColor }]}>{cases.length} Dossier(s)</Text>
       </View>
       
       <View style={{ flex: 1, backgroundColor: colors.bgMain }}>
-        {loading && cases.length === 0 ? (
+        {isLoading && !isRefetching ? (
             <View style={styles.center}>
                 <ActivityIndicator size="large" color={primaryColor} />
                 <Text style={[styles.loadingText, { color: colors.textSub }]}>Synchronisation du registre...</Text>
             </View>
         ) : (
             <FlatList
-            data={cases}
-            keyExtractor={(item) => item.id.toString()}
-            renderItem={renderItem}
-            contentContainerStyle={styles.listContainer}
-            showsVerticalScrollIndicator={false}
-            refreshControl={
-                <RefreshControl refreshing={loading} onRefresh={fetchCases} tintColor={primaryColor} />
-            }
-            ListEmptyComponent={
+              data={cases}
+              keyExtractor={(item) => item.id.toString()}
+              renderItem={renderItem}
+              contentContainerStyle={styles.listContainer}
+              showsVerticalScrollIndicator={false}
+              refreshControl={
+                <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={primaryColor} />
+              }
+              ListEmptyComponent={
                 <View style={styles.empty}>
                     <Ionicons name="file-tray-outline" size={80} color={colors.border} />
                     <Text style={[styles.emptyText, { color: colors.textSub }]}>
                     Votre cabinet ne compte aucun dossier actif.
                     </Text>
                 </View>
-            }
+              }
             />
         )}
       </View>

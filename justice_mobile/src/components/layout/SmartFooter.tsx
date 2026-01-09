@@ -1,12 +1,12 @@
+// PATH: src/components/layout/SmartFooter.tsx
 import React, { useMemo } from 'react';
 import { View, TouchableOpacity, Text, StyleSheet, Platform } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { Ionicons, FontAwesome5 } from '@expo/vector-icons'; // Ajout de FontAwesome5 pour la balance
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Stores & Thème
 import { useAuthStore } from '../../stores/useAuthStore';
-import { getAppTheme } from '../../theme';
 import { useAppTheme } from '../../theme/AppThemeProvider';
 
 export default function SmartFooter() {
@@ -14,8 +14,7 @@ export default function SmartFooter() {
   const route = useRoute();
   const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
-  const { isDark } = useAppTheme();
-  const theme = getAppTheme();
+  const { theme, isDark } = useAppTheme();
 
   const userRole = (user?.role || "citizen").toLowerCase();
 
@@ -44,17 +43,19 @@ export default function SmartFooter() {
 
       case 'prosecutor':
         return [
-          { icon: 'home', label: 'Accueil', target: 'ProsecutorHome' },
+          // ✅ CORRECTION : Cible 'ProsecutorDashboard' au lieu de 'ProsecutorHome'
+          { icon: 'home', label: 'Accueil', target: 'ProsecutorDashboard' },
           { icon: 'list', label: 'Parquet', target: 'ProsecutorCaseList' },
-          { icon: 'stats-chart', label: 'Analyse', target: 'ProsecutorDashboard' },
+          // Remplacement de 'Analyse' par 'Mandats' (plus utile au quotidien et route existante)
+          { icon: 'search', label: 'Mandats', target: 'WarrantSearch' },
         ];
 
       case 'judge':
         return [
           { icon: 'home', label: 'Accueil', target: 'JudgeHome' },
-          { icon: 'calendar', label: 'Audiences', target: 'JudgeHearing' },
-          { icon: 'document-text', label: 'Décisions', target: 'JudgeDecisions' },
-          { icon: 'search', label: 'Recherche', target: 'WarrantSearch' },
+          { icon: 'calendar', label: 'Audiences', target: 'JudgeCalendar' }, // Vérifié dans JudgeStack
+          { icon: 'folder', label: 'Dossiers', target: 'JudgeCaseList' },
+          { icon: 'search', label: 'Recherche', target: 'WarrantSearch' }, // Via shared routes
         ];
 
       case 'greffier':
@@ -74,9 +75,8 @@ export default function SmartFooter() {
 
       case 'bailiff':
         return [
-          { icon: 'home', label: 'Accueil', target: 'BailiffHome' },
-          { icon: 'send', label: 'Missions', target: 'BailiffMissions' },
-          { icon: 'calendar', label: 'Agenda', target: 'BailiffCalendar' },
+          { icon: 'home', label: 'Accueil', target: 'BailiffMissions' }, // Vérifié dans BailiffStack
+          { icon: 'map', label: 'Carte', target: 'NationalMap' },
         ];
 
       default: // Citoyen
@@ -84,7 +84,7 @@ export default function SmartFooter() {
           { icon: 'home', label: 'Accueil', target: 'CitizenHome' },
           { icon: 'add-circle', label: 'Plainte', target: 'CitizenCreateComplaint', highlight: true },
           { icon: 'list', label: 'Suivis', target: 'CitizenMyComplaints' },
-          { icon: 'book', label: 'Annuaire', target: 'CitizenDirectory' },
+          { icon: 'map', label: 'Carte', target: 'StationMapScreen' }, // Mis à jour pour pointer vers la carte
         ];
     }
   }, [userRole]);
@@ -96,7 +96,7 @@ export default function SmartFooter() {
     if (userRole.includes('gendarme')) return '#065F46';
     if (['judge', 'prosecutor', 'greffier'].includes(userRole)) return '#7C2D12';
     if (['lawyer', 'bailiff'].includes(userRole)) return '#4338CA';
-    return theme.color;
+    return '#0891B2'; // Couleur Citoyen par défaut
   };
 
   const activeColor = getActiveColor();
@@ -109,7 +109,7 @@ export default function SmartFooter() {
         backgroundColor: isDark ? "#1A1A1A" : "#FFFFFF",
         borderTopColor: isDark ? "#333" : "#E2E8F0",
         paddingBottom: Platform.OS === 'ios' ? insets.bottom : 10,
-        height: Platform.OS === 'ios' ? 70 + insets.bottom : 70
+        height: Platform.OS === 'ios' ? 65 + insets.bottom : 70
       }
     ]}>
       {menuItems.map((item, index) => {
@@ -151,6 +151,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     alignItems: 'center',
     elevation: 20,
+    borderTopWidth: 1,
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowRadius: 10,
@@ -164,9 +165,9 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   highlightCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: -25, 
@@ -175,6 +176,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 5,
     shadowOffset: { width: 0, height: 2 },
+    borderWidth: 4,
+    borderColor: 'transparent' // Astuce pour l'espacement visuel
   },
   label: {
     fontSize: 10,

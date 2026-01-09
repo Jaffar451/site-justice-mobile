@@ -1,3 +1,4 @@
+// PATH: src/services/complaint.service.ts
 import api from "./api";
 import { useAuthStore } from "../stores/useAuthStore";
 import NetInfo from '@react-native-community/netinfo';
@@ -10,18 +11,19 @@ import OfflineService from '../utils/offlineQueue';
 
 const ROLES = {
   ADMIN: "admin",
-  CLERK: "greffier",        // ✅ Mis à jour (était clerk)
+  CLERK: "greffier",
   JUDGE: "judge",
   PROSECUTOR: "prosecutor",
   COMMISSAIRE: "commissaire", 
-  POLICE: "officier_police", // ✅ Mis à jour (était police)
+  POLICE: "officier_police",
   CITIZEN: "citizen",
 } as const;
 
 export type ComplaintStatus =
   | "soumise" | "en_cours_OPJ" | "attente_validation" | "transmise_parquet" 
   | "saisi_juge" | "instruction" | "audience_programmée" | "jugée" 
-  | "non_lieu" | "ordonnance_rendue" | "classée_sans_suite" | "archivée";
+  | "non_lieu" | "ordonnance_rendue" | "classée_sans_suite" | "archivée"
+  | "cloture"; // Ajout de clôture pour les stats
 
 export interface Complaint {
   id: number;
@@ -36,7 +38,6 @@ export interface Complaint {
   attachments?: { id: number; file_url: string; filename: string; type?: string }[];
   citizen?: { firstname: string; lastname: string; telephone?: string };
   isOfflinePending?: boolean;
-  // Autres champs optionnels...
   [key: string]: any; 
 }
 
@@ -48,9 +49,8 @@ export interface PoliceStats {
 
 const allow = (...authorizedRoles: string[]) => {
   const user = useAuthStore.getState().user;
-  // On compare avec les rôles du backend (en minuscules)
   if (!user?.role || !authorizedRoles.includes(user.role)) {
-    console.warn(`Accès restreint : ${user?.role}`);
+    console.warn(`[Security] Accès restreint pour le rôle : ${user?.role}`);
   }
 };
 
@@ -60,23 +60,22 @@ const allow = (...authorizedRoles: string[]) => {
 
 export const getMyComplaints = async () => {
   const res = await api.get<any>("/complaints/my-complaints");
-  return res.data.data || [];
+  return res.data.data || res.data || [];
 };
 
 export const getAllComplaints = async () => {
-  // ✅ Désormais, ROLES.POLICE vaut "officier_police", l'accès sera autorisé
   allow(ROLES.POLICE, ROLES.COMMISSAIRE, ROLES.PROSECUTOR, ROLES.CLERK, ROLES.JUDGE, ROLES.ADMIN);
   const res = await api.get<any>("/complaints");
-  return res.data.data || [];
+  return res.data.data || res.data || [];
 };
 
 export const getComplaintById = async (id: number) => {
   const res = await api.get<any>(`/complaints/${id}`);
-  return res.data.data;
+  return res.data.data || res.data;
 };
 
 // ==========================================
-// ✍️ ÉCRITURE & UPLOAD (CORRIGÉ WEB/MOBILE)
+// ✍️ ÉCRITURE & UPLOAD
 // ==========================================
 
 export const createComplaint = async (data: Partial<Complaint>) => {
@@ -86,16 +85,16 @@ export const createComplaint = async (data: Partial<Complaint>) => {
     return { ...data, id: Date.now() * -1, status: 'soumise', filedAt: new Date().toISOString(), isOfflinePending: true } as Complaint;
   }
   const res = await api.post<any>("/complaints", data);
-  return res.data.data;
+  return res.data.data || res.data;
 };
 
 export const updateComplaint = async (id: number, data: Partial<Complaint>) => {
   const res = await api.patch<any>(`/complaints/${id}`, data);
-  return res.data.data;
+  return res.data.data || res.data;
 };
 
 /**
- * ✅ FONCTION D'UPLOAD ROBUSTE (WEB & MOBILE)
+ * ✅ UPLOAD FICHIER ROBUSTE (WEB & MOBILE)
  */
 export const uploadAttachment = async (complaintId: number, file: any) => {
   const net = await NetInfo.fetch();
@@ -104,22 +103,21 @@ export const uploadAttachment = async (complaintId: number, file: any) => {
   const formData = new FormData();
 
   if (Platform.OS === 'web') {
-    // 🌐 WEB : Conversion obligatoire de l'URI en Blob
+    // 🌐 WEB : Conversion URI -> Blob
     if (file.uri) {
         try {
             const fetchResponse = await fetch(file.uri);
             const blob = await fetchResponse.blob();
-            formData.append("file", blob, file.fileName || file.name || "image.jpg");
+            formData.append("file", blob, file.fileName || file.name || "upload.jpg");
         } catch (e) {
             console.error("Erreur conversion Blob:", e);
-            throw new Error("Impossible de lire le fichier pour l'upload");
+            throw new Error("Impossible de lire le fichier");
         }
     } else {
-        // Cas où c'est déjà un objet File standard
         formData.append("file", file);
     }
   } else {
-    // 📱 MOBILE (iOS / Android) : Objet JSON spécifique pour React Native
+    // 📱 MOBILE
     const fileToUpload = {
       uri: Platform.OS === 'ios' ? file.uri.replace('file://', '') : file.uri,
       type: file.mimeType || file.type || 'image/jpeg',
@@ -129,13 +127,9 @@ export const uploadAttachment = async (complaintId: number, file: any) => {
     formData.append("file", fileToUpload);
   }
 
-  // Envoi de la requête
   return (await api.post(`/complaints/${complaintId}/attachments`, formData, {
-    headers: {
-      'Accept': 'application/json',
-      // ⚠️ IMPORTANT : Ne jamais mettre 'Content-Type': 'multipart/form-data' manuellement ici
-    },
-    transformRequest: (data) => data, // Empêche Axios de transformer le FormData en JSON
+    headers: { 'Accept': 'application/json' },
+    transformRequest: (data) => data,
   })).data;
 };
 
@@ -180,15 +174,36 @@ export const closeWithoutProsecution = async (id: number, reason: string) => {
   return (await api.patch(`/complaints/${id}/close`, { reason })).data;
 };
 
-// Alias
+// ==========================================
+// 📊 STATISTIQUES & UTILITAIRES
+// ==========================================
+
+// Alias pour compatibilité
 export const getComplaint = getComplaintById;
 export const getMyComplaintsList = getMyComplaints;
 
 export const getStationComplaints = async () => {
     const res = await api.get<any>("/complaints/station");
-    return res.data.data || [];
+    return res.data.data || res.data || [];
 }
 
+/**
+ * 👮 Stats Police Réelles (Calculées depuis l'API)
+ */
 export const getPoliceStats = async (): Promise<PoliceStats> => {
-    return new Promise((resolve) => setTimeout(() => resolve({ assigned: 12, open: 5, closed: 34 }), 500));
+    try {
+        // On récupère les plaintes de l'unité
+        const res = await api.get<any>("/complaints"); 
+        const data = res.data.data || res.data || [];
+
+        // Calcul local pour éviter le mock
+        const assigned = data.filter((c: any) => c.status === 'en_cours_OPJ' || c.status === 'garde_a_vue').length;
+        const open = data.filter((c: any) => c.status === 'soumise' || c.status === 'attente_validation').length;
+        const closed = data.filter((c: any) => c.status === 'cloture' || c.status === 'transmise_parquet' || c.status === 'archivée').length;
+
+        return { assigned, open, closed };
+    } catch (e) {
+        console.error("Erreur stats police:", e);
+        return { assigned: 0, open: 0, closed: 0 };
+    }
 };

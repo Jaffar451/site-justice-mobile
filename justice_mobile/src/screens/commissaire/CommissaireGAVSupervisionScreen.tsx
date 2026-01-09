@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo } from "react";
 import { 
   View, 
   Text, 
@@ -8,31 +8,51 @@ import {
   StatusBar,
   Alert,
   Platform,
-  ActivityIndicator
+  ActivityIndicator,
+  RefreshControl
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useQuery } from "@tanstack/react-query";
 
-// ✅ 1. Architecture & Thème
-import { useAppTheme } from "../../theme/AppThemeProvider"; // Hook dynamique
+// ✅ 1. Architecture & Services
+import { useAppTheme } from "../../theme/AppThemeProvider";
 import { PoliceScreenProps } from "../../types/navigation";
+import api from "../../services/api"; // Assurez-vous que ce fichier existe
 
 // Composants
 import ScreenContainer from "../../components/layout/ScreenContainer";
 import AppHeader from "../../components/layout/AppHeader";
 import SmartFooter from "../../components/layout/SmartFooter";
 
-// Types pour le registre des GAV
+// ✅ 2. Typage des données Backend
+// Adaptez ces champs selon votre modèle Prisma/Backend réel
+interface ApiCustodyData {
+  id: number;
+  suspectName: string; // ou suspect_name
+  custodyStartTime: string; // Format ISO venant du backend
+  offenseType: string;
+  policeStation: { name: string };
+  status: "active" | "extended" | "released";
+}
+
+// Typage pour l'UI (transformé)
 interface GAVEntry {
   id: string;
   name: string;
   startTime: Date;
   offence: string;
   unit: string;
-  status: "ACTIVE" | "EXTENDED" | "RELEASED";
+  status: string;
 }
 
+// ✅ 3. Fonction de récupération (Service)
+const fetchActiveCustodies = async (): Promise<ApiCustodyData[]> => {
+  // Remplacez '/custodies/active' par votre vrai endpoint (ex: '/complaints?status=gav')
+  const { data } = await api.get("/custodies/active"); 
+  return data;
+};
+
 export default function CommissaireGAVSupervisionScreen({ navigation }: PoliceScreenProps<'CommissaireGAVSupervision'>) {
-  // ✅ 2. Thème Dynamique
   const { theme, isDark } = useAppTheme();
   const primaryColor = theme.colors.primary;
 
@@ -45,38 +65,37 @@ export default function CommissaireGAVSupervisionScreen({ navigation }: PoliceSc
     border: isDark ? "#334155" : "#E2E8F0",
     track: isDark ? "#0F172A" : "#F1F5F9",
   };
-  
-  // Mock data : Registre des personnes en cellule
-  const [entries] = useState<GAVEntry[]>([
-    { 
-      id: "GAV-991", 
-      name: "Abdoulaye K. SEYNI", 
-      startTime: new Date(Date.now() - 38 * 60 * 60 * 1000), // 38h écoulées
-      offence: "Vol qualifié",
-      unit: "Commissariat Central - BR",
-      status: "ACTIVE"
-    },
-    { 
-      id: "GAV-995", 
-      name: "Moussa B. HAROUNA", 
-      startTime: new Date(Date.now() - 46.5 * 60 * 60 * 1000), // 46.5h écoulées (Critique)
-      offence: "Escroquerie",
-      unit: "Commissariat 2ème Arrondissement",
-      status: "ACTIVE"
-    },
-    { 
-      id: "GAV-998", 
-      name: "Fati Z. BOUBACAR", 
-      startTime: new Date(Date.now() - 12 * 60 * 60 * 1000), // 12h écoulées
-      offence: "Abus de confiance",
-      unit: "BPM (Protection Mineurs)",
-      status: "ACTIVE"
-    }
-  ]);
+
+  // ✅ 4. Récupération des données avec React Query
+  const { data: rawData, isLoading, refetch, isRefetching, isError } = useQuery({
+    queryKey: ['active-custodies'],
+    queryFn: fetchActiveCustodies,
+    refetchInterval: 60000, // Rafraîchissement auto toutes les minutes (critique pour GAV)
+  });
+
+  // ✅ 5. Transformation et Sécurisation des données
+  const entries: GAVEntry[] = useMemo(() => {
+    if (!rawData || !Array.isArray(rawData)) return [];
+
+    return rawData.map((item) => ({
+      id: item.id.toString(),
+      name: item.suspectName || "Inconnu",
+      startTime: new Date(item.custodyStartTime), // Conversion ISO String -> Date Object
+      offence: item.offenseType || "Infraction non spécifiée",
+      unit: item.policeStation?.name || "Unité indéterminée",
+      status: item.status.toUpperCase()
+    }));
+  }, [rawData]);
+
+  // --- LOGIQUE MÉTIER (Calculs Délais) ---
 
   const calculateTimeLeft = (startTime: Date) => {
+    // Sécurité si la date est invalide
+    if (isNaN(startTime.getTime())) return { hoursRemaining: 0, isCritical: false, progress: 1 };
+
     const elapsed = (Date.now() - startTime.getTime()) / (1000 * 60 * 60);
     const remaining = 48 - elapsed;
+    
     return {
       hoursElapsed: Math.floor(elapsed),
       hoursRemaining: Math.max(0, Math.floor(remaining)),
@@ -92,6 +111,8 @@ export default function CommissaireGAVSupervisionScreen({ navigation }: PoliceSc
     return "#10B981";
   };
 
+  // --- RENDERERS ---
+
   const renderGAVCard = ({ item }: { item: GAVEntry }) => {
     const time = calculateTimeLeft(item.startTime);
     const accentColor = getStatusColor(time);
@@ -105,11 +126,13 @@ export default function CommissaireGAVSupervisionScreen({ navigation }: PoliceSc
           </View>
           <View style={[styles.timerBadge, { backgroundColor: accentColor + "20" }]}>
             <Ionicons name="time-outline" size={14} color={accentColor} />
-            <Text style={[styles.timerText, { color: accentColor }]}>{time.hoursRemaining}h restants</Text>
+            <Text style={[styles.timerText, { color: accentColor }]}>
+                {time.hoursRemaining}h restants
+            </Text>
           </View>
         </View>
 
-        {/* Barre de progression du délai légal */}
+        {/* Barre de progression */}
         <View style={[styles.progressTrack, { backgroundColor: colors.track }]}>
             <View style={[styles.progressBar, { width: `${time.progress * 100}%`, backgroundColor: accentColor }]} />
         </View>
@@ -121,7 +144,7 @@ export default function CommissaireGAVSupervisionScreen({ navigation }: PoliceSc
           
           <TouchableOpacity 
             activeOpacity={0.7}
-            onPress={() => Alert.alert("Prolongation Judiciaire", "Souhaitez-vous viser la demande de prolongation de 48h pour transmission au Parquet ?")}
+            onPress={() => Alert.alert("Action Requise", `Traiter la prolongation pour le dossier #${item.id} ?`)}
             style={[styles.extendBtn, { borderColor: primaryColor }]}
           >
             <Text style={[styles.extendText, { color: primaryColor }]}>VISER PROLONGATION</Text>
@@ -138,31 +161,53 @@ export default function CommissaireGAVSupervisionScreen({ navigation }: PoliceSc
 
       <View style={[styles.mainWrapper, { backgroundColor: colors.bgMain }]}>
         
-        {/* Résumé Statistique */}
+        {/* Résumé Statistique (Calculé sur les vraies données) */}
         <View style={[styles.statsBanner, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
           <View style={styles.statItem}>
-            <Text style={[styles.statNum, { color: colors.textMain }]}>{entries.length}</Text>
+            {isLoading ? <ActivityIndicator size="small" color={colors.textMain} /> : (
+                <Text style={[styles.statNum, { color: colors.textMain }]}>{entries.length}</Text>
+            )}
             <Text style={[styles.statLabel, { color: colors.textSub }]}>En cellule</Text>
           </View>
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <View style={styles.statItem}>
-            <Text style={[styles.statNum, { color: "#EF4444" }]}>
-                {entries.filter(e => calculateTimeLeft(e.startTime).isCritical).length}
-            </Text>
+            {isLoading ? <ActivityIndicator size="small" color="#EF4444" /> : (
+                <Text style={[styles.statNum, { color: "#EF4444" }]}>
+                    {entries.filter(e => calculateTimeLeft(e.startTime).isCritical).length}
+                </Text>
+            )}
             <Text style={[styles.statLabel, { color: colors.textSub }]}>Alertes 6h</Text>
           </View>
         </View>
 
-        <FlatList
-          data={entries}
-          keyExtractor={(item) => item.id}
-          renderItem={renderGAVCard}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          ListHeaderComponent={
-            <Text style={[styles.sectionTitle, { color: colors.textSub }]}>Registres des GAV actives (Délai 48h)</Text>
-          }
-        />
+        {isLoading && !isRefetching ? (
+            <View style={styles.center}>
+                <ActivityIndicator size="large" color={primaryColor} />
+                <Text style={{ marginTop: 10, color: colors.textSub }}>Chargement des GAV...</Text>
+            </View>
+        ) : (
+            <FlatList
+            data={entries}
+            keyExtractor={(item) => item.id}
+            renderItem={renderGAVCard}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+                <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={primaryColor} />
+            }
+            ListHeaderComponent={
+                <Text style={[styles.sectionTitle, { color: colors.textSub }]}>
+                    Registre temps réel (Délai 48h)
+                </Text>
+            }
+            ListEmptyComponent={
+                <View style={styles.emptyContainer}>
+                    <Ionicons name="checkmark-circle-outline" size={60} color={colors.textSub} style={{opacity: 0.5}} />
+                    <Text style={{ color: colors.textSub, marginTop: 10 }}>Aucune garde à vue en cours.</Text>
+                </View>
+            }
+            />
+        )}
       </View>
 
       <SmartFooter />
@@ -172,6 +217,7 @@ export default function CommissaireGAVSupervisionScreen({ navigation }: PoliceSc
 
 const styles = StyleSheet.create({
   mainWrapper: { flex: 1 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   listContent: { padding: 16, paddingBottom: 140 },
   sectionTitle: { fontSize: 10, fontWeight: "900", letterSpacing: 1.5, marginBottom: 20, textTransform: 'uppercase' },
   
@@ -202,5 +248,7 @@ const styles = StyleSheet.create({
   detailsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   offenceLabel: { fontSize: 12, fontWeight: "600" },
   extendBtn: { borderWidth: 1.5, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12 },
-  extendText: { fontSize: 10, fontWeight: "900", letterSpacing: 0.5 }
+  extendText: { fontSize: 10, fontWeight: "900", letterSpacing: 0.5 },
+  
+  emptyContainer: { alignItems: 'center', marginTop: 50 }
 });

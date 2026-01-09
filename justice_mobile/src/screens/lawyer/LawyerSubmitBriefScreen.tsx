@@ -1,75 +1,208 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
+import { 
+  View, 
+  Text, 
+  TextInput, 
+  StyleSheet, 
+  TouchableOpacity, 
+  Alert, 
+  ActivityIndicator, 
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  StatusBar
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useRoute, useNavigation } from "@react-navigation/native";
+import * as DocumentPicker from 'expo-document-picker';
 
+// ✅ 1. Imports Architecture
 import { useAppTheme } from "../../theme/AppThemeProvider";
+import { LawyerScreenProps } from "../../types/navigation";
+
+// Composants
 import ScreenContainer from "../../components/layout/ScreenContainer";
 import AppHeader from "../../components/layout/AppHeader";
+import SmartFooter from "../../components/layout/SmartFooter";
 
-export default function LawyerSubmitBriefScreen() {
+export default function LawyerSubmitBriefScreen({ route, navigation }: LawyerScreenProps<any>) {
+  // ✅ 2. Thème Dynamique
   const { theme, isDark } = useAppTheme();
-  const navigation = useNavigation();
-  const route = useRoute<any>();
-  const { caseId } = route.params;
+  // Couleur Or pour l'avocat
+  const primaryColor = isDark ? "#D4AF37" : theme.colors.primary; 
+
+  const { caseId } = route.params || { caseId: "N/A" };
 
   const [title, setTitle] = useState("");
+  const [selectedFile, setSelectedFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const handleUpload = () => {
-    if (!title.trim()) return Alert.alert("Erreur", "Veuillez donner un titre à vos conclusions.");
+  // 🎨 PALETTE DYNAMIQUE
+  const colors = {
+    bgMain: isDark ? "#0F172A" : "#F8FAFC",
+    bgCard: isDark ? "#1E293B" : "#FFFFFF",
+    textMain: isDark ? "#FFFFFF" : "#1E293B",
+    textSub: isDark ? "#94A3B8" : "#64748B",
+    border: isDark ? "#334155" : "#E2E8F0",
+    inputBg: isDark ? "#1E293B" : "#FFFFFF",
+    infoBg: isDark ? "#1E293B" : "#EFF6FF",
+    uploadBg: isDark ? "#0F172A" : "#F8FAFC",
+  };
+
+  const handlePickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'application/pdf',
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setSelectedFile(result.assets[0]);
+      }
+    } catch (err) {
+      Alert.alert("Erreur", "Impossible de sélectionner le fichier.");
+    }
+  };
+
+  const handleSubmit = () => {
+    if (!title.trim()) return Alert.alert("Information manquante", "Veuillez donner un titre à vos conclusions.");
+    if (!selectedFile) return Alert.alert("Fichier manquant", "Veuillez joindre le fichier PDF de vos conclusions.");
     
     setLoading(true);
+    
+    // Simulation d'envoi
     setTimeout(() => {
       setLoading(false);
-      Alert.alert("Succès", "Vos conclusions ont été transmises au greffe et au magistrat.", [
-        { text: "OK", onPress: () => navigation.goBack() }
-      ]);
+      Alert.alert(
+        "Dépôt Effectué", 
+        "Vos conclusions ont été horodatées et transmises au greffe ainsi qu'aux parties concernées.", 
+        [{ text: "Retour au dossier", onPress: () => navigation.goBack() }]
+      );
     }, 2000);
   };
 
   return (
-    <ScreenContainer>
+    <ScreenContainer withPadding={false}>
+      <StatusBar barStyle="light-content" />
       <AppHeader title="Dépôt de Conclusions" showBack />
       
-      <View style={styles.container}>
-        <View style={[styles.infoBox, { backgroundColor: theme.colors.primary + "10" }]}>
-           <Text style={{ color: theme.colors.primary, fontWeight: "800" }}>DOSSIER RG #{caseId}</Text>
-        </View>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={{ flex: 1, backgroundColor: colors.bgMain }}
+      >
+        <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+          
+          {/* 📂 INFO DOSSIER */}
+          <View style={[styles.infoBox, { backgroundColor: colors.infoBg, borderColor: primaryColor }]}>
+             <Ionicons name="folder-open" size={24} color={primaryColor} />
+             <View style={{ marginLeft: 15 }}>
+                <Text style={[styles.infoLabel, { color: primaryColor }]}>PROCÉDURE RG</Text>
+                <Text style={[styles.infoValue, { color: colors.textMain }]}>#{caseId}</Text>
+             </View>
+          </View>
 
-        <Text style={[styles.label, { color: theme.colors.text }]}>Titre des écritures</Text>
-        <TextInput 
-          style={[styles.input, { backgroundColor: isDark ? "#1A1A1A" : "#F1F5F9", color: theme.colors.text }]}
-          placeholder="Ex: Conclusions en défense..."
-          value={title}
-          onChangeText={setTitle}
-        />
+          {/* 📝 TITRE */}
+          <Text style={[styles.label, { color: colors.textSub }]}>Intitulé des écritures *</Text>
+          <TextInput 
+            style={[styles.input, { backgroundColor: colors.inputBg, color: colors.textMain, borderColor: colors.border }]}
+            placeholder="Ex: Conclusions en défense au fond..."
+            placeholderTextColor={colors.textSub}
+            value={title}
+            onChangeText={setTitle}
+          />
 
-        <TouchableOpacity style={[styles.uploadZone, { borderColor: theme.colors.primary }]}>
-          <Ionicons name="cloud-upload-outline" size={40} color={theme.colors.primary} />
-          <Text style={[styles.uploadText, { color: theme.colors.text }]}>Sélectionner le fichier PDF</Text>
-          <Text style={{ fontSize: 10, color: "#94A3B8" }}>Taille max : 10MB • Signé numériquement</Text>
-        </TouchableOpacity>
+          {/* ☁️ ZONE D'UPLOAD */}
+          <Text style={[styles.label, { color: colors.textSub }]}>Pièce jointe (PDF) *</Text>
+          <TouchableOpacity 
+            activeOpacity={0.8}
+            onPress={handlePickDocument}
+            style={[
+                styles.uploadZone, 
+                { 
+                    backgroundColor: colors.uploadBg, 
+                    borderColor: selectedFile ? "#10B981" : colors.border,
+                    borderStyle: selectedFile ? "solid" : "dashed"
+                }
+            ]}
+          >
+            {selectedFile ? (
+                <>
+                    <View style={styles.successIcon}>
+                        <Ionicons name="checkmark" size={30} color="#FFF" />
+                    </View>
+                    <Text style={[styles.fileName, { color: colors.textMain }]} numberOfLines={1}>
+                        {selectedFile.name}
+                    </Text>
+                    <Text style={styles.fileSize}>
+                        {(selectedFile.size ? selectedFile.size / 1024 : 0).toFixed(1)} KB • Prêt à l'envoi
+                    </Text>
+                    <Text style={[styles.changeFileText, { color: primaryColor }]}>Changer de fichier</Text>
+                </>
+            ) : (
+                <>
+                    <View style={[styles.uploadIconCircle, { backgroundColor: primaryColor + "15" }]}>
+                        <Ionicons name="cloud-upload-outline" size={32} color={primaryColor} />
+                    </View>
+                    <Text style={[styles.uploadText, { color: colors.textMain }]}>Sélectionner le fichier PDF</Text>
+                    <Text style={styles.uploadSubText}>Taille max : 10MB • Signature PAdES recommandée</Text>
+                </>
+            )}
+          </TouchableOpacity>
 
-        <TouchableOpacity 
-          style={[styles.submitBtn, { backgroundColor: theme.colors.primary }]}
-          onPress={handleUpload}
-          disabled={loading}
-        >
-          {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.btnText}>DÉPOSER AU GREFFE</Text>}
-        </TouchableOpacity>
-      </View>
+          {/* 🔒 DISCLAIMER */}
+          <View style={[styles.disclaimerBox, { borderColor: colors.border }]}>
+             <Ionicons name="shield-checkmark-outline" size={16} color={colors.textSub} />
+             <Text style={[styles.disclaimerText, { color: colors.textSub }]}>
+                Ce dépôt vaut remise au greffe et notification aux avocats constitués via le RPVA (Réseau Privé Virtuel des Avocats).
+             </Text>
+          </View>
+
+          {/* BOUTON D'ENVOI */}
+          <TouchableOpacity 
+            style={[styles.submitBtn, { backgroundColor: primaryColor }, loading && { opacity: 0.7 }]}
+            onPress={handleSubmit}
+            disabled={loading}
+          >
+            {loading ? (
+                <ActivityIndicator color="#FFF" />
+            ) : (
+                <>
+                    <Ionicons name="send" size={20} color="#FFF" />
+                    <Text style={styles.btnText}>TRANSMETTRE AU GREFFE</Text>
+                </>
+            )}
+          </TouchableOpacity>
+
+        </ScrollView>
+      </KeyboardAvoidingView>
+
+      <SmartFooter />
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
   container: { padding: 20 },
-  infoBox: { padding: 15, borderRadius: 12, marginBottom: 25 },
-  label: { fontSize: 13, fontWeight: "800", marginBottom: 8 },
-  input: { padding: 15, borderRadius: 12, marginBottom: 20 },
-  uploadZone: { height: 180, borderWidth: 2, borderStyle: "dashed", borderRadius: 20, justifyContent: "center", alignItems: "center", gap: 10 },
-  uploadText: { fontWeight: "700" },
-  submitBtn: { height: 55, borderRadius: 15, justifyContent: "center", alignItems: "center", marginTop: 30 },
-  btnText: { color: "#FFF", fontWeight: "900", letterSpacing: 1 }
+  
+  infoBox: { flexDirection: "row", alignItems: "center", padding: 16, borderRadius: 16, marginBottom: 25, borderWidth: 1, borderLeftWidth: 6 },
+  infoLabel: { fontSize: 10, fontWeight: "900", letterSpacing: 1 },
+  infoValue: { fontSize: 18, fontWeight: "900" },
+
+  label: { fontSize: 11, fontWeight: "900", marginBottom: 10, marginTop: 10, textTransform: 'uppercase', letterSpacing: 1 },
+  input: { padding: 18, borderRadius: 16, borderWidth: 1, fontSize: 15, fontWeight: "600" },
+
+  uploadZone: { height: 200, borderWidth: 2, borderRadius: 24, justifyContent: "center", alignItems: "center", gap: 8, marginTop: 5 },
+  uploadIconCircle: { width: 60, height: 60, borderRadius: 30, justifyContent: "center", alignItems: "center", marginBottom: 5 },
+  uploadText: { fontWeight: "800", fontSize: 15 },
+  uploadSubText: { fontSize: 11, color: "#94A3B8", fontWeight: "600" },
+  
+  successIcon: { width: 50, height: 50, borderRadius: 25, backgroundColor: "#10B981", justifyContent: "center", alignItems: "center", marginBottom: 10 },
+  fileName: { fontSize: 16, fontWeight: "800", paddingHorizontal: 20, textAlign: 'center' },
+  fileSize: { fontSize: 12, color: "#10B981", fontWeight: "700", marginBottom: 10 },
+  changeFileText: { fontSize: 12, fontWeight: "800", textDecorationLine: "underline" },
+
+  disclaimerBox: { flexDirection: "row", marginTop: 25, padding: 15, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', gap: 10, alignItems: 'center' },
+  disclaimerText: { flex: 1, fontSize: 10, lineHeight: 16, fontStyle: 'italic' },
+
+  submitBtn: { height: 60, borderRadius: 18, flexDirection: 'row', justifyContent: "center", alignItems: "center", gap: 10, marginTop: 30, elevation: 4 },
+  btnText: { color: "#FFF", fontWeight: "900", fontSize: 14, letterSpacing: 1 }
 });

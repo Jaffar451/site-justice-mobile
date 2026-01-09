@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 
 // ✅ Architecture & Store
-import { useAppTheme } from '../../theme/AppThemeProvider'; // Hook dynamique
+import { useAppTheme } from '../../theme/AppThemeProvider'; 
 import { useComplaints } from '../../hooks/useComplaints';
 import ScreenContainer from '../../components/layout/ScreenContainer';
 import AppHeader from '../../components/layout/AppHeader';
@@ -24,7 +24,7 @@ export default function CommissaireVisaList() {
   const primaryColor = theme.colors.primary;
   const navigation = useNavigation<any>();
   
-  // ✅ Connexion API via le hook TanStack Query
+  // ✅ Connexion API
   const { data, isLoading, refetch, isRefetching } = useComplaints();
 
   // 🎨 PALETTE DYNAMIQUE
@@ -38,9 +38,22 @@ export default function CommissaireVisaList() {
   };
 
   // 🔍 Filtrage strict : Dossiers en attente de visa du Commissaire
+  // ✅ SÉCURISATION DU FILTRE CONTRE LE CRASH
   const visaData = useMemo(() => {
+    // Si pas de données, retourne liste vide
     if (!data) return [];
-    return data.filter((item: any) => item.status === 'attente_validation');
+    
+    // Normalisation : data peut être un tableau OU un objet { data: [...] }
+    const list = Array.isArray(data) ? data : (data.data || []);
+
+    // Vérifie que c'est bien un tableau avant de filtrer
+    if (!Array.isArray(list)) {
+        console.warn("⚠️ Format de données inattendu dans CommissaireVisaList:", data);
+        return [];
+    }
+
+    // Filtre les statuts
+    return list.filter((item: any) => item.status === 'attente_validation');
   }, [data]);
 
   const renderDossierItem = ({ item }: { item: any }) => {
@@ -73,7 +86,7 @@ export default function CommissaireVisaList() {
           <View style={[styles.footerRow, { borderTopColor: colors.border }]}>
             <View style={styles.opjTag}>
               <View style={[styles.opjAvatar, { backgroundColor: primaryColor + '20' }]}>
-                 <Ionicons name="person" size={12} color={primaryColor} />
+                  <Ionicons name="person" size={12} color={primaryColor} />
               </View>
               <Text style={[styles.opjName, { color: colors.textSub }]}>Rapporteur: {item.opjName || 'OPJ en charge'}</Text>
             </View>
@@ -145,6 +158,7 @@ const styles = StyleSheet.create({
     ...Platform.select({
       ios: { shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10 },
       android: { elevation: 3 },
+      web: { boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' } // ✅ Ajout Web
     }),
   },
   priorityBadge: {

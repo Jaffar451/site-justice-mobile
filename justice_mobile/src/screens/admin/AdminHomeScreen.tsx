@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { 
   View, 
   Text, 
@@ -7,24 +7,27 @@ import {
   StatusBar,
   Pressable,
   Platform,
-  ActivityIndicator
+  ActivityIndicator,
+  RefreshControl
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from 'expo-linear-gradient';
 import { useQuery } from "@tanstack/react-query"; 
+import { useFocusEffect } from "@react-navigation/native";
 
 // ✅ Architecture & Thème
 import { AdminScreenProps } from "../../types/navigation";
 import { useAuthStore } from "../../stores/useAuthStore";
-import { useAppTheme } from "../../theme/AppThemeProvider"; // ✅ Hook dynamique
+import { useAppTheme } from "../../theme/AppThemeProvider";
 import api from "../../services/api"; 
+import { getAdminStats } from "../../services/stats.service"; // ✅ Basé sur votre structure service
 
 // Composants
 import ScreenContainer from "../../components/layout/ScreenContainer";
 import AppHeader from "../../components/layout/AppHeader";
 import SmartFooter from "../../components/layout/SmartFooter";
 
-// --- SERVICE API ---
+// --- SERVICE API PROFIL ---
 const fetchUserProfile = async () => {
   const response = await api.get('/auth/me');
   return response.data.data || response.data;
@@ -36,8 +39,8 @@ export default function AdminHomeScreen({ navigation }: AdminScreenProps<'AdminH
   const { user: storeUser, setUser } = useAuthStore(); 
   const [now, setNow] = useState(new Date());
 
-  // ✅ 1. Récupération API & Sync Store
-  const { data: apiUser, isLoading: userLoading } = useQuery({
+  // ✅ 1. Synchronisation Profil
+  const { data: apiUser } = useQuery({
     queryKey: ['me'],
     queryFn: fetchUserProfile,
   });
@@ -50,7 +53,19 @@ export default function AdminHomeScreen({ navigation }: AdminScreenProps<'AdminH
 
   const userData = apiUser || storeUser;
 
-  // Horloge
+  // ✅ 2. Récupération des Statistiques Globales
+  const { data: stats, isLoading: statsLoading, refetch } = useQuery({
+    queryKey: ['admin-global-stats'],
+    queryFn: getAdminStats,
+  });
+
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
+
+  // Horloge temps réel
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(timer);
@@ -90,19 +105,16 @@ export default function AdminHomeScreen({ navigation }: AdminScreenProps<'AdminH
         style={{ backgroundColor: colors.bgMain }}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={statsLoading} onRefresh={refetch} tintColor={primaryColor} />
+        }
       >
         {/* 👋 ENTÊTE BIENVENUE */}
         <View style={styles.welcomeSection}>
-          {userLoading ? (
-            <ActivityIndicator size="small" color={primaryColor} />
-          ) : (
-            <>
-              <Text style={[styles.welcomeTitle, { color: colors.textMain }]}>
-                Bonjour, {(userData?.firstname || "Administrateur").toUpperCase()}
-              </Text>
-              <Text style={[styles.welcomeSub, { color: colors.textSub }]}>Système Central e-Justice Niger</Text>
-            </>
-          )}
+          <Text style={[styles.welcomeTitle, { color: colors.textMain }]}>
+            Bonjour, {(userData?.firstname || "Administrateur").toUpperCase()}
+          </Text>
+          <Text style={[styles.welcomeSub, { color: colors.textSub }]}>Système Central e-Justice Niger</Text>
         </View>
 
         {/* 🕒 CLOCK WIDGET */}
@@ -120,12 +132,12 @@ export default function AdminHomeScreen({ navigation }: AdminScreenProps<'AdminH
 
         <Text style={[styles.sectionTitle, { color: colors.textSub }]}>Monitoring du Réseau National</Text>
         
-        {/* STATS GRID */}
+        {/* STATS GRID DYNAMIQUE */}
         <View style={styles.statsGrid}>
-          <StatMiniCard icon="people" val="1,240" label="Utilisateurs" color="#6366F1" colors={colors} />
-          <StatMiniCard icon="business" val="48" label="Juridictions" color="#8B5CF6" colors={colors} />
-          <StatMiniCard icon="bar-chart" val="94%" label="Flux Actif" color="#EC4899" colors={colors} />
-          <StatMiniCard icon="pulse" val="Stable" label="État Système" color="#10B981" colors={colors} />
+          <StatMiniCard icon="people" val={stats?.usersCount || "---"} label="Utilisateurs" color="#6366F1" colors={colors} />
+          <StatMiniCard icon="business" val={stats?.courtsCount || "---"} label="Juridictions" color="#8B5CF6" colors={colors} />
+          <StatMiniCard icon="bar-chart" val={stats?.activityRate || "94%"} label="Flux Actif" color="#EC4899" colors={colors} />
+          <StatMiniCard icon="pulse" val={stats?.systemStatus || "Stable"} label="État Système" color="#10B981" colors={colors} />
         </View>
 
         <Text style={[styles.sectionTitle, { marginTop: 30, color: colors.textSub }]}>Unités de Gestion MJ</Text>
@@ -139,10 +151,10 @@ export default function AdminHomeScreen({ navigation }: AdminScreenProps<'AdminH
               style={({ pressed }) => [
                 styles.menuCard, 
                 { 
-                    opacity: pressed ? 0.7 : 1, 
-                    backgroundColor: colors.bgCard,
-                    borderColor: colors.border,
-                    transform: [{ scale: pressed ? 0.98 : 1 }]
+                  opacity: pressed ? 0.7 : 1, 
+                  backgroundColor: colors.bgCard,
+                  borderColor: colors.border,
+                  transform: [{ scale: pressed ? 0.98 : 1 }]
                 }
               ]}
             >
@@ -166,13 +178,12 @@ export default function AdminHomeScreen({ navigation }: AdminScreenProps<'AdminH
   );
 }
 
-// 🧩 COMPOSANT INTERNE : CARTE STATISTIQUE
 const StatMiniCard = ({ icon, val, label, color, colors }: any) => (
   <View style={[styles.statCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
     <View style={[styles.statIconBox, { backgroundColor: color + "15" }]}>
       <Ionicons name={icon} size={18} color={color} />
     </View>
-    <View>
+    <View style={{ flex: 1 }}>
       <Text style={[styles.statValue, { color: colors.textMain }]}>{val}</Text>
       <Text style={[styles.statLabel, { color: colors.textSub }]}>{label}</Text>
     </View>
@@ -213,5 +224,5 @@ const styles = StyleSheet.create({
   menuTitle: { fontSize: 15, fontWeight: "800" },
   menuSub: { fontSize: 12, marginTop: 2, fontWeight: '500' },
   
-  footerSpacing: { height: 140 }
+  footerSpacing: { height: 140 },
 });

@@ -16,7 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 // ✅ 1. Imports Architecture
 import { useAuthStore } from "../../stores/useAuthStore";
-import { useAppTheme } from "../../theme/AppThemeProvider"; // ✅ Hook dynamique
+import { useAppTheme } from "../../theme/AppThemeProvider";
 import { JudgeScreenProps } from "../../types/navigation";
 
 // Composants
@@ -27,14 +27,16 @@ import SmartFooter from "../../components/layout/SmartFooter";
 // Services
 import { createDecision } from "../../services/decision.service";
 
-export default function JudgeSentenceScreen({ route, navigation }: JudgeScreenProps<'CreateDecision'>) {
+// ✅ Correction du typage de la route
+export default function JudgeSentenceScreen({ route, navigation }: JudgeScreenProps<'JudgeSentence'>) {
   // ✅ 2. Thème Dynamique & Auth
   const { theme, isDark } = useAppTheme();
   const primaryColor = theme.colors.primary;
   const { user } = useAuthStore();
   
-  // Extraction sécurisée
-  const { caseId } = route.params || { caseId: "N/A" };
+  // Extraction sécurisée (le caseId peut venir de CreateDecision ou directement)
+  const params = route.params as any;
+  const { caseId } = params || { caseId: "N/A" };
 
   const [verdict, setVerdict] = useState<"condamnation" | "relaxe">("condamnation");
   const [sentenceLength, setSentenceLength] = useState("");
@@ -69,12 +71,11 @@ export default function JudgeSentenceScreen({ route, navigation }: JudgeScreenPr
     const msg = "Le prononcé est irréversible et clôture les débats. Confirmer la signature ?";
 
     if (Platform.OS === 'web') {
-        const confirm = window.confirm(`${title} : ${msg}`);
-        if (confirm) executePublish();
+        if (window.confirm(`${title} : ${msg}`)) executePublish();
     } else {
         Alert.alert(title, msg, [
           { text: "Réviser", style: "cancel" },
-          { text: "Signer et Publier", style: verdict === "condamnation" ? "destructive" : "default", onPress: executePublish }
+          { text: "Signer et Publier", style: verdict === "condamnation" ? "destructive" : "default", onPress: executePublish },
         ]);
     }
   };
@@ -95,9 +96,13 @@ export default function JudgeSentenceScreen({ route, navigation }: JudgeScreenPr
         date: new Date().toISOString(),
       };
 
+      // Cast 'as any' pour la compatibilité avec createDecision qui attend des types stricts
       await createDecision(payload as any);
+      
       if (Platform.OS === 'web') window.alert("✅ Justice Rendue : Décision versée aux minutes.");
-      navigation.popToTop();
+      
+      // Retour au dashboard
+      navigation.popToTop(); 
     } catch (error) {
       Alert.alert("Erreur", "Échec de l'enregistrement de l'acte.");
     } finally {

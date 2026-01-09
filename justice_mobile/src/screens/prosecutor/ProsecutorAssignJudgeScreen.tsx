@@ -1,3 +1,4 @@
+// PATH: src/screens/prosecutor/ProsecutorAssignJudgeScreen.tsx
 import React, { useState } from "react";
 import { 
   View, 
@@ -42,9 +43,10 @@ export default function ProsecutorAssignJudgeScreen({ route, navigation }: Prose
   
   // 🛡️ RÉCUPÉRATION SÉCURISÉE DES PARAMS
   const rawCaseId = route.params?.caseId;
-  // Correction de l'erreur 2367 et de la faute de frappe CaseId -> rawCaseId
-  const caseId = rawCaseId && !isNaN(Number(rawCaseId)) ? Number(rawCaseId) : null;
-  
+  const caseId = rawCaseId ? Number(rawCaseId) : null;
+  // On considère l'ID valide s'il n'est pas null et est un nombre
+  const isValidId = caseId !== null && !isNaN(caseId);
+
   const [selectedJudge, setSelectedJudge] = useState<number | null>(null);
 
   // 🎨 PALETTE DYNAMIQUE
@@ -54,14 +56,15 @@ export default function ProsecutorAssignJudgeScreen({ route, navigation }: Prose
     textMain: isDark ? "#FFFFFF" : "#1E293B",
     textSub: isDark ? "#94A3B8" : "#64748B",
     border: isDark ? "#334155" : "#E2E8F0",
-    accent: "#7C2D12", // Couleur Terre (Justice)
+    accent: "#7C2D12",
   };
 
-  // 📥 RÉCUPÉRATION DU DOSSIER
-  const { data: complaint, isLoading } = useQuery<Complaint>({
+  // 📥 RÉCUPÉRATION DU DOSSIER (Ajout de isError et error)
+  const { data: complaint, isLoading, isError, error } = useQuery<Complaint>({
     queryKey: ["complaint", caseId],
     queryFn: () => getComplaintById(caseId as number),
-    enabled: caseId !== null, // Plus besoin de comparer à 'undefined'
+    enabled: isValidId, 
+    retry: 1, // On ne réessaie qu'une fois si échec (ex: 404)
   });
 
   // ⚖️ MUTATION : Saisine du Cabinet
@@ -89,9 +92,7 @@ export default function ProsecutorAssignJudgeScreen({ route, navigation }: Prose
     if (!selectedJudge) {
         return Alert.alert("Attention", "Veuillez désigner un Cabinet d'Instruction.");
     }
-    
     const judge = CABINETS_LIST.find(j => j.id === selectedJudge);
-
     Alert.alert(
       "Confirmation de Saisine", 
       `Désigner le ${judge?.cabinet} pour l'instruction de l'affaire n°${caseId} ?`, 
@@ -106,6 +107,21 @@ export default function ProsecutorAssignJudgeScreen({ route, navigation }: Prose
     );
   };
 
+  // 🚫 GESTION ID INVALIDE (Paramètre manquant)
+  if (!isValidId) {
+      return (
+        <ScreenContainer>
+            <AppHeader title="Erreur" showBack />
+            <View style={styles.center}>
+                <Ionicons name="alert-circle-outline" size={50} color={colors.textSub} />
+                <Text style={{color: colors.textMain, marginTop: 10, fontWeight: 'bold'}}>Erreur de paramètre</Text>
+                <Text style={{color: colors.textSub}}>Aucun dossier spécifié.</Text>
+            </View>
+        </ScreenContainer>
+      );
+  }
+
+  // 🔄 LOADING
   if (isLoading) return (
     <View style={[styles.center, { backgroundColor: colors.bgMain }]}>
         <ActivityIndicator size="large" color={primaryColor} />
@@ -113,6 +129,32 @@ export default function ProsecutorAssignJudgeScreen({ route, navigation }: Prose
     </View>
   );
 
+  // ❌ GESTION ERREUR API (404 Not Found, etc.)
+  // C'est ici qu'on gère le cas où l'ID n'existe pas en base
+  if (isError || !complaint) {
+    return (
+      <ScreenContainer>
+        <AppHeader title="Introuvable" showBack />
+        <View style={styles.center}>
+            <Ionicons name="file-tray-outline" size={60} color="#EF4444" />
+            <Text style={[styles.mainLabel, { color: colors.textMain, marginTop: 20 }]}>Dossier Introuvable</Text>
+            <Text style={{ color: colors.textSub, textAlign: 'center', paddingHorizontal: 40, marginBottom: 30 }}>
+              Le dossier <Text style={{fontWeight: 'bold'}}>#{caseId}</Text> n'a pas été trouvé sur le serveur.
+              {"\n\n"}Code erreur : {(error as any)?.message || "404 Not Found"}
+            </Text>
+            
+            <TouchableOpacity 
+              style={[styles.mainBtn, { backgroundColor: colors.border, marginTop: 0, height: 50, width: 200 }]} 
+              onPress={() => navigation.goBack()}
+            >
+              <Text style={[styles.btnText, { color: colors.textMain }]}>Retour au bureau</Text>
+            </TouchableOpacity>
+        </View>
+      </ScreenContainer>
+    );
+  }
+
+  // ✅ AFFICHAGE NORMAL
   return (
     <ScreenContainer withPadding={false}>
       <StatusBar barStyle="light-content" />
@@ -137,10 +179,10 @@ export default function ProsecutorAssignJudgeScreen({ route, navigation }: Prose
             </Text>
 
             <Text style={[styles.offenceTitle, { color: colors.textMain }]}>
-                {complaint?.provisionalOffence || "Infraction non spécifiée"}
+                {complaint.provisionalOffence || "Infraction non spécifiée"}
             </Text>
             <Text style={[styles.descriptionText, { color: colors.textSub }]} numberOfLines={3}>
-                {complaint?.description}
+                {complaint.description}
             </Text>
             
             <View style={[styles.caseBadge, { backgroundColor: colors.accent + "15" }]}>
@@ -235,7 +277,7 @@ const styles = StyleSheet.create({
     alignItems: "center", 
     justifyContent: 'center', 
     gap: 12, 
-    marginTop: 35,
+    marginTop: 35, 
     elevation: 4
   },
   btnText: { color: "#fff", fontWeight: "900", fontSize: 15, letterSpacing: 0.5 },

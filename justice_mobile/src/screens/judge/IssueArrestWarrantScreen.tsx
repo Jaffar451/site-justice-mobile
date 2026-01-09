@@ -15,7 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 
 // ✅ 1. Imports Architecture
-import { useAppTheme } from '../../theme/AppThemeProvider'; // ✅ Hook dynamique
+import { useAppTheme } from '../../theme/AppThemeProvider';
 import { JudgeScreenProps } from '../../types/navigation';
 import { useAuthStore } from '../../stores/useAuthStore';
 
@@ -32,9 +32,11 @@ type UrgencyLevel = 'normal' | 'high' | 'critical';
 export default function IssueArrestWarrantScreen({ route, navigation }: JudgeScreenProps<'IssueArrestWarrant'>) {
   // ✅ 2. Thème & Auth
   const { theme, isDark } = useAppTheme();
-  const primaryColor = theme.colors.primary;
   const { user } = useAuthStore();
-  const { caseId } = route.params;
+  
+  // Sécurisation des params
+  const params = route.params as { caseId: number };
+  const caseId = params?.caseId;
 
   const [personName, setPersonName] = useState('');
   const [reason, setReason] = useState('');
@@ -48,7 +50,7 @@ export default function IssueArrestWarrantScreen({ route, navigation }: JudgeScr
     textMain: isDark ? "#FFFFFF" : "#1E293B",
     textSub: isDark ? "#94A3B8" : "#64748B",
     border: isDark ? "#334155" : "#E2E8F0",
-    inputBg: isDark ? "#0F172A" : "#FFFFFF",
+    inputBg: isDark ? "#1E293B" : "#FFFFFF",
     alertBg: isDark ? "#450A0A" : "#FEF2F2",
     alertText: isDark ? "#FCA5A5" : "#EF4444",
   };
@@ -64,8 +66,7 @@ export default function IssueArrestWarrantScreen({ route, navigation }: JudgeScr
     const msg = `Vous allez émettre un mandat d'arrêt contre ${personName}. Confirmer ?`;
 
     if (Platform.OS === 'web') {
-        const confirm = window.confirm(`${title} : ${msg}`);
-        if (confirm) handleExecute();
+        if (window.confirm(`${title} : ${msg}`)) handleExecute();
     } else {
         Alert.alert(title, msg, [
           { text: "Réviser", style: "cancel" },
@@ -75,6 +76,8 @@ export default function IssueArrestWarrantScreen({ route, navigation }: JudgeScr
   };
 
   const handleExecute = async () => {
+    if (!caseId) return Alert.alert("Erreur", "ID Dossier manquant");
+
     setIsLoading(true);
     try {
       await createArrestWarrant({
@@ -82,13 +85,16 @@ export default function IssueArrestWarrantScreen({ route, navigation }: JudgeScr
         personName: personName.trim(),
         reason: reason.trim(),
         urgency,
-      });
+        judgeId: user?.id
+      }); 
       
-      if (Platform.OS === 'web') window.alert("✅ Acte Validé : Mandat signé numériquement.");
-      else Alert.alert("Acte Validé", "Le mandat d'arrêt a été signé numériquement.");
+      const successMsg = "Acte Validé : Mandat signé numériquement.";
+      if (Platform.OS === 'web') window.alert(`✅ ${successMsg}`);
+      else Alert.alert("Acte Validé", "Le mandat d'arrêt a été signé numériquement et transmis aux forces de l'ordre.");
       
       navigation.goBack();
     } catch (error: any) {
+      console.error(error);
       Alert.alert("Erreur Système", error.message || "Échec du scellage de l'acte.");
     } finally {
       setIsLoading(false);
@@ -182,7 +188,7 @@ export default function IssueArrestWarrantScreen({ route, navigation }: JudgeScr
           </TouchableOpacity>
           
           <Text style={[styles.legalDisclaimer, { color: colors.textSub }]}>
-            Cet acte est certifié conforme par le Juge {user?.lastname}. {"\n"}
+            Cet acte est certifié conforme par le Juge {user?.lastname?.toUpperCase()}. {"\n"}
             Il est immédiatement exécutoire sur le territoire national.
           </Text>
 

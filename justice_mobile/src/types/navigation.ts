@@ -20,7 +20,6 @@ export type RootStackParamList = {
   Auth: NavigatorScreenParams<AuthStackParamList>;
 
   // ✅ REDIRECTIONS VERS LES NAVIGATEURS DE RÔLES (Stacks parents)
-  // Ces noms permettent d'utiliser navigation.replace('AdminStack') depuis le Login
   Main: undefined; 
   AdminStack: undefined;
   PoliceStack: undefined;
@@ -63,7 +62,7 @@ export type RootStackParamList = {
   AdminSecurity: undefined;
   AdminMaintenance: undefined;
   AdminAuditTrail: undefined;
-  AdminSecurityDashboard: undefined; // ✅ Corrigé en undefined (écrans de statistiques sécu)
+  AdminSecurityDashboard: undefined;
 
   // Gestion Juridictions & Unités
   AdminCourts: undefined;
@@ -95,9 +94,11 @@ export type RootStackParamList = {
   ProsecutorCaseList: undefined;
   ProsecutorAssignJudge: { caseId: number };
   ProsecutorCaseDetail: { caseId: number };
+  ProsecutorCalendar: undefined;
 
   // --- 👨‍⚖️ JUSTICE (JUGE) ---
   JudgeHome: undefined;
+  JudgeDashboard: undefined; // ✅ Ajouté pour le Dashboard Juge
   JudgeCases: undefined;
   JudgeConfiscation: undefined;
   JudgeCaseList: undefined;
@@ -108,20 +109,29 @@ export type RootStackParamList = {
   JudgeRelease: { caseId: number };
   JudgeReparation: { caseId: number };
   JudgeHearing: undefined;
-  JudgeCaseDetail: { caseId: number };
+  
+  // ✅ CORRECTION MAJEURE ICI :
+  JudgeCaseDetail: { caseId: number }; // Ancien nom (gardé pour compatibilité)
+  CaseDetail: { caseId: number };      // ✅ Nouveau nom utilisé dans JudgeStack.tsx
+  
   JudgeSentence: undefined;
   JudgeCalendar: undefined;
   CreateDecision: { caseId: number };
   IssueArrestWarrant: { caseId: number };
   JudgeAppeal: { caseId: number; personName?: string };
+  JudgeCaseListScreen: undefined;
 
   // --- 👮‍♂️ COMMISSAIRE ---
   CommissaireGAVSupervision: undefined;
-  CommissaireReview: undefined;
+  CommissaireReview: { id: number } | { complaintId: number }; // ✅ Supporte les deux formats
   CommissaireRegistry: undefined;
-  CommissaireActionDetail: { actionId: number };
+  
+  // ✅ CORRECTION DU PARAMÈTRE (id vs actionId)
+  CommissaireActionDetail: { id: number }; // On utilise 'id' dans les écrans, pas 'actionId'
+  
   CommissaireDashboard: undefined;
   CommissaireVisaList: undefined;
+  CommissaireCommandCenter: undefined;
 
   // --- 📝 GREFFIER ---
   ClerkHome: undefined;
@@ -151,6 +161,7 @@ export type RootStackParamList = {
   LawyerNotifications: undefined;
   LawyerSubmitBrief: undefined;
   LawyerTracking: undefined;
+  LawyerHome: undefined;
 
   // --- 👨‍👩‍👧‍👦 CITOYEN ---
   CitizenHome: undefined;
