@@ -1,3 +1,4 @@
+// PATH: src/screens/judge/IssueArrestWarrantScreen.tsx
 import React, { useState } from 'react';
 import { 
   View, 
@@ -14,72 +15,75 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-// ✅ 1. Imports Architecture
+// ✅ Architecture & Store
 import { useAppTheme } from '../../theme/AppThemeProvider';
 import { JudgeScreenProps } from '../../types/navigation';
 import { useAuthStore } from '../../stores/useAuthStore';
 
-// Composants
+// ✅ UI Components
 import ScreenContainer from '../../components/layout/ScreenContainer';
 import AppHeader from '../../components/layout/AppHeader';
 import SmartFooter from '../../components/layout/SmartFooter';
 
-// Services
+// ✅ Services
 import { createArrestWarrant } from '../../services/arrestWarrant.service';
 
 type UrgencyLevel = 'normal' | 'high' | 'critical';
 
 export default function IssueArrestWarrantScreen({ route, navigation }: JudgeScreenProps<'IssueArrestWarrant'>) {
-  // ✅ 2. Thème & Auth
   const { theme, isDark } = useAppTheme();
   const { user } = useAuthStore();
   
-  // Sécurisation des params
-  const params = route.params as { caseId: number };
-  const caseId = params?.caseId;
+  // ✅ Identité visuelle : Violet Judiciaire
+  const JUDGE_ACCENT = "#7C3AED"; 
+
+  // Sécurisation des paramètres de navigation
+  const { caseId } = route.params;
 
   const [personName, setPersonName] = useState('');
   const [reason, setReason] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [urgency, setUrgency] = useState<UrgencyLevel>('high');
 
-  // 🎨 PALETTE DYNAMIQUE
   const colors = {
     bgMain: isDark ? "#0F172A" : "#F8FAFC",
     bgCard: isDark ? "#1E293B" : "#FFFFFF",
     textMain: isDark ? "#FFFFFF" : "#1E293B",
     textSub: isDark ? "#94A3B8" : "#64748B",
     border: isDark ? "#334155" : "#E2E8F0",
-    inputBg: isDark ? "#1E293B" : "#FFFFFF",
+    inputBg: isDark ? "#0F172A" : "#FFFFFF",
     alertBg: isDark ? "#450A0A" : "#FEF2F2",
     alertText: isDark ? "#FCA5A5" : "#EF4444",
   };
 
+  /**
+   * ✍️ VALIDATION ET SIGNATURE DU MANDAT
+   */
   const submitWarrant = async () => {
-    if (!personName.trim() || !reason.trim()) {
-      const msg = "Veuillez renseigner l'identité complète et les motifs juridiques.";
-      Platform.OS === 'web' ? window.alert(msg) : Alert.alert("Données manquantes", msg);
+    if (!personName.trim() || reason.trim().length < 15) {
+      const msg = "L'identité complète et une motivation juridique (min. 15 car.) sont obligatoires.";
+      if (Platform.OS === 'web') window.alert(msg);
+      else Alert.alert("Acte Incomplet", msg);
       return;
     }
 
-    const title = "SIGNATURE DU MANDAT";
-    const msg = `Vous allez émettre un mandat d'arrêt contre ${personName}. Confirmer ?`;
+    const title = "SIGNATURE DU MANDAT ⚖️";
+    const msg = `En signant cet acte, vous ordonnez aux forces de l'ordre l'arrestation immédiate de ${personName.toUpperCase()}. Confirmer ?`;
 
     if (Platform.OS === 'web') {
         if (window.confirm(`${title} : ${msg}`)) handleExecute();
     } else {
         Alert.alert(title, msg, [
           { text: "Réviser", style: "cancel" },
-          { text: "Signer l'acte", style: "destructive", onPress: handleExecute }
+          { text: "Signer et Sceller", style: "destructive", onPress: handleExecute }
         ]);
     }
   };
 
   const handleExecute = async () => {
-    if (!caseId) return Alert.alert("Erreur", "ID Dossier manquant");
-
     setIsLoading(true);
     try {
+      // ✅ Scellage de l'acte et envoi au fichier central (CID)
       await createArrestWarrant({
         caseId,
         personName: personName.trim(),
@@ -88,14 +92,15 @@ export default function IssueArrestWarrantScreen({ route, navigation }: JudgeScr
         judgeId: user?.id
       }); 
       
-      const successMsg = "Acte Validé : Mandat signé numériquement.";
-      if (Platform.OS === 'web') window.alert(`✅ ${successMsg}`);
-      else Alert.alert("Acte Validé", "Le mandat d'arrêt a été signé numériquement et transmis aux forces de l'ordre.");
+      if (Platform.OS === 'web') {
+          window.alert("✅ Mandat signé et transmis aux unités de Police/Gendarmerie.");
+      } else {
+          Alert.alert("Acte Scellé ✅", "Le mandat d'arrêt est désormais exécutoire sur toute l'étendue du territoire national.");
+      }
       
       navigation.goBack();
     } catch (error: any) {
-      console.error(error);
-      Alert.alert("Erreur Système", error.message || "Échec du scellage de l'acte.");
+      Alert.alert("Erreur de Transmission", "Le serveur de la DGSN est momentanément indisponible.");
     } finally {
       setIsLoading(false);
     }
@@ -115,41 +120,43 @@ export default function IssueArrestWarrantScreen({ route, navigation }: JudgeScr
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* 🏛️ BANDEAU D'ALERTE JURIDIQUE */}
-          <View style={[styles.infoCard, { borderColor: colors.alertText, backgroundColor: colors.alertBg }]}>
-            <Ionicons name="warning" size={24} color={colors.alertText} />
-            <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={[styles.infoTitle, { color: colors.alertText }]}>DOSSIER RÉFÉRENCE : RG #{caseId}</Text>
-                <Text style={[styles.infoSub, { color: isDark ? colors.alertText : "#64748B" }]}>Saisine du Juge du Siège</Text>
+          {/* 🏛️ BANDEAU DE SAISINE */}
+          <View style={[styles.infoCard, { borderColor: JUDGE_ACCENT, backgroundColor: isDark ? "#1e1b4b" : "#F5F3FF" }]}>
+            <Ionicons name="ribbon" size={26} color={JUDGE_ACCENT} />
+            <View style={{ flex: 1, marginLeft: 15 }}>
+                <Text style={[styles.infoTitle, { color: JUDGE_ACCENT }]}>CABINET D'INSTRUCTION N°1</Text>
+                <Text style={[styles.infoSub, { color: colors.textMain }]}>Dossier de procédure : RG-#{caseId}/26</Text>
             </View>
           </View>
 
-          <Text style={[styles.label, { color: colors.textSub }]}>IDENTITÉ DU PRÉVENU (NOM COMPLET) *</Text>
+          {/* 👤 IDENTITÉ */}
+          <Text style={[styles.label, { color: colors.textSub }]}>IDENTITÉ DU PRÉVENU *</Text>
           <TextInput 
             style={[styles.input, { borderColor: colors.border, backgroundColor: colors.inputBg, color: colors.textMain }]} 
-            placeholder="Ex: Abdourahamane Tiani..."
+            placeholder="Nom, Prénoms et Surnoms éventuels..."
             placeholderTextColor={isDark ? "#475569" : "#94A3B8"}
             value={personName} 
             onChangeText={setPersonName} 
           />
 
-          <Text style={[styles.label, { color: colors.textSub }]}>EXPOSÉ DES MOTIFS JURIDIQUES *</Text>
+          {/* 📝 MOTIVATIONS */}
+          <Text style={[styles.label, { color: colors.textSub }]}>MOTIFS JURIDIQUES DU MANDAT *</Text>
           <TextInput 
             style={[styles.input, styles.textArea, { borderColor: colors.border, backgroundColor: colors.inputBg, color: colors.textMain }]} 
             multiline 
-            placeholder="Attendu que l'individu ne s'est pas présenté... Risque de fuite..."
+            placeholder="Attendu que l'inculpé ne s'est pas présenté aux convocations... Risque de pression sur les témoins..."
             placeholderTextColor={isDark ? "#475569" : "#94A3B8"}
             value={reason} 
             onChangeText={setReason} 
             textAlignVertical="top"
           />
 
-          {/* ⚡ NIVEAU DE PRIORITÉ D'INTERPÉLLATION */}
-          <Text style={[styles.label, { color: colors.textSub }]}>PRIORITÉ D'EXÉCUTION</Text>
+          {/* ⚡ PRIORITÉ D'INTERPELLATION */}
+          <Text style={[styles.label, { color: colors.textSub }]}>DEGRÉ D'URGENCE CID</Text>
           <View style={styles.urgencyContainer}>
              {(['normal', 'high', 'critical'] as UrgencyLevel[]).map((level) => {
                const isActive = urgency === level;
-               const levelColor = level === 'critical' ? '#EF4444' : level === 'high' ? '#F59E0B' : '#10B981';
+               const levelColor = level === 'critical' ? '#EF4444' : level === 'high' ? '#F59E0B' : '#3B82F6';
                return (
                 <TouchableOpacity
                   key={level}
@@ -159,21 +166,22 @@ export default function IssueArrestWarrantScreen({ route, navigation }: JudgeScr
                     styles.urgencyBtn,
                     { 
                         borderColor: levelColor, 
-                        backgroundColor: isActive ? levelColor : (isDark ? colors.bgCard : 'transparent') 
+                        backgroundColor: isActive ? levelColor : 'transparent' 
                     }
                   ]}
                 >
                   <Text style={[styles.urgencyBtnText, { color: isActive ? '#fff' : levelColor }]}>
-                    {level.toUpperCase()}
+                    {level === 'critical' ? 'DANGER' : level.toUpperCase()}
                   </Text>
                 </TouchableOpacity>
                );
              })}
           </View>
 
+          {/* 🚀 BOUTON DE SIGNATURE */}
           <TouchableOpacity 
             activeOpacity={0.8}
-            style={[styles.btn, { backgroundColor: "#EF4444" }]} 
+            style={[styles.btn, { backgroundColor: JUDGE_ACCENT }]} 
             onPress={submitWarrant}
             disabled={isLoading}
           >
@@ -181,16 +189,19 @@ export default function IssueArrestWarrantScreen({ route, navigation }: JudgeScr
               <ActivityIndicator color="#fff" />
             ) : (
               <>
-                <Ionicons name="shield-checkmark" size={22} color="#fff" style={{ marginRight: 10 }} />
-                <Text style={styles.btnText}>APPOSER LA SIGNATURE</Text>
+                <Ionicons name="finger-print" size={24} color="#fff" style={{ marginRight: 12 }} />
+                <Text style={styles.btnText}>APPOSER SIGNATURE SÉCURISÉE</Text>
               </>
             )}
           </TouchableOpacity>
           
-          <Text style={[styles.legalDisclaimer, { color: colors.textSub }]}>
-            Cet acte est certifié conforme par le Juge {user?.lastname?.toUpperCase()}. {"\n"}
-            Il est immédiatement exécutoire sur le territoire national.
-          </Text>
+          <View style={styles.legalBox}>
+            <Ionicons name="shield-checkmark" size={16} color={colors.textSub} />
+            <Text style={[styles.legalDisclaimer, { color: colors.textSub }]}>
+              Cet acte juridictionnel est signé par le Magistrat Instructeur. {"\n"}
+              Année Judiciaire 2026 - République du Niger.
+            </Text>
+          </View>
 
           <View style={{ height: 140 }} />
         </ScrollView>
@@ -203,30 +214,28 @@ export default function IssueArrestWarrantScreen({ route, navigation }: JudgeScr
 
 const styles = StyleSheet.create({
   scroll: { padding: 20 },
-  infoCard: { padding: 18, borderRadius: 16, borderWidth: 1.5, marginBottom: 25, flexDirection: 'row', alignItems: 'center' },
-  infoTitle: { fontWeight: '900', fontSize: 13, letterSpacing: 0.5 },
-  infoSub: { fontSize: 11, fontWeight: '600', marginTop: 2 },
-  
-  label: { fontSize: 10, fontWeight: '900', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1, opacity: 0.8 },
-  input: { borderWidth: 1.5, borderRadius: 16, padding: 16, marginBottom: 25, fontSize: 16, fontWeight: '600' },
-  textArea: { height: 140, textAlignVertical: 'top', lineHeight: 22 },
-  
-  urgencyContainer: { flexDirection: 'row', gap: 10, marginBottom: 35 },
-  urgencyBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, borderWidth: 2, alignItems: 'center' },
+  infoCard: { padding: 20, borderRadius: 24, borderWidth: 1.5, marginBottom: 30, flexDirection: 'row', alignItems: 'center', elevation: 2 },
+  infoTitle: { fontWeight: '900', fontSize: 11, letterSpacing: 1.5 },
+  infoSub: { fontSize: 14, fontWeight: '800', marginTop: 4 },
+  label: { fontSize: 10, fontWeight: '900', marginBottom: 10, marginLeft: 5, textTransform: 'uppercase', letterSpacing: 1 },
+  input: { borderWidth: 1.5, borderRadius: 18, padding: 18, marginBottom: 25, fontSize: 16, fontWeight: '700' },
+  textArea: { height: 180, textAlignVertical: 'top', lineHeight: 24 },
+  urgencyContainer: { flexDirection: 'row', gap: 10, marginBottom: 40 },
+  urgencyBtn: { flex: 1, paddingVertical: 15, borderRadius: 14, borderWidth: 2, alignItems: 'center' },
   urgencyBtnText: { fontSize: 10, fontWeight: '900', letterSpacing: 1 },
-  
   btn: { 
-    height: 64, 
-    borderRadius: 20, 
+    height: 68, 
+    borderRadius: 22, 
     alignItems: 'center', 
     flexDirection: 'row', 
     justifyContent: 'center', 
-    elevation: 4, 
-    ...Platform.select({
-        ios: { shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 8 },
-        web: { boxShadow: '0px 4px 10px rgba(0,0,0,0.15)' }
-    })
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 }
   },
-  btnText: { color: '#fff', fontWeight: '900', fontSize: 15, letterSpacing: 1 },
-  legalDisclaimer: { textAlign: 'center', fontSize: 11, fontStyle: 'italic', marginTop: 25, lineHeight: 18 }
+  btnText: { color: '#fff', fontWeight: '900', fontSize: 14, letterSpacing: 0.5 },
+  legalBox: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 30 },
+  legalDisclaimer: { textAlign: 'center', fontSize: 11, fontStyle: 'italic', fontWeight: '600', lineHeight: 18 }
 });

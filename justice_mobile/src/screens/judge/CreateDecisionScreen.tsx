@@ -1,3 +1,4 @@
+// PATH: src/screens/judge/CreateDecisionScreen.tsx
 import React, { useState } from "react";
 import { 
   View, 
@@ -14,57 +15,63 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-// ✅ 1. Imports Architecture
+// ✅ Architecture & Theme
 import { useAppTheme } from "../../theme/AppThemeProvider";
 import { JudgeScreenProps } from "../../types/navigation";
 
-// Composants
+// ✅ Composants UI
 import ScreenContainer from "../../components/layout/ScreenContainer";
 import AppHeader from "../../components/layout/AppHeader";
 import SmartFooter from "../../components/layout/SmartFooter";
 
-// Services (Assurez-vous que ce service existe ou créez-le)
+// ✅ Services
 import { createDecision } from "../../services/decision.service";
 
+/**
+ * ⚖️ CONFIGURATION DES VERDICTS
+ */
 const VERDICT_OPTIONS = [
-  { key: "guilty", label: "COUPABLE", color: "#EF4444", icon: "hammer", desc: "Condamnation pénale" },
-  { key: "not_guilty", label: "RELAXE", color: "#10B981", icon: "shield-checkmark", desc: "Acquittement des fins de poursuites" },
-  { key: "dismissed", label: "NON-LIEU", color: "#64748B", icon: "close-circle", desc: "Abandon de la procédure" },
+  { key: "guilty", label: "COUPABLE", color: "#EF4444", icon: "hammer", desc: "Condamnation pénale ferme ou avec sursis" },
+  { key: "not_guilty", label: "RELAXE", color: "#10B981", icon: "shield-checkmark", desc: "Acquittement des fins de la poursuite" },
+  { key: "dismissed", label: "NON-LIEU", color: "#64748B", icon: "close-circle", desc: "Clôture de l'instruction sans poursuite" },
 ];
 
 export default function CreateDecisionScreen({ route, navigation }: JudgeScreenProps<'CreateDecision'>) {
-  // ✅ 2. Thème Dynamique
   const { theme, isDark } = useAppTheme();
-  const primaryColor = theme.colors.primary; 
   
-  // Sécurisation des paramètres
-  const params = route.params as { caseId: number } | undefined;
-  const caseId = params?.caseId; 
+  // ✅ Identité visuelle du Cabinet d'Instruction (Violet)
+  const JUDGE_ACCENT = "#7C3AED"; 
+  
+  // Récupération sécurisée du dossier
+  const { caseId } = route.params; 
   
   const [content, setContent] = useState("");
   const [verdict, setVerdict] = useState("guilty");
   const [isLoading, setIsLoading] = useState(false);
 
-  // 🎨 PALETTE DYNAMIQUE
   const colors = {
     bgMain: isDark ? "#0F172A" : "#F8FAFC",
     bgCard: isDark ? "#1E293B" : "#FFFFFF",
     textMain: isDark ? "#FFFFFF" : "#1E293B",
     textSub: isDark ? "#94A3B8" : "#64748B",
     border: isDark ? "#334155" : "#E2E8F0",
-    inputBg: isDark ? "#1E293B" : "#FFFFFF",
-    infoCardBg: isDark ? "#0C4A6E" : "#F0F9FF",
+    inputBg: isDark ? "#0F172A" : "#FFFFFF",
+    infoCardBg: isDark ? "#1e1b4b" : "#F5F3FF", // Indigo très léger pour le juge
   };
 
+  /**
+   * ✍️ VALIDATION ET PUBLICATION DE LA MINUTE
+   */
   const confirmPublish = () => {
-    if (content.trim().length < 20) {
-      const msg = "Le jugement doit être motivé en fait et en droit pour être valide (min. 20 caractères).";
-      Platform.OS === 'web' ? window.alert(msg) : Alert.alert("Motivation requise", msg);
+    if (content.trim().length < 30) {
+      const msg = "Le délibéré doit être motivé en fait et en droit (min. 30 caractères).";
+      if (Platform.OS === 'web') window.alert(msg);
+      else Alert.alert("Motivation insuffisante", msg);
       return;
     }
 
-    const title = "Prononcé du Verdict";
-    const msg = "La publication de ce délibéré rend la décision exécutoire. Confirmer ?";
+    const title = "Prononcé du Verdict ⚖️";
+    const msg = "Cette décision sera scellée et versée définitivement au dossier RP/2026. Confirmer la publication ?";
 
     if (Platform.OS === 'web') {
         if (window.confirm(`${title} : ${msg}`)) handlePublish();
@@ -77,52 +84,33 @@ export default function CreateDecisionScreen({ route, navigation }: JudgeScreenP
   };
 
   const handlePublish = async () => {
-    if (!caseId) {
-        Alert.alert("Erreur", "Identifiant du dossier manquant.");
-        return;
-    }
-
     setIsLoading(true);
     try {
-      // Appel API réel
+      // ✅ Certification de l'acte sur le serveur e-Justice
       await createDecision({
         caseId: Number(caseId),
         content: content.trim(),
-        verdict,
+        verdict: verdict,
         date: new Date().toISOString(),
       }); 
       
-      // Feedback Succès
       if (Platform.OS === 'web') {
-          window.alert("⚖️ Justice Rendue : Jugement versé au dossier.");
+          window.alert("✅ Décision rendue et notifiée aux parties.");
       } else {
-          Alert.alert("⚖️ Justice Rendue", "Le jugement a été scellé et notifié aux parties.");
+          Alert.alert("Justice Rendue ✅", "La décision a été signée électroniquement et transmise au Greffe.");
       }
       
       navigation.popToTop(); 
     } catch (error) {
-      console.error(error);
-      Alert.alert("Erreur", "L'acte n'a pas pu être enregistré sur le serveur e-Justice.");
+      Alert.alert("Erreur de Scellage", "Impossible d'enregistrer l'acte sur la blockchain judiciaire.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Si pas d'ID, on affiche une erreur (sécurité)
-  if (!caseId) {
-      return (
-        <ScreenContainer>
-            <AppHeader title="Erreur" showBack />
-            <View style={{flex:1, justifyContent:'center', alignItems:'center'}}>
-                <Text style={{color: colors.textMain}}>Erreur : Aucun dossier sélectionné.</Text>
-            </View>
-        </ScreenContainer>
-      );
-  }
-
   return (
     <ScreenContainer withPadding={false}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
       <AppHeader title="Rédaction du Délibéré" showBack={true} />
 
       <KeyboardAvoidingView 
@@ -136,56 +124,58 @@ export default function CreateDecisionScreen({ route, navigation }: JudgeScreenP
           keyboardShouldPersistTaps="handled"
         >
           
-          {/* 🏛️ BANDEAU DU DOSSIER */}
-          <View style={[styles.infoCard, { backgroundColor: colors.infoCardBg, borderColor: primaryColor }]}>
-            <View style={[styles.iconBox, { backgroundColor: primaryColor }]}>
-                <Ionicons name="scale" size={24} color="#FFF" />
+          {/* 🏛️ RÉFÉRENCE DU DOSSIER */}
+          <View style={[styles.infoCard, { backgroundColor: colors.infoCardBg, borderColor: JUDGE_ACCENT + "40" }]}>
+            <View style={[styles.iconBox, { backgroundColor: JUDGE_ACCENT }]}>
+                <Ionicons name="document-text" size={24} color="#FFF" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.infoLabel, { color: isDark ? "#7DD3FC" : primaryColor }]}>ACTE JURIDICTIONNEL</Text>
-              <Text style={[styles.infoValue, { color: colors.textMain }]}>Minute du Dossier RG #{caseId}</Text>
+              <Text style={[styles.infoLabel, { color: JUDGE_ACCENT }]}>CABINET D'INSTRUCTION</Text>
+              <Text style={[styles.infoValue, { color: colors.textMain }]}>Dossier N° RP-{caseId}/26</Text>
             </View>
           </View>
 
-          {/* ⚖️ CHOIX DU DISPOSITIF */}
-          <Text style={[styles.label, { color: colors.textSub }]}>Dispositif de la décision</Text>
+          {/* ⚖️ SÉLECTION DU DISPOSITIF (VERDICT) */}
+          <Text style={[styles.label, { color: colors.textSub }]}>Dispositif de la décision *</Text>
           <View style={styles.verdictGrid}>
             {VERDICT_OPTIONS.map((opt) => {
               const isActive = verdict === opt.key;
               return (
                 <TouchableOpacity 
                   key={opt.key} 
-                  activeOpacity={0.85}
+                  activeOpacity={0.8}
                   style={[
                     styles.verdictCard, 
                     { 
                       backgroundColor: colors.bgCard,
                       borderColor: isActive ? opt.color : colors.border,
-                      borderWidth: isActive ? 2 : 1
+                      borderLeftWidth: isActive ? 8 : 1
                     }
                   ]}
                   onPress={() => setVerdict(opt.key)}
                 >
-                  <View style={[styles.verdictIcon, { backgroundColor: isActive ? opt.color + "15" : (isDark ? "#0F172A" : "#F8FAFC") }]}>
+                  <View style={[styles.verdictIcon, { backgroundColor: isActive ? opt.color + "15" : colors.bgMain }]}>
                     <Ionicons name={opt.icon as any} size={22} color={isActive ? opt.color : colors.textSub} />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.verdictLabel, { color: isActive ? opt.color : colors.textMain }]}>
                       {opt.label}
                     </Text>
-                    <Text style={[styles.verdictDesc, { color: colors.textSub }]}>{opt.desc}</Text>
+                    <Text style={[styles.verdictDesc, { color: colors.textSub }]} numberOfLines={1}>
+                      {opt.desc}
+                    </Text>
                   </View>
-                  {isActive && <Ionicons name="checkmark-circle" size={22} color={opt.color} />}
+                  {isActive && <Ionicons name="checkmark-circle" size={24} color={opt.color} />}
                 </TouchableOpacity>
               );
             })}
           </View>
 
-          {/* ✍️ MOTIVATIONS */}
-          <Text style={[styles.label, { color: colors.textSub }]}>Motivations & Par ces motifs</Text>
+          {/* ✍️ ZONE DE RÉDACTION JURIDIQUE */}
+          <Text style={[styles.label, { color: colors.textSub }]}>Motivations du Tribunal *</Text>
           <TextInput
             multiline
-            numberOfLines={10}
+            numberOfLines={12}
             style={[
               styles.textArea, 
               { 
@@ -196,16 +186,17 @@ export default function CreateDecisionScreen({ route, navigation }: JudgeScreenP
             ]}
             value={content}
             onChangeText={setContent}
-            placeholder="Attendu que les faits sont établis... En conséquence, le tribunal statuant publiquement..."
+            placeholder="Par ces motifs : \nAttendu que... \nDéclarons le nommé... \nLe condamnons à..."
             placeholderTextColor={isDark ? "#475569" : "#94A3B8"}
             textAlignVertical="top"
           />
 
+          {/* 🚀 BOUTON DE PUBLICATION OFFICIELLE */}
           <TouchableOpacity 
             activeOpacity={0.85}
             style={[
               styles.publishBtn, 
-              { backgroundColor: primaryColor },
+              { backgroundColor: JUDGE_ACCENT },
               isLoading && { opacity: 0.7 }
             ]} 
             onPress={confirmPublish}
@@ -215,11 +206,18 @@ export default function CreateDecisionScreen({ route, navigation }: JudgeScreenP
               <ActivityIndicator color="#FFF" />
             ) : (
               <>
-                <Ionicons name="paper-plane" size={20} color="#FFF" />
-                <Text style={styles.btnText}>PUBLIER LE JUGEMENT</Text>
+                <Ionicons name="ribbon-outline" size={24} color="#FFF" />
+                <Text style={styles.btnText}>SCELLER ET RENDRE LE JUGEMENT</Text>
               </>
             )}
           </TouchableOpacity>
+
+          <View style={styles.legalNotice}>
+            <Ionicons name="shield-checkmark" size={16} color={colors.textSub} />
+            <Text style={[styles.noticeText, { color: colors.textSub }]}>
+              Cet acte est certifié conforme au Code de Procédure Pénale nigérien.
+            </Text>
+          </View>
 
           <View style={{ height: 140 }} />
         </ScrollView>
@@ -232,34 +230,32 @@ export default function CreateDecisionScreen({ route, navigation }: JudgeScreenP
 
 const styles = StyleSheet.create({
   scrollView: { flex: 1 },
-  container: { padding: 16 },
-  infoCard: { flexDirection: 'row', alignItems: 'center', padding: 18, borderRadius: 20, marginBottom: 25, borderLeftWidth: 6, elevation: 2 },
-  iconBox: { width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
+  container: { padding: 20 },
+  infoCard: { flexDirection: 'row', alignItems: 'center', padding: 20, borderRadius: 24, marginBottom: 25, borderLeftWidth: 1, borderWidth: 1, elevation: 3 },
+  iconBox: { width: 48, height: 48, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
   infoLabel: { fontSize: 10, fontWeight: '900', letterSpacing: 1.5 },
-  infoValue: { fontSize: 18, fontWeight: '900', marginTop: 2 },
-  
+  infoValue: { fontSize: 19, fontWeight: '900', marginTop: 2 },
   label: { fontSize: 11, fontWeight: '900', marginBottom: 12, marginLeft: 4, textTransform: 'uppercase', letterSpacing: 1 },
-  
-  verdictGrid: { gap: 10, marginBottom: 30 },
-  verdictCard: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 20, gap: 12, elevation: 1 },
+  verdictGrid: { gap: 12, marginBottom: 30 },
+  verdictCard: { flexDirection: 'row', alignItems: 'center', padding: 18, borderRadius: 20, gap: 15, elevation: 2, borderWidth: 1 },
   verdictIcon: { width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
-  verdictLabel: { fontWeight: '900', fontSize: 14 },
-  verdictDesc: { fontSize: 11, fontWeight: '600', marginTop: 1 },
-  
-  textArea: { borderRadius: 20, padding: 18, borderWidth: 1.5, minHeight: 300, fontSize: 15, lineHeight: 22, marginBottom: 30, textAlignVertical: 'top' },
-  
+  verdictLabel: { fontWeight: '900', fontSize: 15 },
+  verdictDesc: { fontSize: 11, fontWeight: '600', marginTop: 2 },
+  textArea: { borderRadius: 24, padding: 20, borderWidth: 1.5, minHeight: 350, fontSize: 16, lineHeight: 24, marginBottom: 30, textAlignVertical: 'top' },
   publishBtn: { 
     flexDirection: 'row', 
-    height: 64, 
-    borderRadius: 20, 
+    height: 68, 
+    borderRadius: 22, 
     alignItems: 'center', 
     justifyContent: 'center', 
     gap: 12,
-    elevation: 4,
-    ...Platform.select({
-      ios: { shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10 },
-      web: { boxShadow: '0px 4px 10px rgba(0,0,0,0.1)' }
-    })
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 }
   },
-  btnText: { color: '#FFF', fontWeight: '900', fontSize: 14, letterSpacing: 1 }
+  btnText: { color: '#FFF', fontWeight: '900', fontSize: 14, letterSpacing: 0.5 },
+  legalNotice: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 25, opacity: 0.6 },
+  noticeText: { fontSize: 11, fontWeight: '700', fontStyle: 'italic' }
 });

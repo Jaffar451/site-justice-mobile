@@ -95,7 +95,7 @@ export default function JudgeProsecutionScreen({ route, navigation }: JudgeScree
       if (Platform.OS === 'web') window.alert(`✅ ${successMsg}`);
       
       // Retour au tableau de bord
-      navigation.navigate("JudgeDashboard");
+      navigation.navigate("JudgeHome");
     } catch (error) {
       Alert.alert("Erreur", "L'acte n'a pas pu être enregistré.");
     } finally {

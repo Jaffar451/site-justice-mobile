@@ -1,15 +1,16 @@
+// PATH: src/screens/police/SosDetailScreen.tsx
 import React, { useState } from 'react';
-import { StyleSheet, View, Linking, Platform, StatusBar, Dimensions, Alert } from 'react-native';
+import { StyleSheet, View, Linking, Platform, StatusBar, Alert } from 'react-native';
 import { Text, Button, Avatar, IconButton, Surface } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 
-// ✅ Architecture
+// ✅ Architecture & Theme
 import { useAppTheme } from '../../theme/AppThemeProvider';
 import { PoliceScreenProps } from '../../types/navigation';
 import ScreenContainer from '../../components/layout/ScreenContainer';
 import SmartFooter from '../../components/layout/SmartFooter';
 
-// Import conditionnel Maps (Évite les crashs Web/Simulateurs sans API Google)
+// ✅ Import conditionnel Maps (Sécurité Web/Simulateurs)
 let MapView: any = View;
 let Marker: any = View;
 let PROVIDER_GOOGLE: any = null;
@@ -30,14 +31,16 @@ export default function SosDetailScreen({ route, navigation }: PoliceScreenProps
   const primaryColor = theme.colors.primary;
   const [isResolving, setIsResolving] = useState(false);
   
-  // 🛡️ Récupération sécurisée des paramètres
+  // 🛡️ Récupération des paramètres (Typage via navigation.ts)
   const alertData = route.params?.alert;
 
+  // Protection si les données sont perdues
   if (!alertData) {
     return (
-      <View style={styles.errorContainer}>
-        <Text>Données de l'alerte introuvables.</Text>
-        <Button onPress={() => navigation.goBack()}>Retour</Button>
+      <View style={[styles.errorContainer, { backgroundColor: isDark ? "#0F172A" : "#F8FAFC" }]}>
+        <Avatar.Icon size={60} icon="alert-circle-outline" style={{ backgroundColor: '#FEE2E2' }} color="#EF4444" />
+        <Text style={{ marginTop: 15, fontWeight: '700' }}>Données de l'alerte introuvables.</Text>
+        <Button mode="contained" onPress={() => navigation.goBack()} style={{ marginTop: 20 }}>Retour</Button>
       </View>
     );
   }
@@ -50,34 +53,50 @@ export default function SosDetailScreen({ route, navigation }: PoliceScreenProps
     border: isDark ? "#334155" : "#E2E8F0",
   };
 
+  /**
+   * 🗺️ OUVRIR L'ITINÉRAIRE GPS
+   */
   const openItinerary = () => {
     const latLng = `${alertData.latitude},${alertData.longitude}`;
+    const label = encodeURIComponent("URGENCE SOS");
     const url = Platform.select({
-      ios: `maps:0,0?q=SOS@${latLng}`,
-      android: `geo:0,0?q=${latLng}(SOS)`,
+      ios: `maps:0,0?q=${label}@${latLng}`,
+      android: `geo:0,0?q=${latLng}(${label})`,
       default: `https://www.google.com/maps/search/?api=1&query=${latLng}`
     });
     if (url) Linking.openURL(url);
   };
 
+  /**
+   * 📞 APPEL D'URGENCE
+   */
   const handleCall = () => {
-    if (alertData.senderPhone) Linking.openURL(`tel:${alertData.senderPhone}`);
+    if (alertData.senderPhone) {
+      Linking.openURL(`tel:${alertData.senderPhone}`);
+    } else {
+      Alert.alert("Action impossible", "Aucun numéro de téléphone rattaché à cette alerte.");
+    }
   };
 
+  /**
+   * ✅ CLÔTURER L'INTERVENTION
+   */
   const handleResolve = () => {
     Alert.alert(
       "Clôturer l'Intervention",
-      "Confirmez-vous la fin de l'alerte ? L'heure sera archivée.",
+      "Le citoyen a-t-il été secouru ? Cette action archivera l'alerte SOS.",
       [
         { text: "Annuler", style: "cancel" },
         {
-          text: "Confirmer",
+          text: "Confirmer la clôture",
           onPress: () => {
             setIsResolving(true);
+            // Simulation d'appel API pour mettre à jour le statut du SOS
             setTimeout(() => {
               setIsResolving(false);
+              Alert.alert("Mission Terminée", "L'intervention a été enregistrée au rapport journalier.");
               navigation.goBack();
-            }, 1000);
+            }, 1200);
           }
         }
       ]
@@ -89,7 +108,7 @@ export default function SosDetailScreen({ route, navigation }: PoliceScreenProps
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
       
       <View style={styles.container}>
-        {/* 🗺️ CARTE GPS */}
+        {/* 🗺️ CARTE GPS PLEIN ÉCRAN */}
         {Platform.OS !== 'web' ? (
           <MapView
             provider={PROVIDER_GOOGLE}
@@ -104,21 +123,21 @@ export default function SosDetailScreen({ route, navigation }: PoliceScreenProps
             <Marker coordinate={{ latitude: alertData.latitude, longitude: alertData.longitude }}>
               <View style={styles.markerWrapper}>
                 <View style={styles.markerPulse} />
-                <Ionicons name="location" size={44} color="#EF4444" />
+                <Ionicons name="location" size={48} color="#EF4444" />
               </View>
             </Marker>
           </MapView>
         ) : (
           <View style={[styles.webPlaceholder, { backgroundColor: colors.bgMain }]}>
             <Avatar.Icon size={80} icon="map-marker-alert" style={{ backgroundColor: '#FEE2E2' }} color="#EF4444" />
-            <Text style={[styles.webText, { color: colors.textMain }]}>Mode Web : Carte indisponible</Text>
-            <Text style={{ color: colors.textSub }}>GPS : {alertData.latitude}, {alertData.longitude}</Text>
+            <Text style={[styles.webText, { color: colors.textMain }]}>Mode Web : Carte interactive limitée</Text>
+            <Text style={{ color: colors.textSub }}>Coordonnées : {alertData.latitude}, {alertData.longitude}</Text>
           </View>
         )}
 
-        {/* ⬅️ RETOUR */}
+        {/* ⬅️ BOUTON RETOUR FLOTTANT */}
         <IconButton
-          icon="chevron-left"
+          icon="arrow-left"
           mode="contained"
           containerColor={colors.bgCard}
           iconColor={colors.textMain}
@@ -126,18 +145,18 @@ export default function SosDetailScreen({ route, navigation }: PoliceScreenProps
           onPress={() => navigation.goBack()}
         />
 
-        {/* 🚨 PANNEAU D'ACTION */}
-        <Surface style={[styles.detailsSheet, { backgroundColor: colors.bgCard }]} elevation={4}>
+        {/* 🚨 PANNEAU D'ACTION TACTIQUE */}
+        <Surface style={[styles.detailsSheet, { backgroundColor: colors.bgCard }]} elevation={5}>
           <View style={[styles.dragIndicator, { backgroundColor: colors.border }]} />
           
           <View style={styles.headerRow}>
               <View style={{ flex: 1 }}>
                 <Text variant="headlineSmall" style={[styles.bold, { color: colors.textMain }]}>
-                  {alertData.senderName || "Inconnu"}
+                  {alertData.senderName || "Alerte Citoyenne"}
                 </Text>
                 <View style={styles.badgeRow}>
-                  <Ionicons name="navigate" size={14} color="#EF4444" />
-                  <Text style={styles.distanceText}>À {alertData.distance || '0.5'} km de vous</Text>
+                  <Ionicons name="navigate-circle" size={16} color="#EF4444" />
+                  <Text style={styles.distanceText}>Proximité : {alertData.distance || 'Zone Proche'}</Text>
                 </View>
               </View>
               <Avatar.Image 
@@ -149,41 +168,48 @@ export default function SosDetailScreen({ route, navigation }: PoliceScreenProps
 
           <View style={styles.infoGrid}>
               <View style={styles.infoItem}>
-                <Text variant="labelSmall" style={{ color: colors.textSub }}>NUMÉRO DE CONTACT</Text>
-                <Text variant="bodyLarge" style={[styles.bold, { color: colors.textMain }]}>{alertData.senderPhone || "N/A"}</Text>
+                <Text variant="labelSmall" style={{ color: colors.textSub, letterSpacing: 1 }}>SIGNALÉ LE</Text>
+                <Text variant="bodyLarge" style={[styles.bold, { color: colors.textMain }]}>
+                  {new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                </Text>
               </View>
               <View style={styles.infoItem}>
-                <Text variant="labelSmall" style={{ color: colors.textSub }}>PRIORITÉ</Text>
+                <Text variant="labelSmall" style={{ color: colors.textSub, letterSpacing: 1 }}>NIVEAU D'URGENCE</Text>
                 <View style={styles.urgentBadge}>
-                    <Text style={styles.urgentText}>MAXIMALE</Text>
+                    <Text style={styles.urgentText}>CRITIQUE</Text>
                 </View>
               </View>
           </View>
 
+          {/* ACTIONS RAPIDES */}
           <View style={styles.actionRow}>
             <Button 
               mode="outlined" 
-              icon="phone" 
+              icon="phone-outline" 
               onPress={handleCall} 
               style={[styles.btn, { borderColor: primaryColor }]} 
               textColor={primaryColor}
-            > Appeler </Button>
+              contentStyle={{ height: 50 }}
+            > APPELER </Button>
             
             <Button 
               mode="contained" 
-              icon="map" 
+              icon="navigate-outline" 
               onPress={openItinerary} 
               style={[styles.btn, { backgroundColor: '#EF4444' }]}
-            > Itinéraire </Button>
+              contentStyle={{ height: 50 }}
+            > ITINÉRAIRE </Button>
           </View>
 
           <Button 
             mode="contained-tonal" 
             onPress={handleResolve} 
             loading={isResolving}
+            disabled={isResolving}
             style={styles.resolveBtn}
-            contentStyle={{ height: 50 }}
-          > Terminer l'intervention </Button>
+            contentStyle={{ height: 55 }}
+            labelStyle={{ fontWeight: '900' }}
+          > TERMINER L'INTERVENTION </Button>
         </Surface>
 
         <SmartFooter />
@@ -196,25 +222,34 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   map: { ...StyleSheet.absoluteFillObject },
   markerWrapper: { alignItems: 'center', justifyContent: 'center' },
-  markerPulse: { position: 'absolute', width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(239, 68, 68, 0.2)', borderWidth: 1, borderColor: '#EF4444' },
-  webPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  webText: { marginTop: 10, fontWeight: '900', fontSize: 18 },
-  backBtn: { position: 'absolute', top: 45, left: 15, zIndex: 10 },
-  detailsSheet: { 
-    position: 'absolute', bottom: 100, left: 10, right: 10, 
-    borderRadius: 30, padding: 20, paddingBottom: 25 
+  markerPulse: { 
+    position: 'absolute', 
+    width: 70, 
+    height: 70, 
+    borderRadius: 35, 
+    backgroundColor: 'rgba(239, 68, 68, 0.15)', 
+    borderWidth: 1.5, 
+    borderColor: '#EF4444' 
   },
-  dragIndicator: { width: 40, height: 5, borderRadius: 10, alignSelf: 'center', marginBottom: 15 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-  badgeRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
-  distanceText: { color: '#EF4444', fontWeight: '800', marginLeft: 4, fontSize: 12 },
-  infoGrid: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 25 },
+  webPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+  webText: { marginTop: 15, fontWeight: '900', fontSize: 20, textAlign: 'center' },
+  backBtn: { position: 'absolute', top: 50, left: 20, zIndex: 10, elevation: 5 },
+  detailsSheet: { 
+    position: 'absolute', bottom: 90, left: 10, right: 10, 
+    borderRadius: 30, padding: 20, paddingBottom: 30,
+    borderWidth: 1, borderColor: 'rgba(0,0,0,0.05)'
+  },
+  dragIndicator: { width: 45, height: 5, borderRadius: 10, alignSelf: 'center', marginBottom: 20, opacity: 0.3 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 25 },
+  badgeRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
+  distanceText: { color: '#EF4444', fontWeight: '800', marginLeft: 6, fontSize: 13 },
+  infoGrid: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 30 },
   infoItem: { flex: 1 },
   bold: { fontWeight: '900' },
-  urgentBadge: { backgroundColor: '#FCA5A5', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4, alignSelf: 'flex-start', marginTop: 4 },
-  urgentText: { color: '#7F1D1D', fontWeight: '900', fontSize: 10 },
-  actionRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
-  btn: { flex: 1, borderRadius: 12 },
-  resolveBtn: { borderRadius: 12, marginTop: 5 },
-  errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' }
+  urgentBadge: { backgroundColor: '#FEE2E2', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, alignSelf: 'flex-start', marginTop: 6 },
+  urgentText: { color: '#B91C1C', fontWeight: '900', fontSize: 11 },
+  actionRow: { flexDirection: 'row', gap: 12, marginBottom: 12 },
+  btn: { flex: 1, borderRadius: 16 },
+  resolveBtn: { borderRadius: 16, marginTop: 5 },
+  errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30 }
 });

@@ -1,3 +1,4 @@
+// PATH: src/screens/judge/JudgeDecisionsScreen.tsx
 import React, { useState, useMemo } from "react";
 import { 
   View, 
@@ -14,17 +15,17 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 
-// ✅ 1. Imports Architecture
+// ✅ Architecture & Theme
 import { useAuthStore } from "../../stores/useAuthStore";
 import { useAppTheme } from "../../theme/AppThemeProvider";
 import { JudgeScreenProps } from "../../types/navigation";
 
-// Composants
+// ✅ UI Components
 import ScreenContainer from "../../components/layout/ScreenContainer";
 import AppHeader from "../../components/layout/AppHeader";
 import SmartFooter from "../../components/layout/SmartFooter";
 
-// Services
+// ✅ Services
 import { getMyComplaints } from "../../services/complaint.service";
 
 interface DecisionCase {
@@ -38,13 +39,13 @@ interface DecisionCase {
 }
 
 export default function JudgeDecisionsScreen({ navigation }: JudgeScreenProps<'JudgeDecisions'>) {
-  // ✅ 2. Thème Dynamique
   const { theme, isDark } = useAppTheme();
-  const primaryColor = theme.colors.primary; 
+  
+  // ✅ Identité Cabinet d'Instruction
+  const JUDGE_ACCENT = "#7C3AED"; 
   
   const [search, setSearch] = useState("");
 
-  // 🎨 PALETTE DYNAMIQUE
   const colors = {
     bgMain: isDark ? "#0F172A" : "#F8FAFC",
     bgCard: isDark ? "#1E293B" : "#FFFFFF",
@@ -54,32 +55,31 @@ export default function JudgeDecisionsScreen({ navigation }: JudgeScreenProps<'J
     inputBg: isDark ? "#0F172A" : "#F1F5F9",
   };
 
-  // ✅ 3. Fetch avec React Query
+  // 📡 Récupération de l'historique des décisions
   const { data: rawDecisions, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['judge-decisions-history'],
     queryFn: async () => {
       const data = await getMyComplaints();
-      // On ne garde que les dossiers clôturés/jugés
+      // Filtrage : On ne garde que les dossiers clôturés/jugés par le cabinet
       return data.filter((c: any) => 
         ["closed", "decision", "resolved", "jugée", "non_lieu", "classée_sans_suite"].includes(c.status)
       ) as DecisionCase[];
     }
   });
 
-  // ✅ 4. Filtrage et Tri (Memoïsé)
+  // 🔍 Filtrage & Tri
   const filteredDecisions = useMemo(() => {
     if (!rawDecisions) return [];
 
     let results = [...rawDecisions];
 
-    // Tri par date décroissante (plus récent en premier)
+    // Tri par date décroissante (dernières décisions en haut)
     results.sort((a, b) => {
         const dateA = new Date(a.updatedAt || a.filedAt || a.createdAt).getTime();
         const dateB = new Date(b.updatedAt || b.filedAt || b.createdAt).getTime();
         return dateB - dateA;
     });
 
-    // Filtre de recherche
     if (search.trim()) {
       const lower = search.toLowerCase();
       results = results.filter(d => 
@@ -95,13 +95,13 @@ export default function JudgeDecisionsScreen({ navigation }: JudgeScreenProps<'J
     const v = (verdict || "").toUpperCase();
     
     if (v.includes("RELAXE") || v.includes("INNOCENT") || v.includes("ACQUITTAL")) {
-      return { color: "#10B981", label: "RELAXÉ", icon: "shield-checkmark-outline" };
+      return { color: "#10B981", bg: "#DCFCE7", label: "RELAXÉ", icon: "shield-checkmark" };
     }
     if (v.includes("NON_LIEU") || v.includes("DISMISSED")) {
-      return { color: "#64748B", label: "NON-LIEU", icon: "archive-outline" };
+      return { color: "#64748B", bg: "#F1F5F9", label: "NON-LIEU", icon: "archive" };
     }
-    // Par défaut
-    return { color: "#EF4444", label: "CONDAMNATION", icon: "hammer-outline" };
+    // Par défaut : Condamnation
+    return { color: "#EF4444", bg: "#FEE2E2", label: "CONDAMNATION", icon: "hammer" };
   };
 
   const renderItem = ({ item }: { item: DecisionCase }) => {
@@ -111,11 +111,11 @@ export default function JudgeDecisionsScreen({ navigation }: JudgeScreenProps<'J
       <TouchableOpacity
         activeOpacity={0.85}
         style={[styles.card, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
-        // On renvoie vers le détail du dossier pour voir l'historique complet
-        onPress={() => navigation.navigate("CaseDetail", { caseId: item.id })}
+        // On renvoie vers le détail du dossier pour consulter la minute complète
+        onPress={() => navigation.navigate("JudgeCaseDetail", { caseId: item.id })}
       >
         <View style={styles.cardHeader}>
-          <Text style={[styles.caseId, { color: primaryColor }]}>MINUTE RG #{item.id}</Text>
+          <Text style={[styles.caseId, { color: JUDGE_ACCENT }]}>MINUTE N° {item.id}/26</Text>
           <Text style={[styles.date, { color: colors.textSub }]}>
             {new Date(item.updatedAt || item.filedAt).toLocaleDateString("fr-FR")}
           </Text>
@@ -126,13 +126,13 @@ export default function JudgeDecisionsScreen({ navigation }: JudgeScreenProps<'J
         </Text>
 
         <View style={[styles.footerRow, { borderTopColor: colors.border }]}>
-          <View style={[styles.badgeContainer, { backgroundColor: badge.color + "15" }]}>
+          <View style={[styles.badgeContainer, { backgroundColor: isDark ? badge.color + "20" : badge.bg }]}>
             <Ionicons name={badge.icon as any} size={14} color={badge.color} />
             <Text style={[styles.badgeText, { color: badge.color }]}>{badge.label}</Text>
           </View>
           <View style={styles.actionLink}>
-            <Text style={[styles.actionText, { color: primaryColor }]}>Consulter l'acte</Text>
-            <Ionicons name="chevron-forward" size={16} color={primaryColor} />
+            <Text style={[styles.actionText, { color: JUDGE_ACCENT }]}>Consulter l'acte</Text>
+            <Ionicons name="chevron-forward" size={16} color={JUDGE_ACCENT} />
           </View>
         </View>
       </TouchableOpacity>
@@ -144,9 +144,9 @@ export default function JudgeDecisionsScreen({ navigation }: JudgeScreenProps<'J
       <StatusBar barStyle="light-content" />
       <AppHeader title="Registre des Minutes" showBack />
 
-      {/* 🔍 Barre de Recherche */}
+      {/* 🔍 BARRE DE RECHERCHE */}
       <View style={[styles.searchContainer, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
-        <Ionicons name="search-outline" size={20} color={colors.textSub} style={{ marginRight: 10 }} />
+        <Ionicons name="search" size={20} color={colors.textSub} style={{ marginRight: 10 }} />
         <TextInput
           placeholder="Rechercher minute ou n° dossier..."
           placeholderTextColor={colors.textSub}
@@ -164,8 +164,8 @@ export default function JudgeDecisionsScreen({ navigation }: JudgeScreenProps<'J
       <View style={[styles.body, { backgroundColor: colors.bgMain }]}>
         {isLoading && !isRefetching ? (
           <View style={styles.center}>
-            <ActivityIndicator size="large" color={primaryColor} />
-            <Text style={[styles.loadingText, { color: colors.textSub }]}>Accès au coffre-fort numérique...</Text>
+            <ActivityIndicator size="large" color={JUDGE_ACCENT} />
+            <Text style={[styles.loadingText, { color: colors.textSub }]}>Accès au Greffe Numérique...</Text>
           </View>
         ) : (
           <FlatList
@@ -174,13 +174,13 @@ export default function JudgeDecisionsScreen({ navigation }: JudgeScreenProps<'J
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             refreshControl={
-              <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={primaryColor} />
+              <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={JUDGE_ACCENT} />
             }
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
-                <Ionicons name="document-text-outline" size={80} color={colors.border} />
+                <Ionicons name="library-outline" size={80} color={colors.border} />
                 <Text style={[styles.emptyText, { color: colors.textSub }]}>
-                  Aucune minute de jugement n'est encore enregistrée pour votre cabinet.
+                  Aucune minute de jugement n'est archivée pour le moment.
                 </Text>
               </View>
             }
@@ -196,47 +196,47 @@ export default function JudgeDecisionsScreen({ navigation }: JudgeScreenProps<'J
 
 const styles = StyleSheet.create({
   body: { flex: 1 },
-  listContent: { paddingHorizontal: 16, paddingBottom: 140, paddingTop: 10 },
+  listContent: { paddingHorizontal: 18, paddingBottom: 140, paddingTop: 10 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 50 },
-  loadingText: { marginTop: 12, fontSize: 13, fontWeight: '700' },
+  loadingText: { marginTop: 15, fontSize: 11, fontWeight: '900', letterSpacing: 1 },
   
   searchContainer: { 
     flexDirection: "row", 
     alignItems: "center", 
-    marginHorizontal: 16, 
+    marginHorizontal: 18, 
     marginTop: 15, 
     marginBottom: 10, 
     paddingHorizontal: 16, 
-    height: 52, 
-    borderRadius: 16, 
-    borderWidth: 1 
+    height: 54, 
+    borderRadius: 18, 
+    borderWidth: 1.5 
   },
-  searchInput: { flex: 1, fontSize: 14, fontWeight: '600' },
+  searchInput: { flex: 1, fontSize: 15, fontWeight: '600' },
   
   card: { 
-    padding: 18, 
+    padding: 20, 
     marginBottom: 16, 
-    borderRadius: 22, 
+    borderRadius: 24, 
     borderWidth: 1,
-    ...Platform.select({
-      ios: { shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10 },
-      android: { elevation: 3 },
-      web: { boxShadow: "0px 4px 12px rgba(0,0,0,0.08)" }
-    })
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 }
   },
   cardHeader: { flexDirection: "row", justifyContent: "space-between", marginBottom: 12, alignItems: 'center' },
-  caseId: { fontSize: 11, fontWeight: "900", letterSpacing: 1 },
-  date: { fontSize: 11, fontWeight: "700", opacity: 0.8 },
+  caseId: { fontSize: 11, fontWeight: "900", letterSpacing: 1.5 },
+  date: { fontSize: 11, fontWeight: "700", opacity: 0.7 },
   
-  title: { fontSize: 16, fontWeight: "800", marginBottom: 18, lineHeight: 22 },
+  title: { fontSize: 17, fontWeight: "800", marginBottom: 18, lineHeight: 24, letterSpacing: -0.5 },
   
-  footerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderTopWidth: 1, paddingTop: 14 },
-  badgeContainer: { flexDirection: "row", alignItems: "center", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, gap: 6 },
-  badgeText: { fontSize: 10, fontWeight: "900", letterSpacing: 0.5 },
+  footerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderTopWidth: 1, paddingTop: 15 },
+  badgeContainer: { flexDirection: "row", alignItems: "center", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, gap: 6 },
+  badgeText: { fontSize: 9, fontWeight: "900", letterSpacing: 0.5 },
   
-  actionLink: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  actionLink: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   actionText: { fontSize: 12, fontWeight: '800' },
   
-  emptyContainer: { alignItems: "center", marginTop: 100, paddingHorizontal: 40 },
-  emptyText: { textAlign: "center", marginTop: 20, fontSize: 15, fontWeight: '600', opacity: 0.8, lineHeight: 22 },
+  emptyContainer: { alignItems: "center", marginTop: 100, paddingHorizontal: 50 },
+  emptyText: { textAlign: "center", marginTop: 20, fontSize: 15, fontWeight: '600', opacity: 0.7, lineHeight: 22 },
 });

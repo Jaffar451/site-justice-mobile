@@ -95,7 +95,7 @@ export default function JudgeReleaseScreen({ route, navigation }: JudgeScreenPro
       if (Platform.OS === 'web') window.alert("✅ Ordre d'élargissement transmis.");
       
       // Retour au dashboard
-      navigation.navigate("JudgeDashboard");
+      navigation.navigate("JudgeHome");
     } catch (error) {
       Alert.alert("Erreur de Transmission", "L'acte n'a pas pu être signé numériquement.");
     } finally {

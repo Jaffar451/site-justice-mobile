@@ -73,7 +73,7 @@ export type RootStackParamList = {
   AdminNotifications: undefined;
 
   // --- 👮 POLICE ---
-  CreateSummon: undefined;
+  CreateSummon: { complaintId: number | string };
   PoliceHome: undefined;
   PoliceSearchWarrant: undefined;
   PoliceComplaints: undefined;
@@ -81,10 +81,10 @@ export type RootStackParamList = {
   PolicePVScreen: { complaintId?: number };
   PoliceCustody: { complaintId: number; suspectName: string };
   PoliceArrestWarrant: undefined;
-  PoliceDetention: { id?: number };
-  PoliceInterrogation: { id?: number };
+  PoliceDetention: { complaintId?: number ; suspectName: string };
+  PoliceInterrogation: { complaintId: number; suspectName: string };
   WarrantSearch: undefined;
-  PoliceCustodyExtension: { caseId: number; suspectName: string };
+  PoliceCustodyExtension: { caseId: number; suspectName: string ; complaintId: number };
   SosDetail: { alert: any };
   PoliceComplaintDetails: { complaintId: number };
 
@@ -98,16 +98,15 @@ export type RootStackParamList = {
 
   // --- 👨‍⚖️ JUSTICE (JUGE) ---
   JudgeHome: undefined;
-  JudgeDashboard: undefined; // ✅ Ajouté pour le Dashboard Juge
   JudgeCases: undefined;
-  JudgeConfiscation: undefined;
+  JudgeConfiscation: {caseId: number; decisionId?: number };
   JudgeCaseList: undefined;
   JudgeVerdict: { caseId: number };
   JudgeDecisions: undefined;
-  JudgePreventiveDetention: { caseId: number };
+  JudgePreventiveDetention: { caseId: number; personName?: string };
   JudgeProsecution: { caseId: number };
   JudgeRelease: { caseId: number };
-  JudgeReparation: { caseId: number };
+  JudgeReparation: { caseId: number; decisionId: number };
   JudgeHearing: undefined;
   
   // ✅ CORRECTION MAJEURE ICI :

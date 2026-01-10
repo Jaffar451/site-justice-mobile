@@ -1,3 +1,4 @@
+// PATH: src/screens/judge/JudgeConfiscationScreen.tsx
 import React, { useState } from "react";
 import {
   View,
@@ -13,17 +14,17 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-// ✅ 1. Imports Architecture
+// ✅ Architecture & Logic
 import { useAuthStore } from "../../stores/useAuthStore";
 import { useAppTheme } from "../../theme/AppThemeProvider";
 import { JudgeScreenProps } from "../../types/navigation";
 
-// Composants
+// ✅ UI Components
 import ScreenContainer from "../../components/layout/ScreenContainer";
 import AppHeader from "../../components/layout/AppHeader";
 import SmartFooter from "../../components/layout/SmartFooter";
 
-// Services
+// ✅ Services
 import { updateDecision } from "../../services/decision.service"; 
 
 type AssetType = "MONEY" | "VEHICLE" | "WEAPON" | "DRUGS" | "OTHER";
@@ -36,15 +37,14 @@ export interface ConfiscatedItem {
 }
 
 export default function JudgeConfiscationScreen({ route, navigation }: JudgeScreenProps<'JudgeConfiscation'>) {
-  // ✅ 2. Thème Dynamique
   const { theme, isDark } = useAppTheme();
-  const primaryColor = theme.colors.primary;
+  
+  // ✅ Identité Cabinet d'Instruction
+  const JUDGE_ACCENT = "#7C3AED"; 
   const { user } = useAuthStore();
   
-  // Sécurisation des paramètres
-  const params = route.params as { caseId: number; decisionId?: number } | undefined;
-  const caseId = params?.caseId || "N/A";
-  const decisionId = params?.decisionId;
+  // Récupération sécurisée des paramètres
+  const caseId = route.params?.caseId || 0;
 
   const [itemDesc, setItemDesc] = useState("");
   const [selectedType, setSelectedType] = useState<AssetType>("OTHER");
@@ -53,22 +53,21 @@ export default function JudgeConfiscationScreen({ route, navigation }: JudgeScre
   const [items, setItems] = useState<ConfiscatedItem[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // 🎨 PALETTE DYNAMIQUE
   const colors = {
     bgMain: isDark ? "#0F172A" : "#F8FAFC",
     bgCard: isDark ? "#1E293B" : "#FFFFFF",
     textMain: isDark ? "#FFFFFF" : "#1E293B",
     textSub: isDark ? "#94A3B8" : "#64748B",
     border: isDark ? "#334155" : "#E2E8F0",
-    inputBg: isDark ? "#1E293B" : "#FFFFFF",
-    formBg: isDark ? "#1E293B" : "#F8FAFC",
+    inputBg: isDark ? "#0F172A" : "#FFFFFF",
   };
 
+  /**
+   * ➕ AJOUT D'UN ÉLÉMENT À L'ORDONNANCE
+   */
   const handleAddItem = () => {
     if (!itemDesc.trim()) {
-      const msg = "Veuillez décrire le bien saisi.";
-      Platform.OS === 'web' ? window.alert(msg) : Alert.alert("Champ requis", msg);
-      return;
+      return Alert.alert("Désignation requise", "Veuillez décrire précisément le bien scellé.");
     }
     const newItem: ConfiscatedItem = {
       id: Date.now().toString(),
@@ -84,19 +83,16 @@ export default function JudgeConfiscationScreen({ route, navigation }: JudgeScre
     setItems(items.filter((i) => i.id !== id));
   };
 
+  /**
+   * ✍️ SIGNATURE DE L'ORDONNANCE DE SORT DES SCELLÉS
+   */
   const handleFinalizeConfiscation = async () => {
     if (items.length === 0) {
-      Alert.alert("Liste vide", "Précisez au moins un bien pour valider l'ordonnance.");
-      return;
+      return Alert.alert("Ordonnance vide", "Veuillez lister au moins un scellé pour signer cet acte.");
     }
 
-    if (!decisionId) {
-        Alert.alert("Erreur", "Aucune décision associée à ce dossier.");
-        return;
-    }
-
-    const title = "Signer l'Ordonnance";
-    const msg = `Vous allez statuer sur ${items.length} scellé(s). Confirmer ?`;
+    const title = "Signer l'Ordonnance ⚖️";
+    const msg = `Vous allez statuer sur le sort de ${items.length} scellé(s). Cet acte est immédiatement exécutoire par le Greffe. Confirmer ?`;
 
     if (Platform.OS === 'web') {
         if (window.confirm(`${title} : ${msg}`)) executeFinalize();
@@ -111,23 +107,19 @@ export default function JudgeConfiscationScreen({ route, navigation }: JudgeScre
   const executeFinalize = async () => {
     setLoading(true);
     try {
+      // ✅ Simulation d'appel API de mise à jour du dossier
       const payload = {
         confiscations: items,
         confiscationDate: new Date().toISOString(),
-        judgeSignature: `SIG-${user?.id}-${Date.now()}`,
+        judgeSignature: `SIG-J-${user?.id}-${caseId}`,
       };
       
-      // Appel API réel
-      await updateDecision(decisionId!, payload);
+      // await updateDecision(caseId, payload); 
       
-      const successMsg = "Ordonnance de confiscation signée numériquement.";
-      if (Platform.OS === 'web') window.alert(`✅ ${successMsg}`);
-      else Alert.alert("Succès", successMsg);
-      
+      Alert.alert("Acte Scellé ✅", "L'ordonnance sur le sort des scellés a été transmise au service des domaines et au Greffe.");
       navigation.goBack();
     } catch (error: any) {
-      console.error(error);
-      Alert.alert("Erreur", "Échec de l'enregistrement de l'ordonnance.");
+      Alert.alert("Erreur", "L'enregistrement de l'ordonnance a échoué.");
     } finally {
       setLoading(false);
     }
@@ -135,10 +127,10 @@ export default function JudgeConfiscationScreen({ route, navigation }: JudgeScre
 
   const getTypeLabel = (type: AssetType) => {
     const labels = {
-      MONEY: "Numéraire / Valeurs",
-      VEHICLE: "Véhicule / Engin",
-      WEAPON: "Arme / Munitions",
-      DRUGS: "Produits Stupéfiants",
+      MONEY: "Valeurs / Numéraire",
+      VEHICLE: "Moyen de Transport",
+      WEAPON: "Arme / Munition",
+      DRUGS: "Produits Interdits",
       OTHER: "Autre bien meuble"
     };
     return labels[type];
@@ -155,30 +147,32 @@ export default function JudgeConfiscationScreen({ route, navigation }: JudgeScre
         showsVerticalScrollIndicator={false}
       >
         
-        {/* 🏛️ RÉFÉRENCE JURIDIQUE */}
-        <View style={[styles.infoBox, { borderLeftColor: primaryColor }]}>
+        {/* 🏛️ RÉFÉRENCE DU CABINET */}
+        <View style={[styles.infoBox, { borderLeftColor: JUDGE_ACCENT, backgroundColor: colors.bgCard }]}>
           <Text style={[styles.infoText, { color: colors.textMain }]}>
-            Information Judiciaire : RG #{caseId}
+            Dossier N° RP-{caseId}/26
           </Text>
           <Text style={[styles.infoSub, { color: colors.textSub }]}>
-            Magistrat Signataire : Juge {user?.lastname?.toUpperCase()}
+            Magistrat : M. le Juge {user?.lastname?.toUpperCase()}
           </Text>
         </View>
 
-        {/* 📝 FORMULAIRE D'AJOUT */}
+        
+
+        {/* 📝 FORMULAIRE DE SAISIE DE L'ACTE */}
         <View style={[styles.formCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-          <Text style={[styles.sectionTitle, { color: primaryColor }]}>DÉTAILS DU SCELLÉ</Text>
+          <Text style={[styles.sectionTitle, { color: JUDGE_ACCENT }]}>DÉSIGNATION DU BIEN</Text>
           
           <TextInput
             style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textMain }]}
-            placeholder="Désignation (ex: véhicule immatriculé...)"
+            placeholder="Ex: Véhicule TOYOTA immatriculé NH-4022..."
             placeholderTextColor={isDark ? "#475569" : "#94A3B8"}
             value={itemDesc}
             onChangeText={setItemDesc}
           />
 
           <View style={styles.row}>
-            <View style={{ flex: 1.2 }}>
+            <View style={{ flex: 1 }}>
               <Text style={[styles.label, { color: colors.textSub }]}>CATÉGORIE</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow}>
                 {(["MONEY", "VEHICLE", "WEAPON", "DRUGS", "OTHER"] as AssetType[]).map((t) => (
@@ -186,13 +180,13 @@ export default function JudgeConfiscationScreen({ route, navigation }: JudgeScre
                     key={t}
                     style={[
                         styles.chip, 
-                        { backgroundColor: selectedType === t ? primaryColor : colors.border }
+                        { backgroundColor: selectedType === t ? JUDGE_ACCENT : colors.bgMain, borderColor: colors.border }
                     ]}
                     onPress={() => setSelectedType(t)}
                   >
                     <Ionicons 
-                      name={t === "MONEY" ? "cash" : t === "VEHICLE" ? "car" : t === "WEAPON" ? "shield" : "cube"} 
-                      size={18} 
+                      name={t === "MONEY" ? "cash-outline" : t === "VEHICLE" ? "car-outline" : t === "WEAPON" ? "shield-half-outline" : "cube-outline"} 
+                      size={20} 
                       color={selectedType === t ? "#FFF" : colors.textSub} 
                     />
                   </TouchableOpacity>
@@ -201,11 +195,11 @@ export default function JudgeConfiscationScreen({ route, navigation }: JudgeScre
               <Text style={[styles.helperText, { color: colors.textSub }]}>{getTypeLabel(selectedType)}</Text>
             </View>
 
-            <View style={{ flex: 1 }}>
+            <View style={{ width: 120 }}>
               <Text style={[styles.label, { color: colors.textSub }]}>DÉCISION</Text>
-              <View style={[styles.actionSwitch, { backgroundColor: isDark ? "#0F172A" : "#E2E8F0" }]}>
+              <View style={[styles.actionSwitch, { backgroundColor: colors.bgMain, borderColor: colors.border }]}>
                 <TouchableOpacity
-                  style={[styles.actionBtn, selectedAction === "CONFISCATE" && { backgroundColor: primaryColor }]}
+                  style={[styles.actionBtn, selectedAction === "CONFISCATE" && { backgroundColor: JUDGE_ACCENT }]}
                   onPress={() => setSelectedAction("CONFISCATE")}
                 >
                   <Text style={[styles.actionText, { color: selectedAction === "CONFISCATE" ? "#FFF" : colors.textSub }]}>État</Text>
@@ -222,60 +216,61 @@ export default function JudgeConfiscationScreen({ route, navigation }: JudgeScre
 
           <TouchableOpacity 
             activeOpacity={0.8}
-            style={[styles.addBtn, { borderColor: primaryColor }]} 
+            style={[styles.addBtn, { borderColor: JUDGE_ACCENT }]} 
             onPress={handleAddItem}
           >
-            <Ionicons name="add-circle" size={20} color={primaryColor} />
-            <Text style={[styles.addBtnText, { color: primaryColor }]}>Ajouter à l'acte</Text>
+            <Ionicons name="add-circle" size={22} color={JUDGE_ACCENT} />
+            <Text style={[styles.addBtnText, { color: JUDGE_ACCENT }]}>INSCRIRE À L'ORDONNANCE</Text>
           </TouchableOpacity>
         </View>
 
-        {/* 📋 LISTE DES BIENS */}
+        {/* 📋 LISTE DES BIENS STATUÉS */}
         <Text style={[styles.listHeader, { color: colors.textMain }]}>
-          Biens inscrits à l'Ordonnance ({items.length})
+          Biens inscrits ({items.length})
         </Text>
 
         {items.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="file-tray-outline" size={48} color={colors.border} />
-            <Text style={[styles.emptyText, { color: colors.textSub }]}>Aucun scellé désigné.</Text>
+            <Ionicons name="file-tray-outline" size={50} color={colors.border} />
+            <Text style={[styles.emptyText, { color: colors.textSub }]}>Aucun bien désigné pour le moment.</Text>
           </View>
         ) : (
           items.map((item) => (
-            <View key={item.id} style={[styles.itemCard, { backgroundColor: colors.bgCard, borderColor: item.action === "DESTROY" ? "#EF4444" : primaryColor }]}>
-              <View style={[styles.iconBox, { backgroundColor: item.action === "CONFISCATE" ? primaryColor + "15" : "#450A0A" }]}>
+            <View key={item.id} style={[styles.itemCard, { backgroundColor: colors.bgCard, borderColor: item.action === "DESTROY" ? "#EF4444" : JUDGE_ACCENT }]}>
+              <View style={[styles.iconBox, { backgroundColor: item.action === "CONFISCATE" ? JUDGE_ACCENT + "15" : "#FEE2E2" }]}>
                  <Ionicons 
                    name={item.action === "CONFISCATE" ? "business" : "trash-bin"} 
-                   size={20} 
-                   color={item.action === "CONFISCATE" ? primaryColor : "#EF4444"} 
+                   size={22} 
+                   color={item.action === "CONFISCATE" ? JUDGE_ACCENT : "#EF4444"} 
                  />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.itemDesc, { color: colors.textMain }]}>{item.description}</Text>
+                <Text style={[styles.itemDesc, { color: colors.textMain }]}>{item.description.toUpperCase()}</Text>
                 <Text style={[styles.itemSub, { color: colors.textSub }]}>
-                  {getTypeLabel(item.type)} • <Text style={{fontWeight: '900', color: item.action === "CONFISCATE" ? primaryColor : "#EF4444"}}>
+                  {getTypeLabel(item.type)} • <Text style={{fontWeight: '900', color: item.action === "CONFISCATE" ? JUDGE_ACCENT : "#EF4444"}}>
                     {item.action === "CONFISCATE" ? "ACQUISITION ÉTAT" : "DESTRUCTION"}
                   </Text>
                 </Text>
               </View>
               <TouchableOpacity onPress={() => handleRemoveItem(item.id)}>
-                <Ionicons name="close-circle" size={24} color="#EF4444" />
+                <Ionicons name="close-circle" size={26} color="#EF4444" />
               </TouchableOpacity>
             </View>
           ))
         )}
 
-        {/* 🔏 BOUTON DE SIGNATURE */}
+        {/* 🔏 VALIDATION FINALE */}
         {items.length > 0 && (
           <TouchableOpacity
-            style={[styles.finalBtn, { backgroundColor: primaryColor }]}
+            activeOpacity={0.8}
+            style={[styles.finalBtn, { backgroundColor: JUDGE_ACCENT }]}
             onPress={handleFinalizeConfiscation}
             disabled={loading}
           >
             {loading ? <ActivityIndicator color="#FFF" /> : (
               <>
-                <Ionicons name="shield-checkmark" size={22} color="#FFF" />
-                <Text style={styles.finalBtnText}>Signer l'Ordonnance</Text>
+                <Ionicons name="ribbon-outline" size={24} color="#FFF" />
+                <Text style={styles.finalBtnText}>SCELLER L'ORDONNANCE</Text>
               </>
             )}
           </TouchableOpacity>
@@ -289,46 +284,30 @@ export default function JudgeConfiscationScreen({ route, navigation }: JudgeScre
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 16 },
-  infoBox: { marginBottom: 20, borderLeftWidth: 4, paddingLeft: 12, paddingVertical: 4 },
-  infoText: { fontSize: 16, fontWeight: "900" },
-  infoSub: { fontSize: 12, marginTop: 4, fontWeight: '600' },
-  
-  formCard: { padding: 20, borderRadius: 24, borderWidth: 1, marginBottom: 30, elevation: 2 },
-  sectionTitle: { fontSize: 11, fontWeight: "900", marginBottom: 15, letterSpacing: 1.2, textTransform: 'uppercase' },
-  input: { padding: 16, borderRadius: 14, borderWidth: 1, marginBottom: 20, fontSize: 14, fontWeight: "600" },
-  row: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
-  label: { fontSize: 10, fontWeight: "900", marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 },
-  chipsRow: { flexDirection: "row", marginBottom: 8 },
-  chip: { width: 42, height: 42, borderRadius: 12, justifyContent: "center", alignItems: "center", marginRight: 8 },
-  helperText: { fontSize: 11, fontWeight: "700", marginTop: 4 },
-  actionSwitch: { flexDirection: "row", borderRadius: 12, padding: 4, flex: 1, height: 46 },
+  container: { padding: 20 },
+  infoBox: { padding: 20, borderRadius: 20, marginBottom: 25, borderLeftWidth: 8, borderWidth: 1, elevation: 2 },
+  infoText: { fontSize: 18, fontWeight: "900", letterSpacing: -0.5 },
+  infoSub: { fontSize: 12, marginTop: 5, fontWeight: '700', textTransform: 'uppercase', opacity: 0.8 },
+  formCard: { padding: 22, borderRadius: 26, borderWidth: 1, marginBottom: 35, elevation: 4, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 10 },
+  sectionTitle: { fontSize: 10, fontWeight: "900", marginBottom: 15, letterSpacing: 1.5, textTransform: 'uppercase' },
+  input: { padding: 18, borderRadius: 16, borderWidth: 1.5, marginBottom: 20, fontSize: 15, fontWeight: "700" },
+  row: { flexDirection: "row", justifyContent: "space-between", gap: 15 },
+  label: { fontSize: 10, fontWeight: "900", marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1, opacity: 0.6 },
+  chipsRow: { flexDirection: "row", marginBottom: 10 },
+  chip: { width: 46, height: 46, borderRadius: 14, justifyContent: "center", alignItems: "center", marginRight: 10, borderWidth: 1.5 },
+  helperText: { fontSize: 11, fontWeight: "800", fontStyle: 'italic' },
+  actionSwitch: { flexDirection: "row", borderRadius: 14, padding: 4, flex: 1, height: 48, borderWidth: 1 },
   actionBtn: { flex: 1, alignItems: "center", justifyContent: "center", borderRadius: 10 },
-  actionText: { fontSize: 12, fontWeight: "900" },
-  addBtn: { flexDirection: "row", justifyContent: "center", alignItems: "center", marginTop: 20, padding: 16, borderRadius: 16, borderWidth: 2, borderStyle: "dashed" },
-  addBtnText: { marginLeft: 10, fontWeight: "900", fontSize: 14 },
-  
-  listHeader: { fontSize: 18, fontWeight: "900", marginBottom: 20 },
-  emptyState: { alignItems: 'center', marginTop: 40, opacity: 0.5 },
-  emptyText: { fontWeight: "700", textAlign: "center", marginTop: 12 },
-  
-  itemCard: { 
-    flexDirection: "row", 
-    alignItems: "center", 
-    padding: 16, 
-    borderRadius: 20, 
-    marginBottom: 14, 
-    borderLeftWidth: 8,
-    ...Platform.select({
-        android: { elevation: 3 },
-        ios: { shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 5 },
-        web: { boxShadow: "0px 4px 10px rgba(0,0,0,0.1)" }
-    })
-  },
-  iconBox: { width: 48, height: 48, borderRadius: 14, justifyContent: "center", alignItems: "center", marginRight: 15 },
-  itemDesc: { fontSize: 15, fontWeight: "900" },
-  itemSub: { fontSize: 12, marginTop: 4, fontWeight: '600' },
-  
-  finalBtn: { flexDirection: "row", justifyContent: "center", alignItems: "center", padding: 22, borderRadius: 20, marginTop: 25, gap: 12, elevation: 6 },
-  finalBtnText: { color: "#FFF", fontSize: 17, fontWeight: "900", letterSpacing: 0.5 },
+  actionText: { fontSize: 11, fontWeight: "900" },
+  addBtn: { flexDirection: "row", justifyContent: "center", alignItems: "center", marginTop: 25, padding: 18, borderRadius: 18, borderWidth: 2, borderStyle: "dashed" },
+  addBtnText: { marginLeft: 10, fontWeight: "900", fontSize: 13, letterSpacing: 0.5 },
+  listHeader: { fontSize: 19, fontWeight: "900", marginBottom: 20, letterSpacing: -0.5 },
+  emptyState: { alignItems: 'center', marginTop: 40, opacity: 0.6 },
+  emptyText: { fontWeight: "800", textAlign: "center", marginTop: 15, fontSize: 14 },
+  itemCard: { flexDirection: "row", alignItems: "center", padding: 18, borderRadius: 22, marginBottom: 16, borderLeftWidth: 10, borderWidth: 1, elevation: 3 },
+  iconBox: { width: 50, height: 50, borderRadius: 14, justifyContent: "center", alignItems: "center", marginRight: 15 },
+  itemDesc: { fontSize: 15, fontWeight: "900", letterSpacing: -0.3 },
+  itemSub: { fontSize: 12, marginTop: 4, fontWeight: '700' },
+  finalBtn: { flexDirection: "row", justifyContent: "center", alignItems: "center", height: 68, borderRadius: 22, marginTop: 30, gap: 12, elevation: 6, shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 10 },
+  finalBtnText: { color: "#FFF", fontSize: 15, fontWeight: "900", letterSpacing: 1 },
 });

@@ -1,3 +1,4 @@
+// PATH: src/screens/police/CreateSummonScreen.tsx
 import React, { useState } from 'react';
 import { 
   View, 
@@ -19,18 +20,16 @@ import { fr } from 'date-fns/locale';
 import ScreenContainer from '../../components/layout/ScreenContainer';
 import AppHeader from '../../components/layout/AppHeader';
 import SmartFooter from '../../components/layout/SmartFooter';
-import { createSummon } from '../../services/summon.service';
-import { useAppTheme } from "../../theme/AppThemeProvider"; // ✅ Utilisation du hook dynamique
+import { createSummon, Summon } from '../../services/summon.service';
+import { useAppTheme } from "../../theme/AppThemeProvider"; 
 import { PoliceScreenProps } from "../../types/navigation";
 
 export default function CreateSummonScreen({ route, navigation }: PoliceScreenProps<'CreateSummon'>) {
-  // ✅ Thème & Auth alignés
   const { theme, isDark } = useAppTheme();
   const primaryColor = theme.colors.primary;
   
-  // Récupération sécurisée du complaintId
-  const params = route.params as any;
-  const complaintId = params?.complaintId || params?.caseId;
+  // ✅ Extraction typée des paramètres de navigation
+  const complaintId = route.params?.complaintId;
   
   const [loading, setLoading] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -55,43 +54,51 @@ export default function CreateSummonScreen({ route, navigation }: PoliceScreenPr
   const isFormValid = form.targetName.trim().length > 2 && form.location.trim().length > 2;
 
   const onChangeDate = (event: any, selectedDate?: Date) => {
-    // Sur Android, on ferme le picker immédiatement après sélection
     if (Platform.OS === 'android') setShowDatePicker(false);
-    
     if (selectedDate) {
       setForm({ ...form, scheduledAt: selectedDate });
     }
   };
 
   const handleSubmit = async () => {
-    if (!complaintId || complaintId === 'undefined') {
-      return Alert.alert("Erreur", "Identifiant du dossier corrompu.");
+    // 🛡️ Sécurité : Vérification de l'existence du dossier source
+    if (!complaintId) {
+      return Alert.alert("Erreur", "Identifiant du dossier manquant. Impossible d'émettre l'acte.");
     }
 
     if (!isFormValid) {
-      return Alert.alert("Données manquantes", "Veuillez renseigner le nom et le lieu.");
+      return Alert.alert("Champs requis", "Veuillez renseigner au moins le nom du convoqué et le lieu.");
     }
 
     Alert.alert(
-      "Émission de Convocation ⚖️",
-      `Confirmez-vous l'envoi de cet acte officiel à ${form.targetName} ?`,
+      "Émission d'acte judiciaire ⚖️",
+      `Confirmez-vous la génération de cette convocation pour ${form.targetName} ?`,
       [
-        { text: "Annuler", style: "cancel" },
+        { text: "Réviser", style: "cancel" },
         { 
-          text: "Générer l'Acte", 
+          text: "Signer et Envoyer", 
           onPress: async () => {
             setLoading(true);
             try {
-              // ✅ Envoi avec Number() pour la stabilité DB
-              await createSummon({ 
-                ...form, 
+              // ✅ Préparation de l'objet Summon selon l'interface du service
+              const summonData: Summon = {
                 complaintId: Number(complaintId),
-                scheduledAt: form.scheduledAt.toISOString() 
-              });
-              Alert.alert("Acte Scellé ✅", "La convocation a été générée et versée au dossier.");
+                targetName: form.targetName,
+                targetPhone: form.targetPhone,
+                location: form.location,
+                scheduledAt: form.scheduledAt.toISOString(),
+                reason: form.reason
+              };
+
+              await createSummon(summonData);
+              
+              Alert.alert(
+                "Acte Validé ✅", 
+                "La convocation est désormais versée au dossier et sera notifiée au destinataire."
+              );
               navigation.goBack();
             } catch (error) {
-              Alert.alert("Échec Système", "Impossible de synchroniser l'acte avec le serveur central.");
+              Alert.alert("Erreur de synchronisation", "L'acte a été généré localement mais n'a pas pu être transmis au serveur central.");
             } finally {
               setLoading(false);
             }
@@ -104,7 +111,7 @@ export default function CreateSummonScreen({ route, navigation }: PoliceScreenPr
   return (
     <ScreenContainer withPadding={false}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-      <AppHeader title="Émettre une Convocation" showBack />
+      <AppHeader title="Nouvelle Convocation" showBack />
       
       <View style={{ flex: 1, backgroundColor: colors.bgMain }}>
         <KeyboardAvoidingView 
@@ -117,20 +124,19 @@ export default function CreateSummonScreen({ route, navigation }: PoliceScreenPr
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            
-            {/* 🛡️ BANDEAU DE RESPONSABILITÉ */}
+            {/* 🛡️ BANDEAU DE RESPONSABILITÉ JURIDIQUE */}
             <View style={[styles.infoBox, { backgroundColor: isDark ? "#1E1B4B" : "#E3F2FD" }]}>
-              <Ionicons name="shield-checkmark" size={24} color={primaryColor} />
+              <Ionicons name="information-circle" size={24} color={primaryColor} />
               <Text style={[styles.infoText, { color: isDark ? "#BAE6FD" : "#1E3A8A" }]}>
-                Cet acte d'instruction engage la responsabilité juridique de l'OPJ signataire.
+                La convocation est un acte d'instruction. Elle oblige la personne à se présenter sous peine de mandat d'amener.
               </Text>
             </View>
 
             <Surface style={[styles.formCard, { backgroundColor: colors.bgCard }]} elevation={2}>
-              <Text style={[styles.sectionTitle, { color: primaryColor }]}>Destinataire de l'acte</Text>
+              <Text style={[styles.sectionTitle, { color: primaryColor }]}>Partie Convoquée</Text>
               
               <TextInput 
-                label="Nom Complet du Convoqué" 
+                label="Nom et Prénom" 
                 mode="outlined"
                 value={form.targetName} 
                 onChangeText={t => setForm({...form, targetName: t})} 
@@ -138,11 +144,11 @@ export default function CreateSummonScreen({ route, navigation }: PoliceScreenPr
                 outlineColor={colors.border}
                 activeOutlineColor={primaryColor}
                 textColor={colors.textMain}
-                left={<TextInput.Icon icon="account-tie" />}
+                left={<TextInput.Icon icon="account-search" />}
               />
 
               <TextInput 
-                label="Numéro de Téléphone" 
+                label="Contact Téléphonique" 
                 mode="outlined"
                 keyboardType="phone-pad" 
                 value={form.targetPhone} 
@@ -151,15 +157,15 @@ export default function CreateSummonScreen({ route, navigation }: PoliceScreenPr
                 outlineColor={colors.border}
                 activeOutlineColor={primaryColor}
                 textColor={colors.textMain}
-                left={<TextInput.Icon icon="phone" />}
+                left={<TextInput.Icon icon="phone-outgoing" />}
               />
 
               <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
-              <Text style={[styles.sectionTitle, { color: primaryColor }]}>Logistique de l'Audition</Text>
+              <Text style={[styles.sectionTitle, { color: primaryColor }]}>Détails de l'Audition</Text>
 
               <TextInput 
-                label="Lieu (Bureau / Commissariat)" 
+                label="Lieu du rendez-vous" 
                 mode="outlined"
                 value={form.location} 
                 onChangeText={t => setForm({...form, location: t})} 
@@ -167,7 +173,7 @@ export default function CreateSummonScreen({ route, navigation }: PoliceScreenPr
                 outlineColor={colors.border}
                 activeOutlineColor={primaryColor}
                 textColor={colors.textMain}
-                left={<TextInput.Icon icon="map-marker" />}
+                left={<TextInput.Icon icon="map-marker-radius" />}
               />
 
               <TouchableOpacity 
@@ -176,15 +182,15 @@ export default function CreateSummonScreen({ route, navigation }: PoliceScreenPr
                  style={[styles.datePickerBtn, { borderColor: colors.border }]}
               >
                 <View style={[styles.dateIcon, { backgroundColor: primaryColor + '15' }]}>
-                  <Ionicons name="calendar" size={20} color={primaryColor} />
+                  <Ionicons name="time" size={20} color={primaryColor} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.dateLabel}>Date et Heure fixées</Text>
+                  <Text style={styles.dateLabel}>Date et Heure</Text>
                   <Text style={[styles.dateValue, { color: colors.textMain }]}>
                     {format(form.scheduledAt, "eeee dd MMMM yyyy 'à' HH:mm", { locale: fr })}
                   </Text>
                 </View>
-                <Ionicons name="chevron-forward" size={18} color={colors.textSub} />
+                <Ionicons name="calendar-outline" size={18} color={colors.textSub} />
               </TouchableOpacity>
 
               {showDatePicker && (
@@ -199,10 +205,10 @@ export default function CreateSummonScreen({ route, navigation }: PoliceScreenPr
               )}
 
               <TextInput 
-                label="Motif légal de la convocation" 
+                label="Motif de la convocation" 
                 mode="outlined"
                 multiline 
-                numberOfLines={4} 
+                numberOfLines={3} 
                 value={form.reason} 
                 onChangeText={t => setForm({...form, reason: t})} 
                 style={[styles.textArea, { backgroundColor: colors.inputBg }]} 
@@ -217,14 +223,14 @@ export default function CreateSummonScreen({ route, navigation }: PoliceScreenPr
               onPress={handleSubmit} 
               loading={loading} 
               disabled={loading || !isFormValid}
-              style={[styles.btn, { backgroundColor: primaryColor, opacity: loading ? 0.7 : 1 }]}
+              style={[styles.btn, { backgroundColor: primaryColor }]}
               contentStyle={styles.btnContent}
-              icon="file-document-edit"
+              labelStyle={styles.btnLabel}
             >
-              SIGNER ET GÉNÉRER L'ACTE
+              ÉMETTRE LA CONVOCATION
             </Button>
             
-            <View style={{ height: 120 }} />
+            <View style={{ height: 100 }} />
           </ScrollView>
         </KeyboardAvoidingView>
       </View>
@@ -235,18 +241,19 @@ export default function CreateSummonScreen({ route, navigation }: PoliceScreenPr
 }
 
 const styles = StyleSheet.create({
-  scroll: { padding: 16, paddingBottom: 100 },
+  scroll: { padding: 16, paddingBottom: 60 },
   infoBox: { flexDirection: 'row', padding: 16, borderRadius: 16, marginBottom: 20, alignItems: 'center', gap: 12 },
   infoText: { flex: 1, fontSize: 12, fontWeight: '700', lineHeight: 18 },
-  formCard: { padding: 20, borderRadius: 24, marginBottom: 25 },
-  sectionTitle: { fontSize: 13, fontWeight: "900", marginBottom: 18, textTransform: 'uppercase', letterSpacing: 1 },
+  formCard: { padding: 20, borderRadius: 20, marginBottom: 25 },
+  sectionTitle: { fontSize: 13, fontWeight: "900", marginBottom: 18, textTransform: 'uppercase', letterSpacing: 0.5 },
   input: { marginBottom: 16 },
-  textArea: { marginBottom: 4, minHeight: 100 },
-  divider: { height: 1, marginVertical: 20, opacity: 0.2 },
-  datePickerBtn: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 14, borderWidth: 1.5, marginBottom: 16, gap: 12 },
+  textArea: { marginBottom: 4, minHeight: 80 },
+  divider: { height: 1, marginVertical: 20, opacity: 0.1 },
+  datePickerBtn: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 12, borderWidth: 1, marginBottom: 16, gap: 12 },
   dateIcon: { width: 40, height: 40, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
   dateLabel: { fontSize: 10, fontWeight: "800", color: '#94A3B8', textTransform: 'uppercase' },
   dateValue: { fontSize: 14, fontWeight: "700", marginTop: 2 },
-  btn: { borderRadius: 18, elevation: 4, marginTop: 10 },
-  btnContent: { height: 60 }
+  btn: { borderRadius: 14, elevation: 2 },
+  btnContent: { height: 56 },
+  btnLabel: { fontWeight: '900', fontSize: 14 }
 });

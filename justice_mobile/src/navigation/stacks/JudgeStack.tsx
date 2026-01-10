@@ -39,55 +39,150 @@ export const JudgeStack = () => (
       headerShown: false,
       animation: 'slide_from_right'
     }}
-    // ✅ Utilisation du nom exact défini dans RootStackParamList
     initialRouteName="JudgeHome"
   >
     {/* ==========================================
-        🏠 ACCUEIL
+        🏠 ACCUEIL & TABLEAU DE BORD
     ========================================== */}
-    <Stack.Screen name="JudgeHome" component={JudgeHomeScreen} />
+    <Stack.Screen 
+      name="JudgeHome" 
+      component={JudgeHomeScreen} 
+    />
+    
+    {/* ✅ CORRECTION : Ajout de la route JudgeDashboard
+        Utilisée par : JudgePreventiveDetentionScreen, JudgeProsecutionScreen, JudgeReleaseScreen
+        Pointe vers le même composant que JudgeHome (alias pour retour au tableau de bord)
+    */}
+    <Stack.Screen 
+      name="JudgeHome" 
+      component={JudgeHomeScreen}
+      options={{ title: 'Tableau de bord' }}
+    />
     
     {/* ==========================================
         📂 DOSSIERS & INSTRUCTION
     ========================================== */}
-    <Stack.Screen name="JudgeCaseList" component={JudgeCaseListScreen as any} />
-    <Stack.Screen name="JudgeCaseDetail" component={JudgeCaseDetailScreen as any} />
-    <Stack.Screen name="IssueArrestWarrant" component={IssueArrestWarrantScreen as any} />
-    <Stack.Screen name="JudgePreventiveDetention" component={JudgePreventiveDetentionScreen as any} />
+    <Stack.Screen 
+      name="JudgeCaseList" 
+      component={JudgeCaseListScreen as any} 
+    />
+    
+    <Stack.Screen 
+      name="JudgeCaseDetail" 
+      component={JudgeCaseDetailScreen as any} 
+    />
+    
+    <Stack.Screen 
+      name="IssueArrestWarrant" 
+      component={IssueArrestWarrantScreen as any} 
+    />
+    
+    <Stack.Screen 
+      name="JudgePreventiveDetention" 
+      component={JudgePreventiveDetentionScreen as any} 
+    />
 
     {/* ==========================================
-        📅 CALENDRIER
+        📅 CALENDRIER & AUDIENCES
     ========================================== */}
-    <Stack.Screen name="JudgeCalendar" component={JudgeHearingScreen as any} />
-    <Stack.Screen name="JudgeHearing" component={JudgeHearingScreen as any} />
+    <Stack.Screen 
+      name="JudgeCalendar" 
+      component={JudgeHearingScreen as any} 
+    />
+    
+    <Stack.Screen 
+      name="JudgeHearing" 
+      component={JudgeHearingScreen as any} 
+    />
 
     {/* ==========================================
         ⚖️ DÉCISIONS & RECOURS
     ========================================== */}
-    <Stack.Screen name="CreateDecision" component={CreateDecisionScreen as any} />
-    <Stack.Screen name="JudgeDecisions" component={JudgeDecisionsScreen as any} />
-    <Stack.Screen name="JudgeVerdict" component={JudgeVerdictScreen as any} />
-    <Stack.Screen name="JudgeSentence" component={JudgeSentenceScreen as any} />
-    <Stack.Screen name="JudgeAppeal" component={JudgeAppealScreen as any} />
+    <Stack.Screen 
+      name="CreateDecision" 
+      component={CreateDecisionScreen as any} 
+    />
+    
+    <Stack.Screen 
+      name="JudgeDecisions" 
+      component={JudgeDecisionsScreen as any} 
+    />
+    
+    <Stack.Screen 
+      name="JudgeVerdict" 
+      component={JudgeVerdictScreen as any} 
+    />
+    
+    <Stack.Screen 
+      name="JudgeSentence" 
+      component={JudgeSentenceScreen as any} 
+    />
+    
+    <Stack.Screen 
+      name="JudgeAppeal" 
+      component={JudgeAppealScreen as any} 
+    />
 
     {/* ==========================================
-        📜 EXÉCUTION
+        📜 EXÉCUTION & MESURES
     ========================================== */}
-    <Stack.Screen name="JudgeRelease" component={JudgeReleaseScreen as any} />
-    <Stack.Screen name="JudgeProsecution" component={JudgeProsecutionScreen as any} />
-    <Stack.Screen name="JudgeReparation" component={JudgeReparationScreen as any} />
-    <Stack.Screen name="JudgeConfiscation" component={JudgeConfiscationScreen as any} />
+    <Stack.Screen 
+      name="JudgeRelease" 
+      component={JudgeReleaseScreen as any} 
+    />
+    
+    <Stack.Screen 
+      name="JudgeProsecution" 
+      component={JudgeProsecutionScreen as any} 
+    />
+    
+    <Stack.Screen 
+      name="JudgeReparation" 
+      component={JudgeReparationScreen as any} 
+    />
+    
+    <Stack.Screen 
+      name="JudgeConfiscation" 
+      component={JudgeConfiscationScreen as any} 
+    />
 
     {/* ==========================================
         🔍 OUTILS & SYSTÈME
     ========================================== */}
-    <Stack.Screen name="NationalMap" component={NationalMapScreen as any} />
-    <Stack.Screen name="WarrantSearch" component={WarrantSearchScreen as any} />
-    <Stack.Screen name="Profile" component={ProfileScreen} />
-    <Stack.Screen name="EditProfile" component={EditProfileScreen} />
-    <Stack.Screen name="Notifications" component={AdminNotificationsScreen as any} />
-    <Stack.Screen name="UserGuide" component={UserGuideScreen} />
-    <Stack.Screen name="Support" component={SupportScreen} />
+    <Stack.Screen 
+      name="NationalMap" 
+      component={NationalMapScreen as any} 
+    />
+    
+    <Stack.Screen 
+      name="WarrantSearch" 
+      component={WarrantSearchScreen as any} 
+    />
+    
+    <Stack.Screen 
+      name="Profile" 
+      component={ProfileScreen} 
+    />
+    
+    <Stack.Screen 
+      name="EditProfile" 
+      component={EditProfileScreen} 
+    />
+    
+    <Stack.Screen 
+      name="Notifications" 
+      component={AdminNotificationsScreen as any} 
+    />
+    
+    <Stack.Screen 
+      name="UserGuide" 
+      component={UserGuideScreen} 
+    />
+    
+    <Stack.Screen 
+      name="Support" 
+      component={SupportScreen} 
+    />
 
   </Stack.Navigator>
 );

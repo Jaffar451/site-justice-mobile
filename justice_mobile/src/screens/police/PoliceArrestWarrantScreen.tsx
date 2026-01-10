@@ -1,3 +1,4 @@
+// PATH: src/screens/police/PoliceArrestWarrantScreen.tsx
 import React, { useState, useCallback } from "react";
 import {
   View,
@@ -14,15 +15,15 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 
-// ✅ 1. Imports Architecture Alignés
+// ✅ Architecture & UI
 import ScreenContainer from "../../components/layout/ScreenContainer";
 import AppHeader from "../../components/layout/AppHeader";
 import SmartFooter from "../../components/layout/SmartFooter";
-import { useAppTheme } from "../../theme/AppThemeProvider"; // ✅ Hook dynamique
+import { useAppTheme } from "../../theme/AppThemeProvider";
 import { useAuthStore } from "../../stores/useAuthStore";
 import { PoliceScreenProps } from "../../types/navigation";
 
-// ✅ Services & Types
+// ✅ Services
 import { getActiveWarrants } from "../../services/arrestWarrant.service";
 
 interface Warrant {
@@ -35,7 +36,6 @@ interface Warrant {
 }
 
 export default function PoliceArrestWarrantScreen({ navigation }: PoliceScreenProps<'PoliceArrestWarrant'>) {
-  // ✅ 2. Thème & Auth
   const { theme, isDark } = useAppTheme();
   const primaryColor = theme.colors.primary;
   const { user } = useAuthStore();
@@ -55,16 +55,15 @@ export default function PoliceArrestWarrantScreen({ navigation }: PoliceScreenPr
   };
 
   /**
-   * 📥 RÉCUPÉRATION DES MANDATS
+   * 📥 RÉCUPÉRATION DES MANDATS (Synchronisation CID)
    */
   const fetchWarrants = async () => {
     try {
-      // ✅ Tentative d'appel au service réel
       const data = await getActiveWarrants();
       setWarrants(data || []); 
     } catch (error) {
       console.error("Erreur chargement mandats:", error);
-      // Fallback mock pour le dev si le service échoue
+      // Fallback Mock pour le développement
       const mockData: Warrant[] = [
         { id: 1, caseId: 101, personName: "Seydou Kone", reason: "Vol aggravé et fuite", urgency: "high", createdAt: new Date().toISOString() },
         { id: 2, caseId: 105, personName: "Ibrahim Maiga", reason: "Atteinte à la sûreté de l'État", urgency: "critical", createdAt: new Date().toISOString() }
@@ -83,12 +82,12 @@ export default function PoliceArrestWarrantScreen({ navigation }: PoliceScreenPr
   );
 
   /**
-   * ⚖️ EXÉCUTION DU MANDAT
+   * ⚖️ EXÉCUTION DU MANDAT & OUVERTURE G.A.V
    */
-  const handleExecuteWarrant = (id: number, name: string) => {
+  const handleExecuteWarrant = (item: Warrant) => {
     Alert.alert(
       "⚖️ Exécution de Mandat",
-      `Confirmez-vous l'appréhension et le placement en G.A.V de ${name.toUpperCase()} ?`,
+      `Confirmez-vous l'appréhension de ${item.personName.toUpperCase()} ?`,
       [
         { text: "Annuler", style: "cancel" },
         { 
@@ -97,14 +96,30 @@ export default function PoliceArrestWarrantScreen({ navigation }: PoliceScreenPr
           onPress: async () => {
             setLoading(true);
             try {
-              // Simuler le délai de scellage blockchain/serveur
+              // 1. Simuler l'appel API (Dans le futur : executeWarrant(item.id))
               setTimeout(() => {
-                  setWarrants((prev) => prev.filter((w) => w.id !== id));
-                  Alert.alert("Succès", "Mandat exécuté. L'individu est enregistré au fichier central.");
-                  setLoading(false);
-              }, 1200);
+                setWarrants((prev) => prev.filter((w) => w.id !== item.id));
+                setLoading(false);
+
+                // 2. Proposition d'ouverture de Garde à Vue immédiate
+                Alert.alert(
+                  "Individu Appréhendé ✅",
+                  "L'arrestation a été enregistrée. Voulez-vous ouvrir le registre de Garde à Vue pour ce suspect ?",
+                  [
+                    { text: "Plus tard", style: "default" },
+                    { 
+                      text: "Ouvrir G.A.V", 
+                      style: "default",
+                      onPress: () => navigation.navigate("PoliceCustody", { 
+                        complaintId: item.caseId, 
+                        suspectName: item.personName 
+                      }) 
+                    }
+                  ]
+                );
+              }, 1000);
             } catch (error) {
-              Alert.alert("Erreur", "Le serveur du Ministère de l'Intérieur est injoignable.");
+              Alert.alert("Erreur", "Le serveur central est injoignable.");
               setLoading(false);
             }
           }
@@ -162,7 +177,7 @@ export default function PoliceArrestWarrantScreen({ navigation }: PoliceScreenPr
           <TouchableOpacity 
             activeOpacity={0.8}
             style={[styles.actionBtn, { backgroundColor: primaryColor }]}
-            onPress={() => handleExecuteWarrant(item.id, item.personName)}
+            onPress={() => handleExecuteWarrant(item)}
           >
             <Text style={styles.actionBtnText}>ARRÊTER</Text>
             <Ionicons name="hand-right" size={16} color="#fff" />
@@ -175,7 +190,7 @@ export default function PoliceArrestWarrantScreen({ navigation }: PoliceScreenPr
   return (
     <ScreenContainer withPadding={false}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-      <AppHeader title="Gestion des Mandats" showBack={true} />
+      <AppHeader title="Mandats d'Arrêt" showBack={true} />
       
       {loading && !refreshing ? (
         <View style={[styles.center, { backgroundColor: colors.bgMain }]}>
@@ -193,14 +208,14 @@ export default function PoliceArrestWarrantScreen({ navigation }: PoliceScreenPr
             <RefreshControl refreshing={refreshing} onRefresh={fetchWarrants} tintColor={primaryColor} />
           }
           ListHeaderComponent={
-              warrants.length > 0 ? (
-                  <View style={styles.listHeader}>
-                      <Ionicons name="shield-half" size={18} color={colors.textSub} />
-                      <Text style={[styles.listHeaderText, { color: colors.textSub }]}>
-                        {warrants.length} MANDAT(S) D'ARRÊT ACTIF(S)
-                      </Text>
-                  </View>
-              ) : null
+            warrants.length > 0 ? (
+              <View style={styles.listHeader}>
+                  <Ionicons name="shield-half" size={18} color={colors.textSub} />
+                  <Text style={[styles.listHeaderText, { color: colors.textSub }]}>
+                    {warrants.length} MANDAT(S) ACTIF(S)
+                  </Text>
+              </View>
+            ) : null
           }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
@@ -209,7 +224,7 @@ export default function PoliceArrestWarrantScreen({ navigation }: PoliceScreenPr
               </View>
               <Text style={[styles.emptyTitle, { color: colors.textMain }]}>Aucun Mandat en Attente</Text>
               <Text style={[styles.emptyText, { color: colors.textSub }]}>
-                Tous les mandats d'arrêt de votre secteur ont été exécutés ou levés par le Parquet.
+                Tous les mandats d'arrêt ont été exécutés ou levés par le Parquet.
               </Text>
             </View>
           }

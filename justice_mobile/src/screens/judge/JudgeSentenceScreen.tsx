@@ -1,3 +1,4 @@
+// PATH: src/screens/judge/JudgeSentenceScreen.tsx
 import React, { useState } from "react";
 import {
   View,
@@ -14,27 +15,28 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-// ✅ 1. Imports Architecture
+// ✅ Architecture & Theme
 import { useAuthStore } from "../../stores/useAuthStore";
 import { useAppTheme } from "../../theme/AppThemeProvider";
 import { JudgeScreenProps } from "../../types/navigation";
 
-// Composants
+// ✅ UI Components
 import ScreenContainer from "../../components/layout/ScreenContainer";
 import AppHeader from "../../components/layout/AppHeader";
 import SmartFooter from "../../components/layout/SmartFooter";
 
-// Services
+// ✅ Services
 import { createDecision } from "../../services/decision.service";
 
-// ✅ Correction du typage de la route
 export default function JudgeSentenceScreen({ route, navigation }: JudgeScreenProps<'JudgeSentence'>) {
-  // ✅ 2. Thème Dynamique & Auth
   const { theme, isDark } = useAppTheme();
-  const primaryColor = theme.colors.primary;
+  
+  // ✅ Identité Cabinet d'Instruction
+  const JUDGE_ACCENT = "#7C3AED"; 
   const { user } = useAuthStore();
   
-  // Extraction sécurisée (le caseId peut venir de CreateDecision ou directement)
+  // Récupération sécurisée du dossier
+  // Note: Ce paramètre est optionnel ici car on peut arriver via le calendrier
   const params = route.params as any;
   const { caseId } = params || { caseId: "N/A" };
 
@@ -44,7 +46,6 @@ export default function JudgeSentenceScreen({ route, navigation }: JudgeScreenPr
   const [motivations, setMotivations] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // 🎨 PALETTE DYNAMIQUE
   const colors = {
     bgMain: isDark ? "#0F172A" : "#F8FAFC",
     bgCard: isDark ? "#1E293B" : "#FFFFFF",
@@ -55,27 +56,31 @@ export default function JudgeSentenceScreen({ route, navigation }: JudgeScreenPr
     headerLine: isDark ? "#334155" : "#F1F5F9",
   };
 
+  /**
+   * ✍️ SIGNATURE DU JUGEMENT
+   */
   const handleFinalizeSentence = async () => {
     if (!motivations.trim() || motivations.trim().length < 20) {
       const msg = "Le délibéré doit être motivé en fait et en droit (min. 20 car.).";
-      Platform.OS === 'web' ? window.alert(msg) : Alert.alert("Motivation insuffisante", msg);
+      if (Platform.OS === 'web') window.alert(msg);
+      else Alert.alert("Motivation insuffisante", msg);
       return;
     }
 
     if (verdict === "condamnation" && !sentenceLength.trim()) {
-      Alert.alert("Précision requise", "Veuillez spécifier la peine d'emprisonnement.");
+      Alert.alert("Précision requise", "Veuillez spécifier la durée de la peine d'emprisonnement.");
       return;
     }
 
-    const title = "Signature du Jugement ⚖️";
-    const msg = "Le prononcé est irréversible et clôture les débats. Confirmer la signature ?";
+    const title = "Prononcé du Jugement ⚖️";
+    const msg = `Vous êtes sur le point de rendre un verdict de ${verdict.toUpperCase()}. Cette décision clôture l'instance. Confirmer ?`;
 
     if (Platform.OS === 'web') {
         if (window.confirm(`${title} : ${msg}`)) executePublish();
     } else {
         Alert.alert(title, msg, [
           { text: "Réviser", style: "cancel" },
-          { text: "Signer et Publier", style: verdict === "condamnation" ? "destructive" : "default", onPress: executePublish },
+          { text: "Signer la Minute", style: verdict === "condamnation" ? "destructive" : "default", onPress: executePublish },
         ]);
     }
   };
@@ -92,19 +97,21 @@ export default function JudgeSentenceScreen({ route, navigation }: JudgeScreenPr
           fine: fineAmount.trim() || "0"
         } : null,
         signedBy: `${user?.firstname} ${user?.lastname}`,
-        judgeSignature: `JUDGE-DEC-${user?.id}-${Date.now()}`,
+        judgeSignature: `J-DEC-${user?.id}-${Date.now()}`,
         date: new Date().toISOString(),
       };
 
-      // Cast 'as any' pour la compatibilité avec createDecision qui attend des types stricts
+      // Enregistrement via le service de décision
       await createDecision(payload as any);
       
-      if (Platform.OS === 'web') window.alert("✅ Justice Rendue : Décision versée aux minutes.");
+      const successMsg = "Le jugement a été scellé et versé aux minutes du Greffe.";
       
-      // Retour au dashboard
+      if (Platform.OS === 'web') window.alert(`✅ ${successMsg}`);
+      else Alert.alert("Justice Rendue", successMsg);
+      
       navigation.popToTop(); 
     } catch (error) {
-      Alert.alert("Erreur", "Échec de l'enregistrement de l'acte.");
+      Alert.alert("Erreur de Scellage", "Impossible d'enregistrer la décision sur le serveur.");
     } finally {
       setLoading(false);
     }
@@ -123,17 +130,21 @@ export default function JudgeSentenceScreen({ route, navigation }: JudgeScreenPr
           
           {/* 🏛️ ENTÊTE DU CABINET */}
           <View style={[styles.caseHeader, { borderColor: colors.headerLine }]}>
-            <Text style={[styles.caseTitle, { color: colors.textMain }]}>Minute RG #{caseId}</Text>
-            <Text style={[styles.caseSubtitle, { color: colors.textSub }]}>
-              Magistrat : Juge {user?.lastname?.toUpperCase()}
-            </Text>
+            <Text style={[styles.caseTitle, { color: colors.textMain }]}>Minute N° {caseId}/26</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
+                <Ionicons name="ribbon" size={14} color={JUDGE_ACCENT} style={{ marginRight: 6 }} />
+                <Text style={[styles.caseSubtitle, { color: colors.textSub }]}>
+                  Magistrat : M. le Juge {user?.lastname?.toUpperCase()}
+                </Text>
+            </View>
           </View>
 
-          {/* DISPOSITIF DU JUGEMENT */}
-          <Text style={[styles.label, { color: colors.textSub }]}>Dispositif du Jugement *</Text>
+          {/* SÉLECTEUR DE VERDICT */}
+          <Text style={[styles.label, { color: colors.textSub }]}>Sens du Jugement *</Text>
           <View style={styles.verdictRow}>
             {(["condamnation", "relaxe"] as const).map((type) => {
               const isSelected = verdict === type;
+              // Rouge pour condamnation, Vert pour relaxe
               const activeColor = type === "relaxe" ? "#10B981" : "#EF4444";
               
               return (
@@ -150,10 +161,10 @@ export default function JudgeSentenceScreen({ route, navigation }: JudgeScreenPr
                   ]}
                 >
                   <Ionicons 
-                    name={type === "relaxe" ? "shield-checkmark-outline" : "hammer-outline"} 
-                    size={24} 
+                    name={type === "relaxe" ? "shield-checkmark" : "hammer"} 
+                    size={28} 
                     color={isSelected ? "#FFF" : colors.textSub} 
-                    style={{ marginBottom: 6 }}
+                    style={{ marginBottom: 8 }}
                   />
                   <Text style={[styles.verdictBtnText, { color: isSelected ? "#FFF" : colors.textSub }]}>
                     {type === "relaxe" ? "RELAXE" : "CONDAMNATION"}
@@ -163,22 +174,22 @@ export default function JudgeSentenceScreen({ route, navigation }: JudgeScreenPr
             })}
           </View>
 
-          {/* DÉTAILS DE LA PEINE */}
+          {/* DÉTAILS DE LA PEINE (Si Condamnation) */}
           {verdict === "condamnation" && (
             <View style={styles.sentenceForm}>
-              <Text style={[styles.label, { color: colors.textSub }]}>Peine d'emprisonnement *</Text>
+              <Text style={[styles.label, { color: colors.textSub }]}>Quantum de la peine *</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: colors.inputBg, color: colors.textMain, borderColor: colors.border }]}
-                placeholder="Ex: 2 ans ferme"
+                placeholder="Ex: 2 ans d'emprisonnement ferme"
                 placeholderTextColor={isDark ? "#475569" : "#94A3B8"}
                 value={sentenceLength}
                 onChangeText={setSentenceLength}
               />
 
-              <Text style={[styles.label, { color: colors.textSub }]}>Amende pécuniaire (FCFA)</Text>
+              <Text style={[styles.label, { color: colors.textSub }]}>Amende (FCFA)</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: colors.inputBg, color: colors.textMain, borderColor: colors.border }]}
-                placeholder="Ex: 250 000"
+                placeholder="Ex: 500 000"
                 placeholderTextColor={isDark ? "#475569" : "#94A3B8"}
                 keyboardType="numeric"
                 value={fineAmount}
@@ -187,25 +198,25 @@ export default function JudgeSentenceScreen({ route, navigation }: JudgeScreenPr
             </View>
           )}
 
-          {/* MOTIVATIONS JURIDIQUES */}
-          <Text style={[styles.label, { color: colors.textSub }]}>Motivation de la Minute (Attendu que...) *</Text>
+          {/* MOTIVATION JURIDIQUE */}
+          <Text style={[styles.label, { color: colors.textSub }]}>Motifs de la Décision *</Text>
           <TextInput
             style={[styles.input, styles.textArea, { backgroundColor: colors.inputBg, color: colors.textMain, borderColor: colors.border }]}
-            placeholder="Détaillez les motifs de fait et de droit..."
+            placeholder="Par ces motifs, le Tribunal statuant publiquement, contradictoirement..."
             placeholderTextColor={isDark ? "#475569" : "#94A3B8"}
             multiline
-            numberOfLines={10}
+            numberOfLines={12}
             textAlignVertical="top"
             value={motivations}
             onChangeText={setMotivations}
           />
 
-          {/* SIGNATURE NUMÉRIQUE */}
+          {/* BOUTON DE SIGNATURE */}
           <TouchableOpacity
             activeOpacity={0.85}
             style={[
               styles.finalBtn, 
-              { backgroundColor: verdict === 'condamnation' ? '#EF4444' : primaryColor }, 
+              { backgroundColor: verdict === 'condamnation' ? '#EF4444' : JUDGE_ACCENT }, 
               loading && { opacity: 0.7 }
             ]}
             onPress={handleFinalizeSentence}
@@ -216,7 +227,7 @@ export default function JudgeSentenceScreen({ route, navigation }: JudgeScreenPr
             ) : (
               <>
                 <Ionicons name="ribbon-outline" size={24} color="#FFF" />
-                <Text style={styles.finalBtnText}>SIGNER ET RENDRE LE JUGEMENT</Text>
+                <Text style={styles.finalBtnText}>SCELLER LE JUGEMENT</Text>
               </>
             )}
           </TouchableOpacity>
@@ -233,31 +244,31 @@ export default function JudgeSentenceScreen({ route, navigation }: JudgeScreenPr
 const styles = StyleSheet.create({
   container: { padding: 20 },
   caseHeader: { marginBottom: 25, borderBottomWidth: 1, paddingBottom: 15 },
-  caseTitle: { fontSize: 24, fontWeight: "900", letterSpacing: -0.5 },
-  caseSubtitle: { fontSize: 13, marginTop: 4, fontWeight: "700" },
+  caseTitle: { fontSize: 26, fontWeight: "900", letterSpacing: -1 },
+  caseSubtitle: { fontSize: 13, fontWeight: "700" },
   
-  label: { fontSize: 11, fontWeight: "900", marginBottom: 10, marginTop: 20, textTransform: 'uppercase', letterSpacing: 1 },
-  verdictRow: { flexDirection: "row", gap: 12, marginBottom: 15 },
-  verdictBtn: { flex: 1, height: 100, borderRadius: 24, alignItems: "center", justifyContent: "center", borderWidth: 2, ...Platform.select({ ios: { shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 10 }, android: { elevation: 3 } }) },
-  verdictBtnText: { fontWeight: "900", fontSize: 11, letterSpacing: 0.5 },
+  label: { fontSize: 11, fontWeight: "900", marginBottom: 10, marginTop: 20, textTransform: 'uppercase', letterSpacing: 1, marginLeft: 4 },
+  verdictRow: { flexDirection: "row", gap: 15, marginBottom: 15 },
+  verdictBtn: { flex: 1, height: 110, borderRadius: 24, alignItems: "center", justifyContent: "center", borderWidth: 2, elevation: 2 },
+  verdictBtnText: { fontWeight: "900", fontSize: 12, letterSpacing: 1 },
   
   sentenceForm: { marginTop: 5 },
-  input: { borderRadius: 16, padding: 18, borderWidth: 1.5, fontSize: 16, fontWeight: '600' },
+  input: { borderRadius: 18, padding: 18, borderWidth: 1.5, fontSize: 16, fontWeight: '600' },
   textArea: { height: 250, lineHeight: 24 },
   
   finalBtn: { 
     flexDirection: "row", 
-    height: 64, 
+    height: 68, 
     borderRadius: 22, 
     alignItems: "center", 
     justifyContent: "center", 
     marginTop: 40, 
     gap: 12,
-    ...Platform.select({
-        ios: { shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 10 },
-        android: { elevation: 6 },
-        web: { boxShadow: "0px 4px 15px rgba(0,0,0,0.15)" }
-    })
+    elevation: 6,
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 }
   },
-  finalBtnText: { color: "#FFF", fontWeight: "900", fontSize: 14, letterSpacing: 1 },
+  finalBtnText: { color: "#FFF", fontWeight: "900", fontSize: 15, letterSpacing: 1 },
 });

@@ -1,3 +1,4 @@
+// PATH: src/screens/police/PoliceDetentionScreen.tsx
 import React, { useState } from "react";
 import { 
   View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, 
@@ -5,17 +6,17 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-// ✅ Architecture
+// ✅ Architecture & Store
 import { useAuthStore } from "../../stores/useAuthStore";
 import { useAppTheme } from "../../theme/AppThemeProvider";
 import { PoliceScreenProps } from "../../types/navigation";
 
-// Composants UI
+// ✅ Composants UI
 import ScreenContainer from "../../components/layout/ScreenContainer";
 import AppHeader from "../../components/layout/AppHeader";
 import SmartFooter from "../../components/layout/SmartFooter";
 
-// Services
+// ✅ Services
 import { updateComplaint } from "../../services/complaint.service";
 
 export default function PoliceDetentionScreen({ route, navigation }: PoliceScreenProps<'PoliceDetention'>) {
@@ -23,15 +24,15 @@ export default function PoliceDetentionScreen({ route, navigation }: PoliceScree
   const primaryColor = theme.colors.primary; 
   const { user } = useAuthStore();
   
-  const params = route.params as any;
-  const complaintId = params?.id || params?.complaintId; // Protection double clé
-  const suspectName = params?.suspectName || "Individu à écrouer";
+  // ✅ Extraction typée des paramètres de navigation
+  const { complaintId, suspectName = "Individu à écrouer" } = route.params;
 
   const [cellNumber, setCellNumber] = useState("");
   const [itemsSeized, setItemsSeized] = useState(""); 
   const [physicalState, setPhysicalState] = useState("Normal");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Palette de couleurs dynamique
   const colors = {
     bgMain: isDark ? "#0F172A" : "#F8FAFC",
     bgCard: isDark ? "#1E293B" : "#FFFFFF",
@@ -42,19 +43,22 @@ export default function PoliceDetentionScreen({ route, navigation }: PoliceScree
     headerCard: primaryColor,
   };
 
+  /**
+   * ⚖️ VALIDATION ET INSCRIPTION AU REGISTRE D'ÉCROU
+   */
   const handleFinalizeDetention = async () => {
     // 🛡️ SÉCURITÉ : Validation ID et Formulaire
-    if (!complaintId || complaintId === 'undefined') {
-      return Alert.alert("Erreur", "Identifiant du dossier corrompu.");
+    if (!complaintId) {
+      return Alert.alert("Erreur", "Identifiant du dossier manquant.");
     }
 
     if (!cellNumber.trim()) {
-      return Alert.alert("Donnée manquante", "Le numéro de local ou de cellule est obligatoire.");
+      return Alert.alert("Donnée manquante", "Le numéro de local ou de cellule est obligatoire pour l'écrou.");
     }
 
     Alert.alert(
       "Inscription au Registre d'Écrou ⚖️",
-      `Confirmez-vous le placement effectif de ${suspectName.toUpperCase()} ?`,
+      `Confirmez-vous le placement effectif de ${suspectName.toUpperCase()} en cellule ?`,
       [
         { text: "Réviser", style: "cancel" },
         { 
@@ -62,19 +66,23 @@ export default function PoliceDetentionScreen({ route, navigation }: PoliceScree
           onPress: async () => {
             try {
               setIsSubmitting(true);
-              // ✅ Envoi propre au service
+              
+              // ✅ Mise à jour du dossier : Passage au statut effectif de détention
               await updateComplaint(Number(complaintId), {
                 detentionCell: cellNumber.trim(),
                 inventory: itemsSeized.trim() || "Néant (Fouille négative)",
                 healthStatusAtDetention: physicalState,
                 detentionRegisteredAt: new Date().toISOString(),
                 officerInCharge: `${user?.firstname} ${user?.lastname}`,
-                status: "en_cours_OPJ", 
+                status: "garde_a_vue", 
                 isInCustody: true 
               } as any);
 
-              Alert.alert("Acte Scellé ✅", "L'inscription au registre d'écrou a été certifiée numériquement.");
-              navigation.popToTop(); // Retour à l'accueil Police
+              Alert.alert(
+                "Acte Scellé ✅", 
+                "L'inscription au registre d'écrou a été certifiée numériquement.",
+                [{ text: "OK", onPress: () => navigation.popToTop() }]
+              );
             } catch (error) {
               console.error("Detention Error:", error);
               Alert.alert("Erreur Système", "Échec de synchronisation avec le registre central.");
@@ -99,10 +107,10 @@ export default function PoliceDetentionScreen({ route, navigation }: PoliceScree
         >
           <ScrollView 
             contentContainerStyle={styles.scrollPadding}
-            keyboardShouldPersistTaps="handled" // ✅ Débloque l'interaction tactile
+            keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            {/* 🏛️ BANDEAU D'IDENTIFICATION */}
+            {/* 🏛️ BANDEAU D'IDENTIFICATION OFFICIELLE */}
             <View style={[styles.headerCard, { backgroundColor: colors.headerCard }]}>
               <View style={styles.iconCircle}>
                 <Ionicons name="lock-closed" size={28} color={primaryColor} />
@@ -110,9 +118,11 @@ export default function PoliceDetentionScreen({ route, navigation }: PoliceScree
               <View style={styles.headerText}>
                 <Text style={styles.headerTitle}>Placement sous écrou</Text>
                 <Text style={styles.headerSub}>SUJET : {suspectName.toUpperCase()}</Text>
-                <Text style={styles.headerSub}>DOSSIER : RP #{complaintId}</Text>
+                <Text style={styles.headerSub}>DOSSIER : RG-#{complaintId}</Text>
               </View>
             </View>
+
+            
 
             {/* 🚪 AFFECTATION CELLULE */}
             <View style={styles.inputWrapper}>
@@ -126,14 +136,14 @@ export default function PoliceDetentionScreen({ route, navigation }: PoliceScree
                 />
             </View>
 
-            {/* 🎒 INVENTAIRE DE FOUILLE */}
+            {/* 🎒 INVENTAIRE DE FOUILLE (CONSIGNE) */}
             <View style={styles.inputWrapper}>
-                <Text style={[styles.label, { color: colors.textSub }]}>Objets consignés (Inventaire)</Text>
+                <Text style={[styles.label, { color: colors.textSub }]}>Objets consignés (Inventaire de fouille)</Text>
                 <TextInput
                   style={[styles.textArea, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textMain }]}
                   multiline
                   numberOfLines={5}
-                  placeholder="Ceinture, téléphone, numéraire..."
+                  placeholder="Énumérez les objets retirés : ceinture, téléphone, numéraire, bijoux..."
                   placeholderTextColor={isDark ? "#475569" : "#94A3B8"}
                   value={itemsSeized}
                   onChangeText={setItemsSeized}
@@ -141,7 +151,7 @@ export default function PoliceDetentionScreen({ route, navigation }: PoliceScree
                 />
             </View>
 
-            {/* 🩺 ÉTAT SANITAIRE */}
+            {/* 🩺 ÉTAT SANITAIRE À L'ÉCROU */}
             <Text style={[styles.label, { color: colors.textSub }]}>État physique à l'entrée</Text>
             <View style={styles.optionsRow}>
               {["Normal", "Blessé", "Agité"].map((state) => {
@@ -179,7 +189,7 @@ export default function PoliceDetentionScreen({ route, navigation }: PoliceScree
                 <ActivityIndicator color="#FFF" />
               ) : (
                 <>
-                  <Ionicons name="shield-checkmark-outline" size={24} color="#FFF" style={{marginRight: 8}} />
+                  <Ionicons name="checkmark-circle-outline" size={24} color="#FFF" style={{marginRight: 8}} />
                   <Text style={styles.submitText}>SCELLER L'INSCRIPTION</Text>
                 </>
               )}
@@ -188,7 +198,7 @@ export default function PoliceDetentionScreen({ route, navigation }: PoliceScree
             <View style={styles.footerNote}>
                 <Ionicons name="finger-print-outline" size={18} color={colors.textSub} />
                 <Text style={[styles.footerNoteText, { color: colors.textSub }]}>
-                  Acte certifié par l'Officier OPJ en charge.
+                  Acte certifié par l'OPJ de permanence.
                 </Text>
             </View>
           </ScrollView>

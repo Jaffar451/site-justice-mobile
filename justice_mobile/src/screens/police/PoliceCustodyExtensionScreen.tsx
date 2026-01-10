@@ -1,3 +1,4 @@
+// PATH: src/screens/police/PoliceCustodyExtensionScreen.tsx
 import React, { useState } from "react";
 import { 
   View, Text, StyleSheet, TextInput, TouchableOpacity, 
@@ -6,17 +7,17 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-// ✅ Architecture
+// ✅ Architecture & Logic
 import { useAuthStore } from "../../stores/useAuthStore";
 import { useAppTheme } from "../../theme/AppThemeProvider";
 import { PoliceScreenProps } from "../../types/navigation";
 
-// Composants UI
+// ✅ UI Components
 import ScreenContainer from "../../components/layout/ScreenContainer";
 import AppHeader from "../../components/layout/AppHeader";
 import SmartFooter from "../../components/layout/SmartFooter";
 
-// Services
+// ✅ Services
 import { updateComplaint } from "../../services/complaint.service";
 
 export default function PoliceCustodyExtensionScreen({ route, navigation }: PoliceScreenProps<'PoliceCustodyExtension'>) {
@@ -24,14 +25,14 @@ export default function PoliceCustodyExtensionScreen({ route, navigation }: Poli
   const primaryColor = theme.colors.primary; 
   const { user } = useAuthStore();
   
-  const params = route.params as any;
-  const caseId = params?.caseId || params?.complaintId;
-  const suspectName = params?.suspectName || "Individu gardé à vue";
+  // ✅ Extraction typée des paramètres
+  const { complaintId, suspectName = "Individu gardé à vue" } = route.params;
 
   const [reason, setReason] = useState("");
   const [duration, setDuration] = useState("24");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Palette de couleurs dynamique
   const colors = {
     bgMain: isDark ? "#0F172A" : "#F8FAFC",
     bgCard: isDark ? "#1E293B" : "#FFFFFF",
@@ -41,27 +42,35 @@ export default function PoliceCustodyExtensionScreen({ route, navigation }: Poli
     inputBg: isDark ? "#0F172A" : "#FFFFFF",
   };
 
+  /**
+   * ⚖️ TRANSMISSION DE LA REQUÊTE AU PROCUREUR
+   */
   const handleRequestExtension = async () => {
-    if (!caseId || caseId === 'undefined' || isNaN(Number(caseId))) {
-      return Alert.alert("Erreur Dossier", "L'identifiant du dossier est corrompu.");
+    if (!complaintId) {
+      return Alert.alert("Erreur Dossier", "L'identifiant du dossier est manquant.");
     }
 
     if (reason.trim().length < 15) {
-      return Alert.alert("Motivation insuffisante", "Minimum 15 caractères requis.");
+      return Alert.alert(
+        "Motivation insuffisante", 
+        "Veuillez détailler davantage les raisons de la prolongation (minimum 15 caractères)."
+      );
     }
 
     Alert.alert(
       "Saisine du Parquet 🏛️",
-      `Transmettre la demande de +${duration}h pour ${suspectName} ?`,
+      `Transmettre cette demande de prolongation de ${duration}h pour ${suspectName} ?`,
       [
-        { text: "Annuler", style: "cancel" },
+        { text: "Réviser", style: "cancel" },
         { 
-          text: "Confirmer", 
+          text: "Confirmer l'envoi", 
           onPress: async () => {
             try {
               setIsSubmitting(true);
-              await updateComplaint(Number(caseId), {
-                status: "en_cours_OPJ",
+              
+              // ✅ Mise à jour du dossier avec les flags de prolongation
+              await updateComplaint(Number(complaintId), {
+                status: "attente_validation", // Le dossier passe en attente de visa judiciaire
                 custodyExtensionRequested: true,
                 extensionReason: reason,
                 requestedDuration: duration,
@@ -69,11 +78,13 @@ export default function PoliceCustodyExtensionScreen({ route, navigation }: Poli
                 requestingOfficer: `${user?.firstname} ${user?.lastname}`
               } as any);
 
-              Alert.alert("Succès", "Le Procureur a été saisi numériquement.", [
-                { text: "OK", onPress: () => navigation.goBack() }
-              ]);
+              Alert.alert(
+                "Requête Transmise ✅", 
+                "Le Procureur de la République a été saisi numériquement de votre demande.",
+                [{ text: "Retour au poste", onPress: () => navigation.pop(2) }] // Retourne à l'accueil ou liste
+              );
             } catch (error) {
-              Alert.alert("Échec", "Erreur lors de la transmission au Parquet.");
+              Alert.alert("Échec Système", "Impossible de joindre les services du Parquet.");
             } finally {
               setIsSubmitting(false);
             }
@@ -86,7 +97,7 @@ export default function PoliceCustodyExtensionScreen({ route, navigation }: Poli
   return (
     <ScreenContainer withPadding={false}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-      <AppHeader title="Requête Extension" showBack={true} />
+      <AppHeader title="Demande de Prolongation" showBack={true} />
 
       <View style={{ flex: 1, backgroundColor: colors.bgMain }}>
         <KeyboardAvoidingView 
@@ -95,22 +106,22 @@ export default function PoliceCustodyExtensionScreen({ route, navigation }: Poli
         >
           <ScrollView 
             contentContainerStyle={styles.scrollPadding}
-            keyboardShouldPersistTaps="handled" // ✅ Débloque le clic quand le clavier est ouvert
+            keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            {/* RÉSUMÉ */}
+            {/* 🕒 RÉSUMÉ DE LA SITUATION */}
             <View style={[styles.infoCard, { backgroundColor: colors.bgCard, borderLeftColor: primaryColor }]}>
               <View style={[styles.iconBox, { backgroundColor: primaryColor + "15" }]}>
-                <Ionicons name="hourglass" size={24} color={primaryColor} />
+                <Ionicons name="timer-outline" size={24} color={primaryColor} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.infoLabel, { color: primaryColor }]}>DOSSIER #{caseId}</Text>
+                <Text style={[styles.infoLabel, { color: primaryColor }]}>DOSSIER RG-#{complaintId}</Text>
                 <Text style={[styles.infoSuspect, { color: colors.textMain }]}>{suspectName}</Text>
               </View>
             </View>
 
-            {/* DURÉE */}
-            <Text style={[styles.inputLabel, { color: colors.textSub }]}>Délai supplémentaire *</Text>
+            {/* ⏳ CHOIX DE LA DURÉE */}
+            <Text style={[styles.inputLabel, { color: colors.textSub }]}>Durée sollicitée *</Text>
             <View style={styles.durationRow}>
               {["24", "48"].map((h) => {
                 const isActive = duration === h;
@@ -128,26 +139,26 @@ export default function PoliceCustodyExtensionScreen({ route, navigation }: Poli
                     onPress={() => setDuration(h)}
                   >
                     <Text style={[styles.durationText, { color: isActive ? "#FFF" : colors.textMain }]}>+{h}H</Text>
-                    <Text style={[styles.durationSub, { color: isActive ? "rgba(255,255,255,0.7)" : colors.textSub }]}>Heures</Text>
+                    <Text style={[styles.durationSub, { color: isActive ? "rgba(255,255,255,0.7)" : colors.textSub }]}>PROLONGATION</Text>
                   </TouchableOpacity>
                 );
               })}
             </View>
 
-            {/* JUSTIFICATION */}
-            <Text style={[styles.inputLabel, { color: colors.textSub }]}>Motivations de l'acte *</Text>
+            {/* 📝 MOTIVATION JURIDIQUE */}
+            <Text style={[styles.inputLabel, { color: colors.textSub }]}>Motivations de la requête (OPJ) *</Text>
             <TextInput
               style={[styles.textArea, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textMain }]}
               multiline
               numberOfLines={6}
-              placeholder="Ex: Poursuite des auditions..."
+              placeholder="Ex: Nécessité de confronter le suspect avec les nouveaux éléments de preuve..."
               placeholderTextColor={isDark ? "#475569" : "#94A3B8"}
               value={reason}
               onChangeText={setReason}
               textAlignVertical="top"
             />
 
-            {/* BOUTON D'ACTION */}
+            {/* 🚀 BOUTON D'ENVOI AU PARQUET */}
             <TouchableOpacity
               activeOpacity={0.8}
               style={[styles.submitBtn, { backgroundColor: primaryColor, opacity: isSubmitting ? 0.7 : 1 }]}
@@ -158,16 +169,17 @@ export default function PoliceCustodyExtensionScreen({ route, navigation }: Poli
                 <ActivityIndicator color="#FFF" />
               ) : (
                 <>
-                  <Ionicons name="paper-plane" size={20} color="#FFF" style={{marginRight: 8}} />
-                  <Text style={styles.submitText}>SAISIR LE PARQUET</Text>
+                  <Ionicons name="send" size={20} color="#FFF" style={{marginRight: 10}} />
+                  <Text style={styles.submitText}>SAISIR LE PROCUREUR</Text>
                 </>
               )}
             </TouchableOpacity>
 
+            {/* ⚖️ RAPPEL LÉGAL */}
             <View style={[styles.legalNotice, { backgroundColor: isDark ? "#1E293B" : "#F1F5F9", borderColor: colors.border }]}>
               <Ionicons name="alert-circle" size={20} color="#EF4444" />
               <Text style={[styles.warningNote, { color: colors.textSub }]}>
-                La prolongation est soumise à l'appréciation du Procureur de la République.
+                La prolongation de la garde à vue est un acte exceptionnel qui doit être motivé par les nécessités de l'enquête.
               </Text>
             </View>
             
@@ -190,7 +202,7 @@ const styles = StyleSheet.create({
   durationRow: { flexDirection: 'row', gap: 15, marginBottom: 25 },
   durationBtn: { flex: 1, padding: 15, borderRadius: 15, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   durationText: { fontWeight: '900', fontSize: 16 },
-  durationSub: { fontSize: 9, fontWeight: '700' },
+  durationSub: { fontSize: 8, fontWeight: '800' },
   textArea: { borderRadius: 18, borderWidth: 2, padding: 15, minHeight: 140, fontSize: 15, marginBottom: 25 },
   submitBtn: { flexDirection: "row", height: 60, borderRadius: 18, justifyContent: "center", alignItems: "center", elevation: 4 },
   submitText: { color: "#FFF", fontWeight: "900", fontSize: 15 },

@@ -1,3 +1,4 @@
+// PATH: src/screens/judge/JudgeAppealScreen.tsx
 import React, { useState } from "react";
 import {
   View,
@@ -15,73 +16,73 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-// ✅ 1. Imports Architecture
+// ✅ Architecture & Theme
 import { useAppTheme } from "../../theme/AppThemeProvider";
 import { JudgeScreenProps } from "../../types/navigation";
 import { useAuthStore } from "../../stores/useAuthStore";
 
-// Composants
+// ✅ UI Components
 import ScreenContainer from "../../components/layout/ScreenContainer";
 import AppHeader from "../../components/layout/AppHeader";
 import SmartFooter from "../../components/layout/SmartFooter";
 
-// ✅ Import du Service Réel
+// ✅ Services
 import { registerAppeal } from "../../services/appeal.service";
 
 export default function JudgeAppealScreen({ route, navigation }: JudgeScreenProps<'JudgeAppeal'>) {
-  // ✅ 2. Thème Dynamique
   const { theme, isDark } = useAppTheme();
   const { user } = useAuthStore();
   
-  // Sécurisation des paramètres
-  const params = route.params as { caseId: number; personName?: string };
-  const caseId = params?.caseId;
-  const personName = params?.personName || "Le Prévenu";
+  // Identité "Recours" Orange
+  const APPEAL_ACCENT = "#F57C00"; 
 
-  // États du formulaire
+  // Récupération sécurisée des paramètres de navigation
+  const { caseId, personName = "Le Prévenu" } = route.params;
+
+  // États du formulaire judiciaire
   const [appellant, setAppellant] = useState<"DEFENDANT" | "PROSECUTOR" | "CIVIL_PARTY">("DEFENDANT");
   const [grounds, setGrounds] = useState("");
   const [suspensive, setSuspensive] = useState(true); 
   const [loading, setLoading] = useState(false);
 
-  // 🎨 PALETTE DYNAMIQUE
   const colors = {
     bgMain: isDark ? "#0F172A" : "#F8FAFC",
     bgCard: isDark ? "#1E293B" : "#FFFFFF",
     textMain: isDark ? "#FFFFFF" : "#1E293B",
     textSub: isDark ? "#94A3B8" : "#64748B",
     border: isDark ? "#334155" : "#E2E8F0",
-    inputBg: isDark ? "#1E293B" : "#FFFFFF",
-    appealPrimary: "#F57C00", // Orange Recours
-    appealBg: isDark ? "#432706" : "#FFF8E1",
+    inputBg: isDark ? "#0F172A" : "#FFFFFF",
+    headerBg: isDark ? "#432706" : "#FFF8E1",
   };
 
+  /**
+   * ✍️ VALIDATION DE L'ACTE D'APPEL
+   */
   const handleConfirmAppeal = () => {
-    if (!grounds.trim()) {
-      const msg = "Veuillez préciser les moyens d'appel pour la Cour (min. 10 caractères).";
-      Platform.OS === 'web' ? window.alert(msg) : Alert.alert("Motivation requise", msg);
+    if (grounds.trim().length < 15) {
+      const msg = "Veuillez préciser les motifs de l'appel (min. 15 caractères).";
+      if (Platform.OS === 'web') window.alert(msg);
+      else Alert.alert("Données insuffisantes", msg);
       return;
     }
 
-    const title = "Signature de l'Acte";
-    const msg = "Cet acte suspend l'exécution (sauf provisoire) et saisit la Cour d'Appel. Confirmer ?";
+    const title = "Déclaration de Recours ⚖️";
+    const msg = `En enregistrant cet appel, vous saisissez la Cour d'Appel pour le dossier RP-${caseId}/26. Confirmer ?`;
 
     if (Platform.OS === 'web') {
         if (window.confirm(`${title} : ${msg}`)) submitAppeal();
     } else {
         Alert.alert(title, msg, [
           { text: "Réviser", style: "cancel" },
-          { text: "Enregistrer l'Appel", style: "destructive", onPress: submitAppeal }
+          { text: "Signer le Recours", style: "destructive", onPress: submitAppeal }
         ]);
     }
   };
 
   const submitAppeal = async () => {
-    if (!caseId) return Alert.alert("Erreur", "Identifiant du dossier manquant.");
-
     setLoading(true);
     try {
-      // ✅ Appel API Réel
+      // ✅ Certification de l'appel sur le serveur judiciaire
       await registerAppeal({
         caseId: Number(caseId),
         appellant,
@@ -91,24 +92,23 @@ export default function JudgeAppealScreen({ route, navigation }: JudgeScreenProp
         date: new Date().toISOString()
       });
       
-      const successMsg = "Recours Enregistré : La déclaration d'appel a été versée au dossier numérique.";
+      const successMsg = "L'acte d'appel a été scellé numériquement et transmis au Greffe de la Cour.";
       
-      if (Platform.OS === 'web') window.alert(`✅ ${successMsg}`);
-      else Alert.alert("Recours Enregistré", successMsg);
+      if (Platform.OS === 'web') window.alert(`✅ Success: ${successMsg}`);
+      else Alert.alert("Appel Enregistré", successMsg);
       
       navigation.goBack();
     } catch (error: any) {
-      console.error(error);
-      Alert.alert("Erreur de Greffe", error.message || "L'enregistrement de l'acte a échoué.");
+      Alert.alert("Erreur de Liaison", "Impossible de joindre le serveur du Greffe Central.");
     } finally {
       setLoading(false);
     }
   };
 
   const appellantLabels = {
-    DEFENDANT: `Le Prévenu (${personName})`,
-    PROSECUTOR: "Le Ministère Public (Parquet)",
-    CIVIL_PARTY: "La Partie Civile (Victime)"
+    DEFENDANT: `Inculpé : ${personName}`,
+    PROSECUTOR: "Ministère Public (Parquet)",
+    CIVIL_PARTY: "Partie Civile (Victime)"
   };
 
   return (
@@ -127,20 +127,20 @@ export default function JudgeAppealScreen({ route, navigation }: JudgeScreenProp
         >
           
           {/* 🏛️ BANDEAU D'APPEL */}
-          <View style={[styles.headerCard, { backgroundColor: colors.appealBg, borderColor: colors.appealPrimary }]}>
-            <Ionicons name="git-branch" size={28} color={colors.appealPrimary} />
+          <View style={[styles.headerCard, { backgroundColor: colors.headerBg, borderColor: APPEAL_ACCENT }]}>
+            <Ionicons name="git-branch" size={28} color={APPEAL_ACCENT} />
             <View style={{ marginLeft: 15, flex: 1 }}>
               <Text style={[styles.headerTitle, { color: isDark ? "#FFB74D" : "#E65100" }]}>
                 SAISINE DE LA COUR D'APPEL
               </Text>
               <Text style={[styles.headerSub, { color: colors.textMain }]}>
-                Dossier RG #{caseId} • Juge : {user?.lastname?.toUpperCase()}
+                Dossier N° RP-{caseId}/26 • Cabinet d'Instruction
               </Text>
             </View>
           </View>
 
-          {/* 1. SÉLECTION DE LA PARTIE */}
-          <Text style={[styles.label, { color: colors.textSub }]}>Partie Appelante</Text>
+          {/* 🔘 SÉLECTION DE LA PARTIE APPELANTE */}
+          <Text style={[styles.label, { color: colors.textSub }]}>Auteur du recours *</Text>
           <View style={styles.radioGroup}>
             {(Object.keys(appellantLabels) as Array<keyof typeof appellantLabels>).map((type) => {
               const isSelected = appellant === type;
@@ -151,28 +151,30 @@ export default function JudgeAppealScreen({ route, navigation }: JudgeScreenProp
                   style={[
                     styles.radioBtn,
                     { 
-                      backgroundColor: isSelected ? colors.appealPrimary : colors.bgCard,
-                      borderColor: isSelected ? colors.appealPrimary : colors.border
+                      backgroundColor: isSelected ? APPEAL_ACCENT : colors.bgCard,
+                      borderColor: isSelected ? APPEAL_ACCENT : colors.border
                     }
                   ]}
                   onPress={() => setAppellant(type)}
                 >
                   <Ionicons 
                     name={isSelected ? "checkmark-circle" : "ellipse-outline"} 
-                    size={20} 
+                    size={18} 
                     color={isSelected ? "#FFF" : colors.textSub} 
                   />
                   <Text style={[styles.radioText, { color: isSelected ? "#FFF" : colors.textMain }]}>
-                    {type === "DEFENDANT" ? "Prévenu" : type === "PROSECUTOR" ? "Parquet" : "Partie Civile"}
+                    {type === "DEFENDANT" ? "Prévenu" : type === "PROSECUTOR" ? "Parquet" : "Victime"}
                   </Text>
                 </TouchableOpacity>
               );
             })}
           </View>
-          <Text style={[styles.helperText, { color: isDark ? "#FFB74D" : colors.appealPrimary }]}>{appellantLabels[appellant]}</Text>
+          <View style={[styles.helperBox, { backgroundColor: isDark ? "#1E293B" : "#F1F5F9" }]}>
+             <Text style={[styles.helperText, { color: colors.textSub }]}>{appellantLabels[appellant]}</Text>
+          </View>
 
-          {/* 2. MOYENS D'APPEL */}
-          <Text style={[styles.label, { color: colors.textSub }]}>Moyens d'Appel (Points contestés) *</Text>
+          {/* ✍️ MOYENS D'APPEL */}
+          <Text style={[styles.label, { color: colors.textSub }]}>Motifs de la contestation (Moyens) *</Text>
           <TextInput
             style={[
               styles.textArea, 
@@ -182,34 +184,33 @@ export default function JudgeAppealScreen({ route, navigation }: JudgeScreenProp
                 color: colors.textMain
               }
             ]}
-            placeholder="Ex: Contestation de la qualification des faits, quantum de la peine..."
+            placeholder="Ex: Contestation de la régularité de la procédure, remise en cause des charges retenues..."
             placeholderTextColor={isDark ? "#475569" : "#94A3B8"}
             multiline
-            numberOfLines={6}
+            numberOfLines={8}
             value={grounds}
             onChangeText={setGrounds}
             textAlignVertical="top"
           />
 
-          {/* 3. EFFET SUSPENSIF */}
+          {/* 🔄 EFFET SUSPENSIF */}
           <View style={[styles.switchContainer, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
             <View style={{ flex: 1 }}>
               <Text style={[styles.switchTitle, { color: colors.textMain }]}>Effet Suspensif</Text>
               <Text style={[styles.switchDesc, { color: colors.textSub }]}>
-                Suspend l'exécution forcée selon le Code de Procédure Pénale.
+                Suspend l'exécution du jugement jusqu'à l'arrêt de la Cour.
               </Text>
             </View>
             <Switch
               value={suspensive}
               onValueChange={setSuspensive}
-              trackColor={{ false: "#767577", true: colors.appealPrimary }}
-              thumbColor={Platform.OS === "ios" ? "#FFF" : suspensive ? "#FFF" : "#F4F3F4"}
+              trackColor={{ false: "#767577", true: APPEAL_ACCENT }}
             />
           </View>
 
-          {/* BOUTON VALIDATION */}
+          {/* 🚀 BOUTON SIGNATURE */}
           <TouchableOpacity
-            style={[styles.submitBtn, { backgroundColor: colors.appealPrimary }]}
+            style={[styles.submitBtn, { backgroundColor: APPEAL_ACCENT }]}
             onPress={handleConfirmAppeal}
             disabled={loading}
             activeOpacity={0.85}
@@ -218,11 +219,18 @@ export default function JudgeAppealScreen({ route, navigation }: JudgeScreenProp
               <ActivityIndicator color="#FFF" />
             ) : (
               <>
-                <Ionicons name="document-attach" size={22} color="#FFF" />
-                <Text style={styles.submitBtnText}>ENREGISTRER L'ACTE D'APPEL</Text>
+                <Ionicons name="document-text" size={24} color="#FFF" />
+                <Text style={styles.submitBtnText}>SCELLER L'ACTE D'APPEL</Text>
               </>
             )}
           </TouchableOpacity>
+
+          <View style={styles.legalNotice}>
+            <Ionicons name="alert-circle-outline" size={16} color={colors.textSub} />
+            <Text style={[styles.noticeText, { color: colors.textSub }]}>
+              La déclaration d'appel numérique a la même valeur que le registre papier du Greffe.
+            </Text>
+          </View>
 
           <View style={{ height: 140 }} />
         </ScrollView>
@@ -234,62 +242,68 @@ export default function JudgeAppealScreen({ route, navigation }: JudgeScreenProp
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 16 },
+  container: { padding: 20 },
   headerCard: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 18,
-    borderRadius: 20,
+    padding: 20,
+    borderRadius: 24,
     borderWidth: 1.5,
-    marginBottom: 25,
+    marginBottom: 30,
+    elevation: 3
   },
-  headerTitle: { fontSize: 11, fontWeight: "900", letterSpacing: 1.2 },
-  headerSub: { fontSize: 13, marginTop: 4, fontWeight: "600", opacity: 0.9 },
-  label: { fontSize: 10, fontWeight: "900", marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 },
-  radioGroup: { flexDirection: "row", flexWrap: 'wrap', gap: 10 },
+  headerTitle: { fontSize: 10, fontWeight: "900", letterSpacing: 1.5 },
+  headerSub: { fontSize: 14, marginTop: 4, fontWeight: "800" },
+  label: { fontSize: 11, fontWeight: "900", marginBottom: 12, marginLeft: 4, textTransform: 'uppercase', letterSpacing: 1 },
+  radioGroup: { flexDirection: "row", flexWrap: 'wrap', gap: 10, marginBottom: 15 },
   radioBtn: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 14,
+    paddingVertical: 15,
+    borderRadius: 15,
     borderWidth: 1.5,
     gap: 10,
-    minWidth: '30%'
+    minWidth: '30%',
+    elevation: 2
   },
-  radioText: { fontWeight: "800", fontSize: 12 },
-  helperText: { fontSize: 12, fontStyle: "italic", marginTop: 10, marginBottom: 25, fontWeight: "600" },
+  radioText: { fontWeight: "900", fontSize: 12 },
+  helperBox: { padding: 12, borderRadius: 10, marginBottom: 30, borderStyle: 'dashed', borderWidth: 1, borderColor: 'rgba(0,0,0,0.1)' },
+  helperText: { fontSize: 12, fontWeight: "700", fontStyle: "italic" },
   textArea: {
-    borderRadius: 16,
-    padding: 18,
+    borderRadius: 24,
+    padding: 20,
     borderWidth: 1.5,
-    minHeight: 160,
-    fontSize: 15,
-    marginBottom: 20,
-    lineHeight: 22
+    minHeight: 200,
+    fontSize: 16,
+    marginBottom: 25,
+    lineHeight: 24
   },
   switchContainer: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 20,
-    borderRadius: 20,
-    marginBottom: 35,
-    borderWidth: 1.5
+    padding: 22,
+    borderRadius: 24,
+    marginBottom: 40,
+    borderWidth: 1.5,
+    elevation: 2
   },
-  switchTitle: { fontWeight: "900", fontSize: 15 },
-  switchDesc: { fontSize: 12, marginTop: 4, marginRight: 20, lineHeight: 18, fontWeight: "500" },
+  switchTitle: { fontWeight: "900", fontSize: 16 },
+  switchDesc: { fontSize: 12, marginTop: 4, marginRight: 30, lineHeight: 18, fontWeight: "500", opacity: 0.8 },
   submitBtn: {
     flexDirection: "row",
-    height: 64,
-    borderRadius: 20,
+    height: 68,
+    borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
     gap: 12,
     elevation: 4,
-    ...Platform.select({
-      ios: { shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 10 },
-      web: { boxShadow: "0px 4px 12px rgba(0,0,0,0.15)" }
-    })
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 }
   },
-  submitBtnText: { color: "#FFF", fontWeight: "900", fontSize: 15, letterSpacing: 1 },
+  submitBtnText: { color: "#FFF", fontWeight: "900", fontSize: 15, letterSpacing: 0.5 },
+  legalNotice: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 30, opacity: 0.6 },
+  noticeText: { fontSize: 11, fontWeight: '700', fontStyle: 'italic', textAlign: 'center' }
 });
