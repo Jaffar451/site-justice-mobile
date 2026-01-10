@@ -18,13 +18,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useQuery } from "@tanstack/react-query";
 import { useFocusEffect } from "@react-navigation/native";
 
-// ✅ Architecture & Thème
+// ✅ Architecture & Theme
 import { useAuthStore } from "../../stores/useAuthStore";
 import { useAppTheme } from "../../theme/AppThemeProvider";
 import { JudgeScreenProps } from "../../types/navigation";
-import { getProsecutorStats } from "../../services/stats.service"; // On réutilise la logique de calcul globale
+import { getProsecutorStats } from "../../services/stats.service"; // On utilise les stats judiciaires globales
 
-// Composants
+// ✅ UI Components
 import ScreenContainer from "../../components/layout/ScreenContainer";
 import AppHeader from "../../components/layout/AppHeader";
 import SmartFooter from "../../components/layout/SmartFooter";
@@ -35,10 +35,10 @@ export default function JudgeHomeScreen({ navigation }: JudgeScreenProps<'JudgeH
   const { theme, isDark } = useAppTheme();
   const { user } = useAuthStore();
   
-  // 🔴 Palette Justice (Bordeaux / Or)
-  const primaryColor = "#7C2D12"; 
+  // ✅ Identité Cabinet d'Instruction (Violet)
+  const JUDGE_ACCENT = "#7C3AED"; 
 
-  // 🕒 HORLOGE
+  // 🕒 HORLOGE EN TEMPS RÉEL
   const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
@@ -46,10 +46,10 @@ export default function JudgeHomeScreen({ navigation }: JudgeScreenProps<'JudgeH
     return () => clearInterval(timer);
   }, []);
 
-  // 🔄 RÉCUPÉRATION DES STATS RÉELLES
+  // 🔄 RÉCUPÉRATION DES STATISTIQUES
   const { data: stats, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ["judge-stats"],
-    queryFn: getProsecutorStats, // La fonction filtre déjà par instruction/en cours
+    queryFn: getProsecutorStats, 
   });
 
   useFocusEffect(
@@ -61,7 +61,6 @@ export default function JudgeHomeScreen({ navigation }: JudgeScreenProps<'JudgeH
   const timeString = currentTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
   const dateFull = currentTime.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).toUpperCase();
 
-  // 🎨 PALETTE DYNAMIQUE
   const colors = {
     bgMain: isDark ? "#0F172A" : "#F8FAFC",
     bgCard: isDark ? "#1E293B" : "#FFFFFF",
@@ -71,7 +70,7 @@ export default function JudgeHomeScreen({ navigation }: JudgeScreenProps<'JudgeH
   };
 
   const judicialTitle = user?.lastname 
-    ? `Juge ${user.lastname.toUpperCase()}` 
+    ? `M. le Juge ${user.lastname.toUpperCase()}` 
     : "Magistrat du Siège";
 
   return (
@@ -84,19 +83,19 @@ export default function JudgeHomeScreen({ navigation }: JudgeScreenProps<'JudgeH
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={primaryColor} />
+          <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={JUDGE_ACCENT} />
         }
       >
         
-        {/* 👋 1. BIENVENUE */}
+        {/* 👋 1. BIENVENUE & HEURE */}
         <View style={styles.headerSection}>
           <View style={styles.welcomeInfo}>
             <Text style={[styles.welcomeSub, { color: colors.textSub }]}>{dateFull}</Text>
             <Text style={[styles.welcomeTitle, { color: colors.textMain }]}>Bonjour, {user?.firstname}</Text>
-            <Text style={[styles.rankText, { color: primaryColor }]}>{judicialTitle}</Text>
+            <Text style={[styles.rankText, { color: JUDGE_ACCENT }]}>{judicialTitle}</Text>
           </View>
           <LinearGradient 
-            colors={[primaryColor, '#450A0A']} 
+            colors={[JUDGE_ACCENT, '#4C1D95']} 
             style={styles.clockBadge}
           >
             <Text style={styles.clockText}>{timeString}</Text>
@@ -104,9 +103,9 @@ export default function JudgeHomeScreen({ navigation }: JudgeScreenProps<'JudgeH
         </View>
 
         {/* ⚖️ 2. BANDEAU DÉONTOLOGIE */}
-        <View style={[styles.oathBanner, { backgroundColor: isDark ? "#1E293B" : "#FFF7ED", borderColor: isDark ? colors.border : "#FFEDD5" }]}>
-           <Ionicons name="ribbon-outline" size={20} color={primaryColor} />
-           <Text style={[styles.oathText, { color: colors.textSub }]}>Rigueur • Impartialité • Célérité</Text>
+        <View style={[styles.oathBanner, { backgroundColor: isDark ? "#1E293B" : "#F5F3FF", borderColor: isDark ? colors.border : "#DDD6FE" }]}>
+           <Ionicons name="ribbon-outline" size={20} color={JUDGE_ACCENT} />
+           <Text style={[styles.oathText, { color: colors.textSub }]}>Rigueur • Impartialité • Indépendance</Text>
         </View>
 
         {/* 📊 3. INDICATEURS DYNAMIQUES */}
@@ -114,19 +113,19 @@ export default function JudgeHomeScreen({ navigation }: JudgeScreenProps<'JudgeH
           <StatCard 
             icon="folder-open" 
             value={isLoading ? "..." : stats?.enCours?.toString() || "0"} 
-            label="Instructions" 
-            color={primaryColor} 
-            bgColor={isDark ? "#450A0A" : "#FEF2F2"} 
+            label="En Instruction" 
+            color={JUDGE_ACCENT} 
+            bgColor={isDark ? "#4C1D95" : "#F5F3FF"} 
             onPress={() => navigation.navigate("JudgeCaseList" as any)}
             colors={colors}
           />
           <StatCard 
             icon="calendar" 
-            value="4" // À lier à hearing.service plus tard
+            value="3" // À lier au service d'audience
             label="Audiences" 
             color="#10B981" 
             bgColor={isDark ? "#064E3B" : "#F0FDF4"} 
-            onPress={() => navigation.navigate("JudgeCalendar" as any)}
+            onPress={() => navigation.navigate("JudgeHearing" as any)}
             colors={colors}
           />
           <StatCard 
@@ -144,29 +143,47 @@ export default function JudgeHomeScreen({ navigation }: JudgeScreenProps<'JudgeH
         <Text style={[styles.sectionHeader, { color: colors.textSub }]}>Pilotage du Cabinet</Text>
         
         <ActionCard 
-          icon="briefcase" 
-          title="Rôle d'Instruction" 
-          desc="Traitement des dossiers et ordonnances."
-          color={primaryColor}
+          icon="file-tray-full" 
+          title="Registre des Dossiers" 
+          desc="Consultation, instruction et ordonnances."
+          color={JUDGE_ACCENT}
           colors={colors}
           onPress={() => navigation.navigate("JudgeCaseList" as any)}
         />
 
         <ActionCard 
-          icon="document-text" 
+          icon="hammer" 
           title="Rendre une Décision" 
-          desc="Saisir un verdict ou une ordonnance."
+          desc="Saisir un verdict, un non-lieu ou une relaxe."
           color="#10B981"
           colors={colors}
-          onPress={() => navigation.navigate("CreateDecision" as any)}
+          onPress={() => navigation.navigate("JudgeDecisions" as any)} // Vers l'historique des décisions
         />
 
         {/* 🛠️ 5. OUTILS PROFESSIONNELS */}
-        <Text style={[styles.sectionHeader, { color: colors.textSub }]}>Outils Professionnels</Text>
+        <Text style={[styles.sectionHeader, { color: colors.textSub }]}>Outils du Quotidien</Text>
         <View style={styles.toolsRow}>
-            <ToolBtn icon="today-outline" label="Agenda" color={primaryColor} colors={colors} onPress={() => navigation.navigate("JudgeCalendar" as any)} />
-            <ToolBtn icon="library-outline" label="Codes" color={primaryColor} colors={colors} onPress={() => Alert.alert("Bibliothèque", "Accès aux Codes du Niger sécurisé.")} />
-            <ToolBtn icon="key-outline" label="Signature" color={primaryColor} colors={colors} onPress={() => navigation.navigate("Profile")} />
+            <ToolBtn 
+                icon="calendar-outline" 
+                label="Calendrier" 
+                color={JUDGE_ACCENT} 
+                colors={colors} 
+                onPress={() => navigation.navigate("JudgeHearing" as any)} 
+            />
+            <ToolBtn 
+                icon="library-outline" 
+                label="Code Pénal" 
+                color={JUDGE_ACCENT} 
+                colors={colors} 
+                onPress={() => Alert.alert("Bibliothèque", "Accès aux Codes du Niger sécurisé.")} 
+            />
+            <ToolBtn 
+                icon="archive-outline" 
+                label="Archives" 
+                color={JUDGE_ACCENT} 
+                colors={colors} 
+                onPress={() => navigation.navigate("JudgeDecisions" as any)} 
+            />
         </View>
 
         <View style={{ height: 140 }} />
@@ -229,12 +246,12 @@ const styles = StyleSheet.create({
   oathBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 12, borderRadius: 15, marginBottom: 30, borderWidth: 1, gap: 10 },
   oathText: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 },
   statsContainer: { flexDirection: "row", justifyContent: "space-between", marginBottom: 35 },
-  statCard: { width: "31%", paddingVertical: 20, borderRadius: 24, alignItems: "center", borderWidth: 1, elevation: 2 },
+  statCard: { width: "31%", paddingVertical: 20, borderRadius: 24, alignItems: "center", borderWidth: 1, elevation: 2, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 5 },
   iconCircle: { width: 44, height: 44, borderRadius: 14, justifyContent: "center", alignItems: "center" },
   statNumber: { fontSize: 24, fontWeight: "900", marginTop: 8 },
   statLabel: { fontSize: 9, fontWeight: "800", textTransform: 'uppercase', marginTop: 4 },
   sectionHeader: { fontSize: 11, fontWeight: "900", textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 15, marginTop: 10, marginLeft: 4 },
-  actionCard: { flexDirection: "row", alignItems: "center", padding: 16, borderRadius: 22, marginBottom: 15, borderWidth: 1, elevation: 2 },
+  actionCard: { flexDirection: "row", alignItems: "center", padding: 16, borderRadius: 22, marginBottom: 15, borderWidth: 1, elevation: 2, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 5 },
   iconBox: { width: 52, height: 52, borderRadius: 16, justifyContent: "center", alignItems: "center", marginRight: 15 },
   actionContent: { flex: 1 },
   actionTitle: { fontSize: 15, fontWeight: "800" },
