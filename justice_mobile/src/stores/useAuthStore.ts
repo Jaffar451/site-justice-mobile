@@ -2,9 +2,11 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User } from '../types/user';
-// ✅ AJOUT : Import de register as apiRegister
 import { login as apiLogin, logout as apiLogout, register as apiRegister } from '../services/auth.service';
 import { secureSet, secureDelete } from '../utils/secureStorage';
+
+// ✅ IMPORT CRITIQUE POUR LA NAVIGATION
+import { reset } from '../navigation/RootNavigation';
 
 interface AuthState {
   user: User | null;
@@ -16,7 +18,6 @@ interface AuthState {
   isHydrating: boolean;
 
   login: (identifier: string, password: string) => Promise<void>;
-  // ✅ AJOUT : Définition de la méthode register
   register: (data: any) => Promise<void>;
   logout: () => void;
   hydrate: () => Promise<void>;
@@ -37,35 +38,22 @@ export const useAuthStore = create<AuthState>()(
       login: async (identifier, password) => {
         set({ loading: true, error: null });
         try {
-          // 1. Appel API
           const response = await apiLogin(identifier, password);
-          
-          // ⚠️ CORRECTION : On force le type 'any' pour contourner l'erreur TypeScript
           const res = response as any; 
 
           console.log("🔍 LOGIN REPONSE COMPLETE:", JSON.stringify(res, null, 2));
 
-          // 2. Extraction des données (Compatible V1 et V2)
           const userData = res.data?.user || res.data?.data?.user || res.user;
-          
-          // Récupération des Tokens
           const accessToken = res.data?.tokens?.accessToken || res.data?.data?.tokens?.accessToken || res.tokens?.accessToken || res.token;
           const refreshToken = res.data?.tokens?.refreshToken || res.data?.data?.tokens?.refreshToken || res.tokens?.refreshToken;
 
-          // Vérification de sécurité
           if (!userData || !accessToken) {
-            throw new Error("Données utilisateur ou token manquants dans la réponse du serveur.");
+            throw new Error("Données utilisateur ou token manquants.");
           }
 
-          // 3. Sauvegarde sécurisée
           await secureSet('token', accessToken);
-          if (refreshToken) {
-            await secureSet('refreshToken', refreshToken);
-          }
+          if (refreshToken) await secureSet('refreshToken', refreshToken);
 
-          console.log("✅ ROLE DÉTECTÉ :", userData.role);
-
-          // 4. Mise à jour du Store
           set({
             user: userData,
             role: userData.role,
@@ -79,21 +67,19 @@ export const useAuthStore = create<AuthState>()(
           console.error("❌ Erreur Login Store:", err);
           set({
             loading: false,
-            // Affiche le message du backend si disponible, sinon le message d'erreur générique
             error: err.response?.data?.message || err.message || "Identifiant ou mot de passe incorrect.",
             isAuthenticated: false,
           });
         }
       },
 
-      // ✅ AJOUT : Implémentation de register sans supprimer le reste
       register: async (userData) => {
         set({ loading: true, error: null });
         try {
           const response = await apiRegister(userData);
           const res = response as any;
 
-          // Tentative de connexion automatique si le token est renvoyé
+          // Auto-login si le token est présent
           const token = res.token || res.data?.token;
           const user = res.user || res.data?.user;
 
@@ -101,7 +87,7 @@ export const useAuthStore = create<AuthState>()(
             await secureSet('token', token);
             set({ 
                user: user, 
-               role: user.role, // Important pour la redirection
+               role: user.role, 
                token: token, 
                isAuthenticated: true, 
                loading: false,
@@ -112,19 +98,36 @@ export const useAuthStore = create<AuthState>()(
           }
         } catch (err: any) {
           set({ 
-            loading: false,
+            loading: false, 
             error: err.response?.data?.message || "Erreur lors de l'inscription"
           });
           throw err;
         }
       },
 
+      // ✅ LOGOUT CORRIGÉ AVEC NAVIGATION
       logout: async () => {
-        try { await apiLogout(); } catch (e) {} 
-        finally {
+        try { 
+            await apiLogout(); 
+        } catch (e) {
+            console.log("Erreur API Logout (ignorable)", e);
+        } finally {
+          // 1. Nettoyage
           await secureDelete('token');
           await secureDelete('refreshToken');
-          set({ user: null, role: null, token: null, isAuthenticated: false, error: null });
+          
+          // 2. Mise à jour de l'état
+          set({ 
+              user: null, 
+              role: null, 
+              token: null, 
+              isAuthenticated: false, 
+              error: null,
+              isHydrating: false // Important pour ne pas bloquer le loading
+          });
+
+          // 3. 🚀 Redirection forcée vers Login pour éviter l'écran blanc
+          reset('Auth', { screen: 'Login' });
         }
       },
 
@@ -134,18 +137,17 @@ export const useAuthStore = create<AuthState>()(
 
       hydrate: async () => {
         set({ isHydrating: true });
+        // Simule un délai court pour laisser le temps à 'persist' de charger depuis AsyncStorage
         setTimeout(() => set({ isHydrating: false }), 500);
       }
     }),
     {
       name: 'auth-storage',
       storage: createJSONStorage(() => AsyncStorage),
-      // ✅ MODIFICATION CRUCIALE ICI : J'ai ajouté 'token' à la liste
-      // Cela permet de garder le token en mémoire même après un refresh (F5)
       partialize: (state) => ({ 
         user: state.user, 
         role: state.role, 
-        token: state.token, // <--- AJOUTÉ
+        token: state.token, 
         isAuthenticated: state.isAuthenticated 
       }), 
     }
