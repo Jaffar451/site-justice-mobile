@@ -1,29 +1,38 @@
 // PATH: src/navigation/stacks/UserStack.tsx
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../../types/navigation';
+import { AdminStackParamList } from '../../types/navigation';
 
-// --- Écrans Gestion des Utilisateurs (RH Admin) ---
+// --- 👥 Écrans Gestion des Utilisateurs (RH Admin) ---
 import AdminUsersScreen from '../../screens/admin/AdminUsersScreen';
 import AdminCreateUserScreen from '../../screens/admin/AdminCreateUserScreen';
 import AdminUserDetailsScreen from '../../screens/admin/AdminUserDetailsScreen';
 import AdminEditUserScreen from '../../screens/admin/AdminEditUserScreen';
 
-// --- Écrans Contexte & Pilotage ---
+// --- 🏢 Écrans Contexte & Pilotage ---
 import ManageStationsScreen from '../../screens/admin/ManageStationsScreen';
 import AdminStatsScreen from '../../screens/admin/AdminStatsScreen';
 import AdminNotificationsScreen from '../../screens/admin/AdminNotificationsScreen';
 import NationalMapScreen from '../../screens/admin/NationalMapScreen';
 
-// --- Écrans Profil & Système (Partagés) ---
+// --- 🌍 Écrans Profil & Système (Partagés) ---
 import ProfileScreen from '../../screens/Profile/ProfileScreen';
 import EditProfileScreen from '../../screens/Profile/EditProfileScreen';
-import SosDetailScreen from '../../screens/police/SosDetailScreen';
+import SettingsScreen from '../../screens/Settings/SettingsScreen'; // ✅ Vrai écran
+import AboutScreen from '../../screens/shared/AboutScreen'; // ✅ Vrai écran
 import MyDownloadsScreen from '../../screens/citizen/MyDownloadsScreen';
 import UserGuideScreen from '../../screens/shared/UserGuideScreen';
 import SupportScreen from '../../screens/shared/SupportScreen';
 
-const Stack = createNativeStackNavigator<RootStackParamList>();
+// --- 🚨 Écrans Transversaux ---
+import SosDetailScreen from '../../screens/police/SosDetailScreen';
+
+// ✅ TYPAGE HYBRIDE : Admin + SosDetail
+type UserStackParams = AdminStackParamList & {
+  SosDetail: { alert: any };
+};
+
+const Stack = createNativeStackNavigator<UserStackParams>();
 
 export const UserStack = () => (
   <Stack.Navigator 
@@ -36,37 +45,44 @@ export const UserStack = () => (
     {/* ==========================================
         👥 GESTION DES AGENTS ET DES RÔLES
     ========================================== */}
-    <Stack.Screen name="AdminUsers" component={AdminUsersScreen as any} />
-    <Stack.Screen name="AdminCreateUser" component={AdminCreateUserScreen as any} />
-    <Stack.Screen name="AdminUserDetails" component={AdminUserDetailsScreen as any} />
-    <Stack.Screen name="AdminEditUser" component={AdminEditUserScreen as any} />
+    <Stack.Screen name="AdminUsers" component={AdminUsersScreen} />
+    <Stack.Screen name="AdminCreateUser" component={AdminCreateUserScreen} />
+    <Stack.Screen name="AdminUserDetails" component={AdminUserDetailsScreen} />
+    <Stack.Screen name="AdminEditUser" component={AdminEditUserScreen} />
 
     {/* ==========================================
         🏢 CONTEXTE OPÉRATIONNEL & PERFORMANCE
     ========================================== */}
-    <Stack.Screen name="ManageStations" component={ManageStationsScreen as any} />
-    <Stack.Screen name="AdminStats" component={AdminStatsScreen as any} />
-    <Stack.Screen name="NationalMap" component={NationalMapScreen as any} />
+    <Stack.Screen name="ManageStations" component={ManageStationsScreen} />
+    <Stack.Screen name="AdminStats" component={AdminStatsScreen} />
+    <Stack.Screen name="NationalMap" component={NationalMapScreen} />
 
     {/* ==========================================
         👤 COMPTE & IDENTITÉ NUMÉRIQUE
     ========================================== */}
     <Stack.Screen name="Profile" component={ProfileScreen} />
     <Stack.Screen name="EditProfile" component={EditProfileScreen} />
-    <Stack.Screen name="Settings" component={ProfileScreen as any} /> 
+    <Stack.Screen name="Settings" component={SettingsScreen} /> 
+    
+    <Stack.Screen name="AdminNotifications" component={AdminNotificationsScreen} />
+    {/* Alias pour la navigation partagée */}
     <Stack.Screen name="Notifications" component={AdminNotificationsScreen as any} />
 
     {/* ==========================================
         🗺️ ALERTES SOS & DOCUMENTS
     ========================================== */}
+    {/* Route hybride autorisée grâce à UserStackParams */}
     <Stack.Screen name="SosDetail" component={SosDetailScreen as any} />
-    <Stack.Screen name="MyDownloads" component={MyDownloadsScreen as any} />
+    <Stack.Screen name="MyDownloads" component={MyDownloadsScreen} />
 
     {/* ==========================================
         ℹ️ ASSISTANCE & SUPPORT TECHNIQUE
     ========================================== */}
     <Stack.Screen name="UserGuide" component={UserGuideScreen} />
+    {/* Alias HelpCenter */}
+    <Stack.Screen name="HelpCenter" component={UserGuideScreen} />
     <Stack.Screen name="Support" component={SupportScreen} />
+    <Stack.Screen name="About" component={AboutScreen} />
 
   </Stack.Navigator>
 );

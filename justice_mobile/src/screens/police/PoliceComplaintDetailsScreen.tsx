@@ -1,47 +1,61 @@
-// PATH: src/screens/police/PoliceComplaintDetailsScreen.tsx
-import React, { useEffect, useState } from "react";
-import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView,
-  ActivityIndicator, Alert, Image, Platform, KeyboardAvoidingView, StatusBar
-} from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import * as ImagePicker from "expo-image-picker";
+import React, { useState } from 'react';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  ScrollView, 
+  TouchableOpacity, 
+  ActivityIndicator, 
+  Alert,
+  StatusBar,
+  Platform 
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
-// ✅ Architecture & Logic
-import { useAuthStore } from "../../stores/useAuthStore";
-import { useAppTheme } from "../../theme/AppThemeProvider";
-import { PoliceScreenProps } from "../../types/navigation";
+// ✅ Architecture
+import { useAppTheme } from '../../theme/AppThemeProvider';
+import { PoliceScreenProps } from '../../types/navigation';
+import { useAuthStore } from '../../stores/useAuthStore';
 
-// ✅ UI Components
-import ScreenContainer from "../../components/layout/ScreenContainer";
-import AppHeader from "../../components/layout/AppHeader";
-import SmartFooter from "../../components/layout/SmartFooter";
+// Composants
+import ScreenContainer from '../../components/layout/ScreenContainer';
+import AppHeader from '../../components/layout/AppHeader';
+import SmartFooter from '../../components/layout/SmartFooter';
 
-// ✅ Services
-import {
-  getComplaintById,
-  uploadAttachment,
-  deleteAttachment,
-  updateComplaint,
-  submitToCommissaire
-} from "../../services/complaint.service";
-import { generateComplaintPDF } from "../../services/pdf.service";
+// Services
+import { getComplaintById, updateComplaintStatus } from '../../services/complaint.service';
 
-export default function PoliceComplaintDetailsScreen({ route, navigation }: PoliceScreenProps<'PoliceComplaintDetails'>) {
+export default function PoliceComplaintDetailScreen({ route, navigation }: PoliceScreenProps<'PoliceComplaintDetails'>) {
   const { theme, isDark } = useAppTheme();
-  const primaryColor = theme.colors.primary;
   const { user } = useAuthStore();
+  const queryClient = useQueryClient();
   
-  // Extraction sécurisée du paramètre
+  // 🔵 Identité Visuelle Police
+  const POLICE_BLUE = "#1E40AF"; // Bleu foncé officiel
+
+  // Récupération de l'ID via la navigation
   const { complaintId } = route.params;
 
-  // États locaux
-  const [complaint, setComplaint] = useState<any | null>(null);
-  const [pv, setPv] = useState("");
-  const [offence, setOffence] = useState("");
-  const [signature, setSignature] = useState<string | null>(null); // Stockage de la signature Base64
-  const [loading, setLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  // 1. Récupération des données
+  const { data: complaint, isLoading, error } = useQuery({
+    queryKey: ['complaint', complaintId],
+    queryFn: () => getComplaintById(complaintId),
+    retry: 1 // On ne réessaie qu'une fois si erreur 500
+  });
+
+  // 2. Mutation pour changer le statut (Prise en charge)
+  const mutation = useMutation({
+    mutationFn: (newStatus: string) => updateComplaintStatus(complaintId, newStatus),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['complaint', complaintId] });
+      queryClient.invalidateQueries({ queryKey: ['police-complaints'] }); // Rafraîchir la liste
+      Alert.alert("Succès", "Le statut du dossier a été mis à jour.");
+    },
+    onError: () => {
+      Alert.alert("Erreur", "Impossible de mettre à jour le statut.");
+    }
+  });
 
   const colors = {
     bgMain: isDark ? "#0F172A" : "#F8FAFC",
@@ -49,283 +63,127 @@ export default function PoliceComplaintDetailsScreen({ route, navigation }: Poli
     textMain: isDark ? "#FFFFFF" : "#1E293B",
     textSub: isDark ? "#94A3B8" : "#64748B",
     border: isDark ? "#334155" : "#E2E8F0",
-    inputBg: isDark ? "#0F172A" : "#FFFFFF",
-    disabled: isDark ? "#1E293B" : "#F1F5F9"
+    headerBg: isDark ? "#172554" : "#EFF6FF",
   };
 
-  const isGendarme = user?.role === "gendarme";
-  const superiorLabel = isGendarme ? "Cdt de Brigade" : "Commissaire";
-  const unitLabel = isGendarme ? "Brigade" : "Commissariat";
+  // ⚠️ Gestion de l'erreur 500 (celle de vos logs)
+  if (error) {
+    return (
+      <ScreenContainer>
+        <AppHeader title="Erreur Dossier" showBack />
+        <View style={styles.center}>
+          <Ionicons name="warning" size={50} color="#EF4444" />
+          <Text style={[styles.errorText, { color: colors.textMain }]}>
+            Impossible de charger le dossier #{complaintId}.
+          </Text>
+          <Text style={{color: colors.textSub, textAlign: 'center', marginTop: 10}}>
+            Le serveur ne répond pas (Erreur 500). Ce dossier est peut-être corrompu.
+          </Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={() => navigation.goBack()}>
+            <Text style={{color: '#FFF', fontWeight: 'bold'}}>Retourner à la liste</Text>
+          </TouchableOpacity>
+        </View>
+      </ScreenContainer>
+    );
+  }
 
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      const data = await getComplaintById(complaintId);
-      setComplaint(data);
-      setPv(data.pvDetails || ""); 
-      setOffence(data.provisionalOffence || "");
-    } catch (error) {
-      Alert.alert("Erreur", "Impossible de charger les détails du dossier.");
-      navigation.goBack();
-    } finally {
-      setLoading(false);
-    }
-  };
+  if (isLoading || !complaint) {
+    return (
+      <ScreenContainer>
+        <AppHeader title="Chargement..." showBack />
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={POLICE_BLUE} />
+        </View>
+      </ScreenContainer>
+    );
+  }
 
-  useEffect(() => { loadData(); }, [complaintId]);
+  // --- ACTIONS MÉTIER ---
 
-  /**
-   * 📄 GÉNÉRATION DU PDF (Avec signature si disponible)
-   */
-  const handlePrint = async () => {
-    if (!complaint) return;
-    try {
-      await generateComplaintPDF(complaint, signature || undefined);
-    } catch (error) {
-      Alert.alert("Erreur PDF", "Échec de la génération du document.");
-    }
-  };
-
-  /**
-   * ✍️ CAPTURE DE LA SIGNATURE
-   */
-  const handleCaptureSignature = () => {
-    navigation.navigate("SignatureCapture" as any, {
-      title: "Signature du déclarant",
-      onSave: (base64: string) => {
-        setSignature(base64);
-        Alert.alert("Signature enregistrée", "La signature a été apposée sur le dossier numérique.");
-      }
-    });
-  };
-
-  /**
-   * 📸 AJOUT DE SCELLÉ (Image)
-   */
-  const handleAddProof = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') return Alert.alert("Permission", "Accès galerie requis.");
-
-    const pick = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.5,
-    });
-
-    if (!pick.canceled && pick.assets[0]) {
-      try {
-        setIsSubmitting(true);
-        await uploadAttachment(complaintId, {
-          uri: pick.assets[0].uri,
-          name: `SCELLÉ_RG${complaintId}_${Date.now()}.jpg`,
-          type: "image/jpeg",
-        });
-        await loadData();
-      } catch (e) {
-        Alert.alert("Erreur", "L'upload a échoué.");
-      } finally {
-        setIsSubmitting(false);
-      }
-    }
-  };
-
-  /**
-   * ⚖️ TRANSMISSION À LA HIÉRARCHIE (VISA)
-   */
-  const handleTransmit = async () => {
-    if (!offence.trim() || pv.trim().length < 15) {
-      return Alert.alert("Incomplet", "La qualification juridique et le rapport d'enquête sont obligatoires.");
-    }
-    
+  const handleTakeCharge = () => {
     Alert.alert(
-      "Transmission pour Visa ⚖️",
-      `Voulez-vous transmettre ce PV au ${superiorLabel} pour validation finale ?`,
+      "Prise en charge",
+      "Voulez-vous ouvrir une enquête préliminaire sur ce dossier ? Le plaignant sera notifié.",
       [
         { text: "Annuler", style: "cancel" },
-        { 
-          text: "Transmettre", 
-          onPress: async () => {
-            try {
-              setIsSubmitting(true);
-              // Mise à jour des informations OPJ
-              await updateComplaint(Number(complaintId), { 
-                provisionalOffence: offence, 
-                pvDetails: pv,
-                status: "attente_validation" 
-              } as any);
-              
-              await submitToCommissaire(complaintId);
-              
-              Alert.alert("Succès", `Dossier transmis avec succès au ${superiorLabel}.`);
-              navigation.navigate("PoliceHome");
-            } catch (e) {
-              Alert.alert("Erreur", "La transmission a échoué. Vérifiez votre connexion.");
-            } finally {
-              setIsSubmitting(false);
-            }
-          }
-        }
+        { text: "Ouvrir Enquête", onPress: () => mutation.mutate('en_cours') }
       ]
     );
   };
 
-  const steps = [
-    { key: "soumise", label: "Dépôt" },
-    { key: "en_cours_OPJ", label: "Enquête" },
-    { key: "attente_validation", label: "Visa" },
-    { key: "transmise_parquet", label: "Parquet" },
-  ];
-  
-  const activeIndex = complaint ? steps.findIndex((s) => s.key === complaint.status) : 0;
-  const isEditable = complaint?.status === "en_cours_OPJ" || complaint?.status === "soumise";
-  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=RG-${complaintId}`;
-
-  if (loading) return (
-    <ScreenContainer withPadding={false}>
-      <AppHeader title="Chargement..." showBack />
-      <View style={[styles.center, { backgroundColor: colors.bgMain }]}><ActivityIndicator size="large" color={primaryColor} /></View>
-    </ScreenContainer>
-  );
+  const handleGenerateSummon = () => {
+    navigation.navigate('CreateSummon', { complaintId: complaint.id });
+  };
 
   return (
     <ScreenContainer withPadding={false}>
       <StatusBar barStyle="light-content" />
-      <AppHeader title={`Dossier RG-${complaintId}`} showBack />
-      
-      <View style={{ flex: 1, backgroundColor: colors.bgMain }}>
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === "ios" ? "padding" : undefined} 
-          style={{ flex: 1 }}
-          keyboardVerticalOffset={100}
-        >
-          <ScrollView 
-            contentContainerStyle={styles.scrollPadding} 
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
+      <AppHeader title={`Dossier N° ${complaint.id}`} showBack={true} />
+
+      <ScrollView contentContainerStyle={styles.container} style={{ backgroundColor: colors.bgMain }}>
+        
+        {/* 📋 EN-TÊTE DU DOSSIER */}
+        <View style={[styles.headerCard, { backgroundColor: colors.headerBg, borderColor: POLICE_BLUE }]}>
+          <View style={styles.rowBetween}>
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{complaint.status.toUpperCase().replace('_', ' ')}</Text>
+            </View>
+            <Text style={[styles.date, { color: colors.textSub }]}>
+              {new Date(complaint.filedAt).toLocaleDateString('fr-FR')}
+            </Text>
+          </View>
+          <Text style={[styles.title, { color: POLICE_BLUE }]}>
+            {complaint.type || "Plainte contre X"}
+          </Text>
+          <Text style={[styles.subtitle, { color: colors.textSub }]}>
+            Plaignant : {complaint.citizen ? `${complaint.citizen.lastname} ${complaint.citizen.firstname}` : "Anonyme"}
+          </Text>
+        </View>
+
+        {/* 📝 DESCRIPTION DES FAITS */}
+        <View style={[styles.card, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+          <Text style={[styles.sectionTitle, { color: colors.textSub }]}>RÉCIT DES FAITS</Text>
+          <Text style={[styles.description, { color: colors.textMain }]}>
+            {complaint.description}
+          </Text>
+        </View>
+
+        {/* 📍 ACTIONS POLICIÈRES */}
+        <Text style={[styles.sectionHeader, { color: colors.textSub }]}>Procédure Policière</Text>
+        
+        <View style={styles.actionGrid}>
+          {/* BOUTON 1 : PRENDRE EN CHARGE */}
+          {complaint.status === 'nouvelle' || complaint.status === 'en_attente' ? (
+            <TouchableOpacity 
+              style={[styles.actionBtn, { backgroundColor: POLICE_BLUE }]}
+              onPress={handleTakeCharge}
+            >
+              <Ionicons name="folder-open" size={24} color="#FFF" />
+              <Text style={styles.actionBtnText}>OUVRIR ENQUÊTE</Text>
+            </TouchableOpacity>
+          ) : null}
+
+          {/* BOUTON 2 : CONVOCATION */}
+          <TouchableOpacity 
+            style={[styles.actionBtn, { backgroundColor: colors.bgCard, borderColor: POLICE_BLUE, borderWidth: 1 }]}
+            onPress={handleGenerateSummon}
           >
-            {/* CARTE ENTÊTE : DÉCLARATION INITIALE */}
-            <View style={[styles.headerCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-              <View style={styles.badgeRow}>
-                <View style={[styles.unitBadge, { backgroundColor: primaryColor + "15" }]}>
-                    <Text style={[styles.unitText, { color: primaryColor }]}>{unitLabel.toUpperCase()}</Text>
-                </View>
-                <TouchableOpacity activeOpacity={0.7} onPress={handlePrint} style={[styles.printBtn, { backgroundColor: primaryColor }]}>
-                    <Ionicons name="print" size={16} color="#fff" />
-                    <Text style={styles.printText}>GÉNÉRER PV</Text>
-                </TouchableOpacity>
-              </View>
-              <Text style={[styles.sectionLabel, { color: primaryColor, marginTop: 15 }]}>FAITS DÉCLARÉS :</Text>
-              <Text style={[styles.descriptionText, { color: colors.textMain }]}>{complaint?.description}</Text>
-            </View>
+            <Ionicons name="mail-outline" size={24} color={POLICE_BLUE} />
+            <Text style={[styles.actionBtnText, { color: POLICE_BLUE }]}>CONVOQUER</Text>
+          </TouchableOpacity>
 
-            {/* TIMELINE DE PROCÉDURE */}
-            <View style={styles.timelineWrapper}>
-                {steps.map((s, i) => (
-                    <View key={s.key} style={styles.stepItem}>
-                        <View style={[styles.dot, { backgroundColor: i <= activeIndex ? primaryColor : colors.border }]} />
-                        <Text style={[styles.stepLabel, { color: i === activeIndex ? primaryColor : colors.textSub }]}>{s.label}</Text>
-                    </View>
-                ))}
-            </View>
+          {/* BOUTON 3 : PROCÈS-VERBAL */}
+          <TouchableOpacity 
+            style={[styles.actionBtn, { backgroundColor: colors.bgCard, borderColor: colors.border, borderWidth: 1 }]}
+            onPress={() => navigation.navigate("PolicePVScreen", { complaintId: Number(complaintId) })}
+          >
+            <Ionicons name="document-text-outline" size={24} color={colors.textMain} />
+            <Text style={[styles.actionBtnText, { color: colors.textMain }]}>RÉDIGER PV</Text>
+          </TouchableOpacity>
+        </View>
 
-            {/* SCELLÉ NUMÉRIQUE (QR CODE) */}
-            <View style={[styles.qrCard, { backgroundColor: isDark ? "#0c4a6e" : "#F0F9FF", borderColor: primaryColor + "30" }]}>
-                <Image source={{ uri: qrCodeUrl }} style={styles.qrImage} />
-                <View style={{ flex: 1, marginLeft: 15 }}>
-                    <Text style={[styles.qrTitle, { color: isDark ? "#bae6fd" : "#0c4a6e" }]}>Scellé Numérique</Text>
-                    <Text style={[styles.qrSub, { color: isDark ? "#7dd3fc" : "#0369a1" }]}>Vérification CID : {complaint?.trackingCode || 'Authentification en cours...'}</Text>
-                </View>
-            </View>
-
-            {/* TRAVAIL DE L'OPJ */}
-            <View style={styles.formContainer}>
-                <Text style={[styles.inputLabel, { color: colors.textSub }]}>Qualification Juridique Provisoire *</Text>
-                <TextInput
-                    style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textMain }, !isEditable && { backgroundColor: colors.disabled }]}
-                    value={offence}
-                    onChangeText={setOffence}
-                    placeholder="Ex: Vol de bétail, Escroquerie..."
-                    placeholderTextColor={colors.textSub}
-                    editable={isEditable}
-                />
-
-                <Text style={[styles.inputLabel, { color: colors.textSub }]}>Rapport de Synthèse OPJ *</Text>
-                <TextInput
-                    style={[styles.textArea, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textMain }, !isEditable && { backgroundColor: colors.disabled }]}
-                    multiline
-                    numberOfLines={8}
-                    value={pv}
-                    onChangeText={setPv}
-                    placeholder="Détaillez ici vos constatations et les actes d'enquête effectués..."
-                    placeholderTextColor={colors.textSub}
-                    editable={isEditable}
-                    textAlignVertical="top"
-                />
-
-                {/* SIGNATURE TACTILE */}
-                {isEditable && (
-                  <TouchableOpacity 
-                    style={[styles.sigBtn, { borderColor: signature ? "#10B981" : colors.border }]} 
-                    onPress={handleCaptureSignature}
-                  >
-                    <Ionicons name={signature ? "checkmark-circle" : "create-outline"} size={20} color={signature ? "#10B981" : primaryColor} />
-                    <Text style={[styles.sigBtnText, { color: signature ? "#10B981" : colors.textMain }]}>
-                      {signature ? "Signature du déclarant recueillie" : "Recueillir la signature du plaignant"}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-
-                {/* GESTION DES SCELLÉS (PIÈCES JOINTES) */}
-                <View style={styles.evidenceHeader}>
-                    <Text style={[styles.inputLabel, { color: colors.textSub }]}>Pièces à conviction (Scellés)</Text>
-                    {isEditable && (
-                        <TouchableOpacity activeOpacity={0.7} onPress={handleAddProof} style={[styles.actionBtn, { backgroundColor: primaryColor }]}>
-                            <Ionicons name="camera" size={20} color="#fff" />
-                        </TouchableOpacity>
-                    )}
-                </View>
-
-                <View style={styles.evidenceGrid}>
-                    {complaint?.attachments?.map((file: any) => (
-                        <View key={file.id} style={[styles.evidenceCard, { borderColor: colors.border }]}>
-                            <Image source={{ uri: file.file_url || file.url }} style={styles.attachmentImg} />
-                            {isEditable && (
-                                <TouchableOpacity 
-                                  style={styles.deleteBadge} 
-                                  onPress={() => deleteAttachment(file.id).then(loadData)}
-                                >
-                                    <Ionicons name="close" size={14} color="#EF4444" />
-                                </TouchableOpacity>
-                            )}
-                        </View>
-                    ))}
-                </View>
-
-                {/* ACTIONS FINALES */}
-                {isEditable ? (
-                    <TouchableOpacity 
-                        activeOpacity={0.8}
-                        style={[styles.mainBtn, { backgroundColor: primaryColor, opacity: isSubmitting ? 0.7 : 1 }]} 
-                        onPress={handleTransmit}
-                        disabled={isSubmitting}
-                    >
-                      {isSubmitting ? <ActivityIndicator color="#fff" /> : (
-                          <>
-                              <Text style={styles.mainBtnText}>TRANSMETTRE POUR VISA</Text>
-                              <Ionicons name="shield-checkmark" size={18} color="#fff" />
-                          </>
-                      )}
-                    </TouchableOpacity>
-                ) : (
-                  <View style={[styles.lockedContainer, { backgroundColor: isDark ? "#1e1b4b" : "#EEF2FF", borderColor: "#C7D2FE" }]}>
-                    <Ionicons name="lock-closed" size={18} color={primaryColor} />
-                    <Text style={[styles.lockedText, { color: primaryColor }]}>Ce dossier est en cours de validation par la hiérarchie.</Text>
-                  </View>
-                )}
-            </View>
-            <View style={{ height: 100 }} />
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </View>
+        <View style={{ height: 40 }} />
+      </ScrollView>
 
       <SmartFooter />
     </ScreenContainer>
@@ -333,38 +191,26 @@ export default function PoliceComplaintDetailsScreen({ route, navigation }: Poli
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  scrollPadding: { padding: 20, paddingBottom: 120 },
-  headerCard: { padding: 18, borderRadius: 20, borderWidth: 1, elevation: 2, marginBottom: 25 },
-  badgeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  unitBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
-  unitText: { fontWeight: '900', fontSize: 10 },
-  printBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  printText: { color: "#fff", fontSize: 10, fontWeight: "900" },
-  sectionLabel: { fontSize: 10, fontWeight: "900", letterSpacing: 0.5 },
-  descriptionText: { fontSize: 14, marginTop: 8, lineHeight: 20, fontWeight: "500" },
-  timelineWrapper: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 30, paddingHorizontal: 5 },
-  stepItem: { alignItems: 'center', flex: 1 },
-  dot: { width: 8, height: 8, borderRadius: 4, marginBottom: 5 },
-  stepLabel: { fontSize: 9, fontWeight: '800' },
-  qrCard: { flexDirection: "row", padding: 15, borderRadius: 18, marginBottom: 25, alignItems: "center", borderStyle: "dashed", borderWidth: 1 },
-  qrImage: { width: 50, height: 50, borderRadius: 8, backgroundColor: '#fff' },
-  qrTitle: { fontSize: 14, fontWeight: "900" },
-  qrSub: { fontSize: 10, marginTop: 2 },
-  formContainer: { paddingBottom: 20 },
-  inputLabel: { fontSize: 11, fontWeight: "900", marginTop: 15, marginBottom: 8, textTransform: 'uppercase' },
-  input: { padding: 14, borderRadius: 12, fontSize: 15, borderWidth: 1.5, fontWeight: "700" },
-  textArea: { padding: 14, borderRadius: 12, height: 160, fontSize: 15, borderWidth: 1.5, fontWeight: "500" },
-  sigBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 15, borderRadius: 12, borderWidth: 1, marginTop: 15, borderStyle: 'dashed' },
-  sigBtnText: { fontSize: 13, fontWeight: '700' },
-  evidenceHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 },
-  actionBtn: { width: 38, height: 38, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
-  evidenceGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12 },
-  evidenceCard: { width: 80, height: 80, borderRadius: 12, borderWidth: 1, overflow: 'hidden' },
-  attachmentImg: { width: '100%', height: '100%' },
-  deleteBadge: { position: 'absolute', top: 2, right: 2, backgroundColor: '#FFF', borderRadius: 10, padding: 3 },
-  mainBtn: { marginTop: 35, height: 58, borderRadius: 16, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10, elevation: 3 },
-  mainBtnText: { color: '#fff', fontWeight: '900', fontSize: 13 },
-  lockedContainer: { flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 14, marginTop: 25, gap: 10, borderWidth: 1 },
-  lockedText: { fontSize: 11, fontWeight: '700', flex: 1 }
+  container: { padding: 20 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+  
+  headerCard: { padding: 20, borderRadius: 20, borderWidth: 1, borderLeftWidth: 6, marginBottom: 20 },
+  rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  badge: { backgroundColor: '#DBEAFE', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  badgeText: { color: '#1E40AF', fontSize: 10, fontWeight: '900' },
+  date: { fontSize: 12, fontStyle: 'italic' },
+  title: { fontSize: 18, fontWeight: '900', marginBottom: 5 },
+  subtitle: { fontSize: 14, fontWeight: '600' },
+
+  card: { padding: 20, borderRadius: 20, borderWidth: 1, marginBottom: 25 },
+  sectionTitle: { fontSize: 11, fontWeight: '900', textTransform: 'uppercase', marginBottom: 10, letterSpacing: 1 },
+  description: { fontSize: 15, lineHeight: 24, textAlign: 'justify' },
+
+  sectionHeader: { fontSize: 14, fontWeight: '800', marginBottom: 15, textTransform: 'uppercase' },
+  actionGrid: { gap: 15 },
+  actionBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 18, borderRadius: 16, gap: 10, elevation: 2 },
+  actionBtnText: { fontWeight: '900', fontSize: 14, letterSpacing: 0.5 },
+
+  errorText: { fontSize: 16, fontWeight: 'bold', marginTop: 15, textAlign: 'center' },
+  retryBtn: { marginTop: 20, backgroundColor: '#1E40AF', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 10 }
 });

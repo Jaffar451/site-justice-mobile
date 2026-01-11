@@ -1,62 +1,64 @@
-// PATH: src/navigation/stacks/CourtStack.tsx
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../../types/navigation';
+import { AdminStackParamList } from '../../types/navigation';
 
-// --- Écrans Gestion des Tribunaux (Infrastructures) ---
+// --- 🏛️ Écrans Gestion des Juridictions ---
 import AdminCourtsScreen from '../../screens/admin/AdminCourtsScreen';
 import AdminCreateCourtScreen from '../../screens/admin/AdminCreateCourtScreen';
-
-// --- Écrans Contextuels & Pilotage ---
+import ManageStationsScreen from '../../screens/admin/ManageStationsScreen'; // Stations (Commissariats)
 import NationalMapScreen from '../../screens/admin/NationalMapScreen';
-import AdminStatsScreen from '../../screens/admin/AdminStatsScreen';
-import AdminNotificationsScreen from '../../screens/admin/AdminNotificationsScreen';
 
-// --- Écrans Partagés (Profil & Support) ---
+// --- 🌍 Écrans PARTAGÉS (Système & Support) ---
 import ProfileScreen from '../../screens/Profile/ProfileScreen';
 import EditProfileScreen from '../../screens/Profile/EditProfileScreen';
+import SettingsScreen from '../../screens/Settings/SettingsScreen';
+import AdminNotificationsScreen from '../../screens/admin/AdminNotificationsScreen';
 import UserGuideScreen from '../../screens/shared/UserGuideScreen';
 import SupportScreen from '../../screens/shared/SupportScreen';
+import AboutScreen from '../../screens/shared/AboutScreen';
+import MyDownloadsScreen from '../../screens/citizen/MyDownloadsScreen';
 
-const Stack = createNativeStackNavigator<RootStackParamList>();
+// On utilise AdminStackParamList car la gestion des cours est une fonction Admin
+const Stack = createNativeStackNavigator<AdminStackParamList>();
 
-export const CourtStack = () => (
-  <Stack.Navigator 
-    screenOptions={{ 
-      headerShown: false,
-      animation: 'slide_from_right'
-    }}
-    initialRouteName="AdminCourts"
-  >
-    {/* ==========================================
-        ⚖️ GESTION DES JURIDICTIONS (Tribunaux)
-    ========================================== */}
-    <Stack.Screen name="AdminCourts" component={AdminCourtsScreen} />
-    <Stack.Screen name="AdminCreateCourt" component={AdminCreateCourtScreen} />
+export default function CourtStack() {
+  return (
+    <Stack.Navigator 
+      initialRouteName="AdminCourts" 
+      screenOptions={{ 
+        headerShown: false,
+        animation: 'slide_from_right'
+      }}
+    >
+      {/* ==========================================
+          🏛️ GESTION DES TRIBUNAUX & STATIONS
+      ========================================== */}
+      <Stack.Screen name="AdminCourts" component={AdminCourtsScreen} />
+      <Stack.Screen name="AdminCreateCourt" component={AdminCreateCourtScreen} />
+      <Stack.Screen name="ManageStations" component={ManageStationsScreen} />
+      <Stack.Screen name="NationalMap" component={NationalMapScreen} />
 
-    {/* ==========================================
-        🗺️ CARTOGRAPHIE ET ANALYSE TERRITORIALE
-    ========================================== */}
-    {/* Visualisation de l'implantation des tribunaux sur le territoire nigérien */}
-    <Stack.Screen name="NationalMap" component={NationalMapScreen as any} />
-    
-    {/* Analyse du volume de traitement des dossiers par tribunal/juridiction */}
-    <Stack.Screen name="AdminStats" component={AdminStatsScreen as any} />
+      {/* ==========================================
+          👤 COMPTE & SYSTÈME
+      ========================================== */}
+      <Stack.Screen name="Profile" component={ProfileScreen} />
+      <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+      <Stack.Screen name="Settings" component={SettingsScreen} />
+      
+      {/* Notifications Admin */}
+      <Stack.Screen name="AdminNotifications" component={AdminNotificationsScreen} />
+      {/* Alias pour la navigation partagée */}
+      <Stack.Screen name="Notifications" component={AdminNotificationsScreen as any} />
 
-    {/* ==========================================
-        👤 COMPTE, SYSTÈME & NOTIFICATIONS
-    ========================================== */}
-    <Stack.Screen name="Profile" component={ProfileScreen} />
-    <Stack.Screen name="EditProfile" component={EditProfileScreen} />
-    <Stack.Screen name="Notifications" component={AdminNotificationsScreen as any} />
+      {/* ==========================================
+          ℹ️ AIDE & RESSOURCES
+      ========================================== */}
+      <Stack.Screen name="UserGuide" component={UserGuideScreen} />
+      <Stack.Screen name="HelpCenter" component={UserGuideScreen} /> {/* Alias */}
+      <Stack.Screen name="Support" component={SupportScreen} />
+      <Stack.Screen name="About" component={AboutScreen} />
+      <Stack.Screen name="MyDownloads" component={MyDownloadsScreen} />
 
-    {/* ==========================================
-        ℹ️ ASSISTANCE & DOCUMENTATION MJ
-    ========================================== */}
-    <Stack.Screen name="UserGuide" component={UserGuideScreen} />
-    <Stack.Screen name="Support" component={SupportScreen} />
-
-  </Stack.Navigator>
-);
-
-export default CourtStack;
+    </Stack.Navigator>
+  );
+}
