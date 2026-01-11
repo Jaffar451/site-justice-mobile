@@ -1,184 +1,256 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, ActivityIndicator, Alert } from 'react-native';
+import { 
+  View, Text, TextInput, TouchableOpacity, StyleSheet, 
+  Image, ActivityIndicator, Alert, Keyboard, 
+  KeyboardAvoidingView, Platform, ScrollView, Dimensions, StatusBar
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../stores/useAuthStore';
 import ScreenContainer from '../../components/layout/ScreenContainer';
-import { getAppTheme } from '../../theme';
+import { useAppTheme } from '../../theme/AppThemeProvider';
+
+const { width, height } = Dimensions.get('window');
 
 export default function LoginScreen() {
   const navigation = useNavigation<any>();
   const { login, loading, error } = useAuthStore();
-  const theme = getAppTheme(); 
+  const { theme, isDark } = useAppTheme();
 
   const [email, setEmail] = useState(''); 
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async () => {
+    Keyboard.dismiss();
+
     if (!email || !password) {
-      Alert.alert("Erreur", "Veuillez remplir tous les champs.");
+      Alert.alert("Champs requis", "Veuillez saisir votre identifiant et votre mot de passe.");
       return;
     }
 
     try {
-      // 1. Exécution du Login
       await login(email, password);
-
-      // 2. Récupération de l'utilisateur via l'état du store
-      const user = useAuthStore.getState().user;
-
-      if (user && user.role) {
-        console.log("✅ Connexion réussie, Rôle détecté :", user.role);
-
-        /**
-         * 3. REDIRECTION VERS LES STACKS DÉDIÉS
-         * Basé sur les fichiers dans src/navigation/stacks/
-         */
-        switch (user.role) {
-          case 'admin':
-            navigation.replace('AdminStack');
-            break;
-            
-          case 'officier_police':
-          case 'inspecteur':
-            navigation.replace('PoliceStack'); 
-            break;
-
-          case 'commissaire':
-            navigation.replace('CommissaireStack');
-            break;
-
-          case 'prosecutor':
-            navigation.replace('ProsecutorStack');
-            break;
-
-          case 'judge':
-            navigation.replace('JudgeStack');
-            break;
-
-          case 'greffier':
-            navigation.replace('ClerkStack'); // Dirige vers ClerkStack.tsx
-            break;
-
-          case 'lawyer':
-            navigation.replace('LawyerStack');
-            break;
-
-          case 'opj_gendarme':
-          case 'gendarme':
-            // Vous pouvez rediriger vers PoliceStack ou un stack Gendarmerie si existant
-            navigation.replace('PoliceStack');
-            break;
-
-          case 'citizen':
-          default:
-            navigation.replace('CitizenStack');
-            break;
-        }
-      }
     } catch (err: any) {
-      console.error("Erreur handleLogin:", err.message);
+      console.error("Erreur LoginScreen:", err.message);
     }
   };
 
+  // Couleur de bordure dynamique (sécurité si textSecondary n'existe pas)
+  const borderColor = (theme.colors as any).textSecondary || '#E2E8F0';
+  // Couleur de fond des inputs (plus sombre en dark mode)
+  const inputBg = isDark ? '#1E293B' : '#F8FAFC';
+
   return (
     <ScreenContainer withPadding={false}>
-      <View style={styles.header}>
-        <Image 
-          source={require('../../../assets/armoirie.png')} 
-          style={styles.logo}
-          resizeMode="contain"
-        />
-        <Text style={styles.title}>JUSTICE MOBILE</Text>
-        <Text style={styles.subtitle}>Niger • Portail Numérique Unifié</Text>
-      </View>
+      {/* Barre de statut adaptée à la couleur du header */}
+      <StatusBar barStyle="light-content" backgroundColor={theme.colors.primary} />
 
-      <View style={styles.form}>
-        <View style={styles.inputContainer}>
-          <Ionicons name="person-outline" size={20} color="#64748B" style={styles.icon} />
-          <TextInput
-            placeholder="Email ou Matricule"
-            style={styles.input}
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-          />
-        </View>
-
-        <View style={styles.inputContainer}>
-          <Ionicons name="lock-closed-outline" size={20} color="#64748B" style={styles.icon} />
-          <TextInput
-            placeholder="Mot de passe"
-            style={styles.input}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry={!showPassword}
-          />
-          <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-            <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={20} color="#64748B" />
-          </TouchableOpacity>
-        </View>
-
-        {error && (
-          <View style={styles.errorBox}>
-            <Ionicons name="alert-circle" size={16} color="#EF4444" />
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        )}
-
-        <TouchableOpacity 
-          style={[styles.loginBtn, { backgroundColor: theme.color }]} 
-          onPress={handleLogin}
-          disabled={loading}
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+      >
+        <ScrollView 
+          contentContainerStyle={{ flexGrow: 1 }}
+          bounces={false}
+          keyboardShouldPersistTaps="handled"
         >
-          {loading ? (
-            <ActivityIndicator color="#FFF" />
-          ) : (
-            <Text style={styles.loginText}>SE CONNECTER</Text>
-          )}
-        </TouchableOpacity>
+          
+          {/* 🟦 HEADER (Zone Colorée) */}
+          <View style={[styles.headerContainer, { backgroundColor: theme.colors.primary }]}>
+            <View style={styles.logoCircle}>
+              <Image 
+                source={require('../../../assets/armoirie.png')} 
+                style={styles.logo}
+                resizeMode="contain"
+              />
+            </View>
+            <Text style={styles.appTitle}>JUSTICE MOBILE</Text>
+            <Text style={styles.appSubtitle}>Niger • Portail Numérique Unifié</Text>
+          </View>
 
-        <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')} style={styles.forgotBtn}>
-          <Text style={styles.linkText}>Mot de passe oublié ?</Text>
-        </TouchableOpacity>
+          {/* ⬜ FORMULAIRE (Zone "Feuille" blanche/sombre) */}
+          <View style={[
+            styles.formContainer, 
+            { 
+              backgroundColor: theme.colors.background,
+              // Ombre portée vers le haut pour détacher le formulaire
+              shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 10, elevation: 20 
+            }
+          ]}>
+            
+            <View style={styles.formContent}>
+              <Text style={[styles.welcomeText, { color: theme.colors.text }]}>Connexion</Text>
+              <Text style={[styles.instructionText, { color: borderColor }]}>
+                Accédez à votre espace sécurisé
+              </Text>
 
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>Citoyen sans compte ? </Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-            <Text style={[styles.linkText, { color: theme.color }]}>S'enrôler ici</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+              {/* INPUT EMAIL */}
+              <View style={[styles.inputWrapper, { backgroundColor: inputBg, borderColor }]}>
+                <Ionicons name="person-outline" size={20} color="#64748B" style={styles.inputIcon} />
+                <TextInput
+                  placeholder="Email ou Matricule"
+                  placeholderTextColor="#94A3B8"
+                  style={[styles.textInput, { color: theme.colors.text }]}
+                  value={email}
+                  onChangeText={setEmail}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                />
+              </View>
+
+              {/* INPUT PASSWORD */}
+              <View style={[styles.inputWrapper, { backgroundColor: inputBg, borderColor }]}>
+                <Ionicons name="lock-closed-outline" size={20} color="#64748B" style={styles.inputIcon} />
+                <TextInput
+                  placeholder="Mot de passe"
+                  placeholderTextColor="#94A3B8"
+                  style={[styles.textInput, { color: theme.colors.text }]}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                />
+                <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeBtn}>
+                  <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={20} color="#64748B" />
+                </TouchableOpacity>
+              </View>
+
+              {/* LIEN MOT DE PASSE OUBLIÉ */}
+              <TouchableOpacity 
+                onPress={() => navigation.navigate('ForgotPassword')} 
+                style={styles.forgotBtn}
+              >
+                <Text style={[styles.forgotText, { color: theme.colors.text }]}>
+                  Mot de passe oublié ?
+                </Text>
+              </TouchableOpacity>
+
+              {/* MESSAGES D'ERREUR */}
+              {error && (
+                <View style={[styles.errorContainer, { backgroundColor: theme.colors.danger + '15' }]}>
+                  <Ionicons name="alert-circle" size={18} color={theme.colors.danger} />
+                  <Text style={[styles.errorText, { color: theme.colors.danger }]}>{error}</Text>
+                </View>
+              )}
+
+              {/* BOUTON CONNEXION */}
+              <TouchableOpacity 
+                style={[
+                  styles.loginBtn, 
+                  { 
+                    backgroundColor: theme.colors.primary,
+                    shadowColor: theme.colors.primary 
+                  }
+                ]} 
+                onPress={handleLogin}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <Text style={styles.loginBtnText}>SE CONNECTER</Text>
+                )}
+              </TouchableOpacity>
+
+              {/* LIEN INSCRIPTION */}
+              <View style={styles.footer}>
+                <Text style={{ color: borderColor }}>Pas encore de compte ? </Text>
+                <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+                  <Text style={[styles.registerLink, { color: theme.colors.primary }]}>
+                    S'enrôler
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+            </View>
+          </View>
+
+        </ScrollView>
+      </KeyboardAvoidingView>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  header: { alignItems: 'center', marginTop: 60, marginBottom: 40 },
-  logo: { width: 100, height: 100, marginBottom: 10 },
-  title: { fontSize: 24, fontWeight: '900', color: '#1E293B', letterSpacing: 1 },
-  subtitle: { fontSize: 14, color: '#64748B', marginTop: 5 },
-  form: { paddingHorizontal: 30 },
-  inputContainer: { 
-    flexDirection: 'row', alignItems: 'center', 
-    backgroundColor: '#F1F5F9', borderRadius: 12, 
-    paddingHorizontal: 15, height: 55, marginBottom: 15,
-    borderWidth: 1, borderColor: '#E2E8F0'
+  // HEADER
+  headerContainer: {
+    height: height * 0.40, // Prend 40% de l'écran
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 40, // Laisse de la place pour que le formulaire chevauche
   },
-  icon: { marginRight: 10 },
-  input: { flex: 1, fontSize: 16, color: '#334155' },
-  loginBtn: { 
-    height: 55, borderRadius: 12, 
-    justifyContent: 'center', alignItems: 'center', 
-    marginTop: 10, shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 5, elevation: 3 
+  logoCircle: {
+    width: 100, height: 100,
+    backgroundColor: 'rgba(255,255,255,0.15)', // Cercle translucide
+    borderRadius: 50,
+    justifyContent: 'center', alignItems: 'center',
+    marginBottom: 15,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)'
   },
-  loginText: { color: '#FFF', fontSize: 16, fontWeight: '800', letterSpacing: 0.5 },
-  errorBox: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 15, gap: 5 },
-  errorText: { color: '#EF4444', textAlign: 'center', fontWeight: '700' },
-  forgotBtn: { alignItems: 'center', marginTop: 20 },
-  footer: { flexDirection: 'row', justifyContent: 'center', marginTop: 40, marginBottom: 40 },
-  footerText: { color: '#64748B' },
-  linkText: { fontWeight: '700', color: '#475569' }
+  logo: { width: 60, height: 60 },
+  appTitle: { 
+    fontSize: 26, fontWeight: '900', color: '#FFF', 
+    letterSpacing: 1.5, textTransform: 'uppercase' 
+  },
+  appSubtitle: { 
+    fontSize: 13, fontWeight: '500', color: 'rgba(255,255,255,0.8)', 
+    marginTop: 5, letterSpacing: 0.5 
+  },
+
+  // FORMULAIRE
+  formContainer: {
+    flex: 1,
+    marginTop: -40, // Chevauchement élégant sur le header
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    paddingHorizontal: 30,
+    paddingTop: 35,
+  },
+  formContent: {
+    paddingBottom: 30,
+  },
+  welcomeText: { fontSize: 24, fontWeight: 'bold', marginBottom: 5 },
+  instructionText: { fontSize: 14, marginBottom: 25 },
+
+  // INPUTS
+  inputWrapper: {
+    flexDirection: 'row', alignItems: 'center',
+    borderRadius: 16,
+    height: 58,
+    marginBottom: 16,
+    borderWidth: 1,
+    paddingHorizontal: 15,
+  },
+  inputIcon: { marginRight: 12 },
+  textInput: { flex: 1, fontSize: 16, height: '100%' },
+  eyeBtn: { padding: 8 },
+
+  // LIENS & BOUTONS
+  forgotBtn: { alignSelf: 'flex-end', marginBottom: 25 },
+  forgotText: { fontSize: 14, fontWeight: '600' },
+
+  loginBtn: {
+    height: 58,
+    borderRadius: 16,
+    justifyContent: 'center', alignItems: 'center',
+    marginBottom: 20,
+    // Ombre colorée
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3, shadowRadius: 8, elevation: 5
+  },
+  loginBtnText: { color: '#FFF', fontSize: 16, fontWeight: '800', letterSpacing: 1 },
+
+  // ERREUR
+  errorContainer: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    padding: 12, borderRadius: 12, marginBottom: 20, gap: 8
+  },
+  errorText: { fontSize: 13, fontWeight: '600', flexShrink: 1 },
+
+  // FOOTER
+  footer: { 
+    flexDirection: 'row', justifyContent: 'center', alignItems: 'center',
+    marginTop: 10 
+  },
+  registerLink: { fontWeight: '800', fontSize: 15, textDecorationLine: 'underline' }
 });

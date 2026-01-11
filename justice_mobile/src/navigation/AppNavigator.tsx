@@ -1,11 +1,11 @@
 import React, { useEffect } from "react";
-import { View, ActivityIndicator, StyleSheet, StatusBar } from "react-native";
+import { View, StyleSheet, StatusBar } from "react-native";
 import { NavigationContainer, DefaultTheme, DarkTheme } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 // ✅ Types & Services
 import { RootStackParamList } from "../types/navigation";
-import { navigationRef } from "./RootNavigation"; // 👈 CRUCIAL pour le service de navigation
+import { navigationRef } from "./RootNavigation"; 
 
 // ✅ Stores & Système
 import { useAuthStore } from "../stores/useAuthStore";
@@ -21,7 +21,10 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function AppNavigator() {
   const { theme, isDark } = useAppTheme();
-  const { isAuthenticated, isHydrating, hydrate } = useAuthStore();
+  
+  // ⚠️ MODIFICATION : On ne récupère plus 'isHydrating' ici pour ne pas bloquer le rendu.
+  // L'écran Splash se chargera d'attendre la fin de l'hydratation.
+  const { isAuthenticated, hydrate } = useAuthStore();
 
   // 🔄 Hydratation du store (récupération de la session au démarrage)
   useEffect(() => {
@@ -37,18 +40,13 @@ export default function AppNavigator() {
       primary: theme.colors.primary,
       card: theme.colors.surface,
       text: theme.colors.text,
-      border: theme.colors.textSecondary,
+      // Sécurité : si textSecondary n'existe pas, on utilise une couleur par défaut
+      border: (theme.colors as any).textSecondary || theme.colors.primary || '#ccc',
     },
   };
 
-  // ⌛ Écran de chargement pendant la vérification du token/session
-  if (isHydrating) {
-    return (
-      <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-      </View>
-    );
-  }
+  // ❌ LE BLOC DE CHARGEMENT BLOQUANT (ActivityIndicator) A ÉTÉ SUPPRIMÉ ICI ❌
+  // Cela laisse la main au SplashScreen pour l'animation.
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
@@ -70,11 +68,10 @@ export default function AppNavigator() {
         >
           
           {!isAuthenticated ? (
-            // 🚪 ZONE PUBLIQUE
+            // 🚪 ZONE PUBLIQUE (Contient le SplashScreen au démarrage)
             <Stack.Screen name="Auth" component={AuthNavigator} />
           ) : (
             // 🏛️ ZONE SÉCURISÉE (Redirection par rôle gérée dans DrawerNavigator)
-            // Note: Le DrawerNavigator doit être capable de recevoir le param 'Main'
             <Stack.Screen name="Main" component={DrawerNavigator} />
           )}
 
@@ -85,6 +82,7 @@ export default function AppNavigator() {
 }
 
 const styles = StyleSheet.create({
+  // Le style loadingContainer n'est plus utilisé ici, mais on peut le garder au cas où
   loadingContainer: {
     flex: 1,
     justifyContent: "center",

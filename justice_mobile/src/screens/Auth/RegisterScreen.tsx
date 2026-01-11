@@ -14,20 +14,19 @@ import {
 import { Button, Text, TextInput, Title, Surface } from "react-native-paper";
 import { Ionicons } from "@expo/vector-icons";
 import { useMutation } from "@tanstack/react-query";
-
-// Types & Navigation
-import { AuthScreenProps } from "../../types/navigation";
+import { useNavigation } from "@react-navigation/native";
 
 // Services
 import { register } from "../../services/auth.service";
 
-// Composants (J'ai retiré SmartFooter des imports inutiles)
+// Composants & Thème
 import ScreenContainer from "../../components/layout/ScreenContainer";
 import { useAppTheme } from "../../theme/AppThemeProvider";
 
 const { height } = Dimensions.get("window");
 
-export default function RegisterScreen({ navigation }: AuthScreenProps<'Register'>) {
+export default function RegisterScreen() {
+  const navigation = useNavigation<any>();
   const { theme, isDark } = useAppTheme();
 
   const [form, setForm] = useState({
@@ -43,34 +42,29 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
   const onChange = (key: keyof typeof form, value: string) => 
     setForm({ ...form, [key]: value });
 
-  // ✅ LOGIQUE CORRIGÉE POUR LA REDIRECTION
+  // 🔄 Gestion de l'inscription via React Query
   const { mutateAsync, isPending } = useMutation({
     mutationFn: (userData: any) => register(userData),
     onSuccess: () => {
-      // Sur le WEB, on utilise window.alert et on navigue directement
+      const successTitle = "Inscription Réussie ✅";
+      const successMsg = "Votre compte a été créé avec succès. Veuillez vous connecter pour accéder à la plateforme.";
+
       if (Platform.OS === 'web') {
-        window.alert("Inscription Réussie ✅\n\nVotre compte a été créé. Vous allez être redirigé vers la connexion.");
-        navigation.reset({
-            index: 0,
-            routes: [{ name: 'Login' }],
-        });
+        window.alert(`${successTitle}\n\n${successMsg}`);
+        navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
       } else {
-        // Sur MOBILE, on utilise l'Alert native jolie
         Alert.alert(
-          "Inscription Réussie ✅", 
-          "Votre compte a été créé avec succès. Veuillez vous connecter.",
+          successTitle, 
+          successMsg,
           [
             { 
               text: "SE CONNECTER", 
               onPress: () => {
-                // Reset empêche le retour arrière vers l'inscription
-                navigation.reset({
-                    index: 0,
-                    routes: [{ name: 'Login' }],
-                });
+                navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
               } 
             }
-          ]
+          ],
+          { cancelable: false }
         );
       }
     },
@@ -78,21 +72,18 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
       const serverMessage = err?.response?.data?.message || "";
       console.error("Erreur inscription:", serverMessage);
       
-      const message = (serverMessage.includes('email') || serverMessage.includes('telephone'))
-        ? "Cet email ou ce numéro est déjà utilisé."
-        : "Impossible de créer le compte. Vérifiez votre connexion.";
+      let message = "Impossible de créer le compte. Vérifiez votre connexion.";
+      
+      if (serverMessage.toLowerCase().includes('email')) message = "Cette adresse email est déjà utilisée.";
+      if (serverMessage.toLowerCase().includes('telephone')) message = "Ce numéro de téléphone est déjà associé à un compte.";
 
-      if (Platform.OS === 'web') {
-        window.alert(message);
-      } else {
-        Alert.alert("Erreur", message);
-      }
+      Platform.OS === 'web' ? window.alert(message) : Alert.alert("Échec inscription", message);
     }
   });
 
   const handleRegister = async () => {
+    // 1. Validation basique
     if (!form.firstname.trim() || !form.lastname.trim() || !form.email.trim() || !form.telephone.trim() || !form.password) {
-        // Gestion web/mobile simple
         const msg = "Veuillez remplir tous les champs obligatoires.";
         Platform.OS === 'web' ? window.alert(msg) : Alert.alert("Champs requis", msg);
         return;
@@ -100,10 +91,11 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
 
     if (form.password.length < 6) {
         const msg = "Le mot de passe doit contenir au moins 6 caractères.";
-        Platform.OS === 'web' ? window.alert(msg) : Alert.alert("Mot de passe trop court", msg);
+        Platform.OS === 'web' ? window.alert(msg) : Alert.alert("Sécurité", msg);
         return;
     }
 
+    // 2. Envoi des données
     await mutateAsync({
         firstname: form.firstname.trim(),
         lastname: form.lastname.trim(),
@@ -166,7 +158,7 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
                       label="Prénom"
                       value={form.firstname}
                       onChangeText={(v) => onChange("firstname", v)}
-                      style={[styles.inputHalf, { backgroundColor: isDark ? "#2C2C2C" : "#F5F6F8" }]}
+                      style={[styles.inputHalf, { backgroundColor: isDark ? "#2C2C2C" : "#F8FAFC" }]}
                       mode="outlined"
                       outlineColor="transparent"
                       activeOutlineColor={theme.colors.primary}
@@ -178,7 +170,7 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
                       label="Nom"
                       value={form.lastname}
                       onChangeText={(v) => onChange("lastname", v)}
-                      style={[styles.inputHalf, { backgroundColor: isDark ? "#2C2C2C" : "#F5F6F8" }]}
+                      style={[styles.inputHalf, { backgroundColor: isDark ? "#2C2C2C" : "#F8FAFC" }]}
                       mode="outlined"
                       outlineColor="transparent"
                       activeOutlineColor={theme.colors.primary}
@@ -191,7 +183,7 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
                    label="Email"
                    value={form.email}
                    onChangeText={(v) => onChange("email", v)}
-                   style={[styles.input, { backgroundColor: isDark ? "#2C2C2C" : "#F5F6F8" }]}
+                   style={[styles.input, { backgroundColor: isDark ? "#2C2C2C" : "#F8FAFC" }]}
                    mode="outlined"
                    autoCapitalize="none"
                    keyboardType="email-address"
@@ -206,10 +198,11 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
                    label="Numéro de téléphone"
                    value={form.telephone}
                    onChangeText={(v) => onChange("telephone", v)}
-                   style={[styles.input, { backgroundColor: isDark ? "#2C2C2C" : "#F5F6F8" }]}
+                   style={[styles.input, { backgroundColor: isDark ? "#2C2C2C" : "#F8FAFC" }]}
                    mode="outlined"
                    keyboardType="phone-pad"
                    placeholder="Ex: 90000000"
+                   placeholderTextColor="#94A3B8"
                    outlineColor="transparent"
                    activeOutlineColor={theme.colors.primary}
                    textColor={theme.colors.text}
@@ -221,7 +214,7 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
                    label="Mot de passe"
                    value={form.password}
                    onChangeText={(v) => onChange("password", v)}
-                   style={[styles.input, { backgroundColor: isDark ? "#2C2C2C" : "#F5F6F8" }]}
+                   style={[styles.input, { backgroundColor: isDark ? "#2C2C2C" : "#F8FAFC" }]}
                    mode="outlined"
                    secureTextEntry={!showPassword}
                    outlineColor="transparent"
@@ -232,6 +225,7 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
                      <TextInput.Icon 
                           icon={showPassword ? "eye-off" : "eye"} 
                           onPress={() => setShowPassword(!showPassword)} 
+                          color="#64748B"
                      />
                    }
                    theme={{ roundness: 14 }}
@@ -250,13 +244,13 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
                 </Button>
 
                 <View style={styles.footerLinks}>
-                   <Text style={{ color: theme.colors.textSecondary }}>Déjà inscrit ? </Text>
+                   {/* Utilisation de textSecondary ou d'un gris par défaut */}
+                   <Text style={{ color: (theme.colors as any).textSecondary || '#64748B' }}>Déjà inscrit ? </Text>
                    <TouchableOpacity onPress={() => navigation.navigate("Login")}>
                       <Text style={{ color: theme.colors.primary, fontWeight: "bold" }}>Se connecter</Text>
                    </TouchableOpacity>
                 </View>
 
-                {/* ✅ FOOTER RETIRÉ ICI */}
                 <View style={{ height: 40 }} /> 
              </View>
           </View>
@@ -295,7 +289,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 12,
     ...Platform.select({
-      web: { boxShadow: '0px 8px 24px rgba(0,0,0,0.15)' }
+      web: { boxShadow: '0px 8px 24px rgba(0,0,0,0.15)' },
+      android: { elevation: 8 },
+      ios: { shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8 }
     })
   },
   logoImage: {

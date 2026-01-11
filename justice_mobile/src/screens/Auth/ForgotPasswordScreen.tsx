@@ -16,14 +16,13 @@ import { useNavigation } from "@react-navigation/native";
 
 // Composants & Thème
 import ScreenContainer from "../../components/layout/ScreenContainer";
-import SmartFooter from "../../components/layout/SmartFooter";
 import { useAppTheme } from "../../theme/AppThemeProvider";
 
 const { height } = Dimensions.get("window");
 
 export default function ForgotPasswordScreen() {
   const { theme, isDark } = useAppTheme();
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
 
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
@@ -31,28 +30,39 @@ export default function ForgotPasswordScreen() {
   const handleReset = async () => {
     // 1. Validation de l'email
     if (!email.trim()) {
-      Alert.alert("Email manquant", "Veuillez entrer l'adresse email associée à votre compte.");
+      const msg = "Veuillez entrer l'adresse email associée à votre compte.";
+      Platform.OS === 'web' ? window.alert(msg) : Alert.alert("Email manquant", msg);
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-        Alert.alert("Email invalide", "Le format de l'adresse email est incorrect.");
+        const msg = "Le format de l'adresse email est incorrect.";
+        Platform.OS === 'web' ? window.alert(msg) : Alert.alert("Email invalide", msg);
         return;
     }
 
     setLoading(true);
     try {
-      // Simulation d'appel API
+      // Simulation d'appel API (Remplacer par votre service d'oubli de mot de passe)
       await new Promise(resolve => setTimeout(resolve, 1500));
 
-      Alert.alert(
-        "Email Envoyé", 
-        "Si cette adresse est enregistrée, vous recevrez un lien de réinitialisation dans quelques instants. Pensez à vérifier vos spams.",
-        [{ text: "Retour à la connexion", onPress: () => navigation.goBack() }]
-      );
+      const title = "Email Envoyé 📧";
+      const body = "Si cette adresse est enregistrée, vous recevrez un lien de réinitialisation. Pensez à vérifier vos spams.";
+
+      if (Platform.OS === 'web') {
+        window.alert(`${title}\n\n${body}`);
+        navigation.goBack();
+      } else {
+        Alert.alert(
+          title, 
+          body,
+          [{ text: "Retour à la connexion", onPress: () => navigation.goBack() }]
+        );
+      }
     } catch (error) {
-      Alert.alert("Erreur", "Le service est temporairement indisponible. Veuillez réessayer plus tard.");
+      const msg = "Le service est temporairement indisponible. Veuillez réessayer plus tard.";
+      Platform.OS === 'web' ? window.alert(msg) : Alert.alert("Erreur", msg);
     } finally {
       setLoading(false);
     }
@@ -63,7 +73,7 @@ export default function ForgotPasswordScreen() {
       <StatusBar 
         barStyle="light-content" 
         translucent 
-        backgroundColor="transparent" 
+        backgroundColor={theme.colors.primary} 
       />
 
       <KeyboardAvoidingView 
@@ -79,13 +89,12 @@ export default function ForgotPasswordScreen() {
           
           {/* SECTION HAUTE : Header Immersif */}
           <View style={[styles.headerContainer, { backgroundColor: theme.colors.primary }]}>
-             
+              
              {/* Bouton Retour */}
              <TouchableOpacity 
                 onPress={() => navigation.goBack()} 
-                style={[styles.backButton, { top: Platform.OS === 'ios' ? 50 : 40 }]}
+                style={[styles.backButton, { top: Platform.OS === 'web' ? 20 : 50 }]}
                 activeOpacity={0.7}
-                hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
              >
                 <Ionicons name="arrow-back" size={26} color="white" />
              </TouchableOpacity>
@@ -104,15 +113,16 @@ export default function ForgotPasswordScreen() {
             styles.formContainer, 
             { 
               backgroundColor: theme.colors.background,
-              borderTopLeftRadius: 30,
-              borderTopRightRadius: 30,
+              borderTopLeftRadius: 32,
+              borderTopRightRadius: 32,
             }
           ]}>
              <View style={styles.formContent}>
                 
                 <View style={styles.introBox}>
                    <Text style={[styles.welcomeTitle, { color: theme.colors.text }]}>Mot de passe oublié ?</Text>
-                   <Text style={[styles.description, { color: theme.colors.textSecondary }]}>
+                   {/* Fallback couleur safe pour textSecondary */}
+                   <Text style={[styles.description, { color: (theme.colors as any).textSecondary || '#64748B' }]}>
                       Entrez votre adresse email ci-dessous. Nous vous enverrons les instructions pour définir un nouveau mot de passe sécurisé.
                    </Text>
                 </View>
@@ -121,7 +131,7 @@ export default function ForgotPasswordScreen() {
                    label="Adresse Email"
                    value={email}
                    onChangeText={setEmail}
-                   style={[styles.input, { backgroundColor: isDark ? "#2C2C2C" : "#F5F6F8" }]}
+                   style={[styles.input, { backgroundColor: isDark ? "#2C2C2C" : "#F8FAFC" }]}
                    mode="outlined"
                    autoCapitalize="none"
                    keyboardType="email-address"
@@ -129,14 +139,14 @@ export default function ForgotPasswordScreen() {
                    activeOutlineColor={theme.colors.primary}
                    textColor={theme.colors.text}
                    left={<TextInput.Icon icon="email-outline" color={theme.colors.primary} />}
-                   theme={{ roundness: 12 }}
+                   theme={{ roundness: 14 }}
                 />
 
                 <Button
                    mode="contained"
                    onPress={handleReset}
                    style={[styles.submitButton, { backgroundColor: theme.colors.primary }]}
-                   contentStyle={{ height: 55 }}
+                   contentStyle={{ height: 54 }}
                    labelStyle={{ fontSize: 16, fontWeight: "bold", letterSpacing: 0.5 }}
                    loading={loading}
                    disabled={loading}
@@ -152,10 +162,6 @@ export default function ForgotPasswordScreen() {
                    </TouchableOpacity>
                 </View>
              </View>
-
-             <View style={{ marginTop: 20, paddingBottom: 20 }}>
-                <SmartFooter />
-             </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -165,7 +171,7 @@ export default function ForgotPasswordScreen() {
 
 const styles = StyleSheet.create({
   headerContainer: {
-    height: height * 0.35, // 35% de l'écran pour l'équilibre visuel
+    height: height * 0.35, 
     justifyContent: "center",
     alignItems: "center",
     position: 'relative',
@@ -177,11 +183,10 @@ const styles = StyleSheet.create({
     zIndex: 10,
     padding: 8,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.2)' // Fond semi-transparent pour visibilité
+    backgroundColor: 'rgba(255,255,255,0.2)' 
   },
   brandContent: {
     alignItems: "center",
-    marginTop: 0,
   },
   logoSurface: {
     width: 80,
@@ -191,14 +196,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 15,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 5,
+    ...Platform.select({
+      web: { boxShadow: '0px 8px 24px rgba(0,0,0,0.15)' },
+      android: { elevation: 8 },
+      ios: { shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8 }
+    })
   },
   headerTitle: {
     fontSize: 24,
-    fontWeight: "bold",
+    fontWeight: "900",
     color: "white",
     letterSpacing: 1,
   },
@@ -211,8 +217,8 @@ const styles = StyleSheet.create({
   },
   formContainer: {
     flex: 1,
-    marginTop: -30, // Chevauchement élégant
-    paddingTop: 35,
+    marginTop: -40,
+    paddingTop: 40,
     paddingHorizontal: 25,
   },
   formContent: {
@@ -227,14 +233,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   description: {
-    lineHeight: 20,
+    lineHeight: 22,
     fontSize: 14,
   },
   input: {
     marginBottom: 25,
   },
   submitButton: {
-    borderRadius: 14,
+    borderRadius: 16,
     elevation: 4,
   },
   footerLinks: {
@@ -242,5 +248,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: 30,
     alignItems: "center",
+    paddingBottom: 20
   },
 });
