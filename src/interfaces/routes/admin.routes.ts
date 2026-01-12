@@ -4,29 +4,31 @@ import { authenticate, authorize } from "../../middleware/auth.middleware";
 
 const router = Router();
 
-// Middleware global pour ce routeur : Seul l'ADMIN passe
+// Middleware global : Seul l'ADMIN passe
 router.use(authenticate, authorize(["admin"]));
 
 // 📊 Stats Dashboard
 router.get("/dashboard-stats", AdminController.getDashboardStats);
 
-// 🏥 Santé du Système (C'est cette ligne qui corrige le "Unknown")
+// 🏥 Santé du Système
 router.get("/system-health", AdminController.getSystemHealth);
 
-// 📜 Logs Système (Pour l'écran des logs)
+// 📜 Logs Système
 router.get("/logs", AdminController.getSystemLogs);
 
 // 🔐 Settings & Sécurité
 router.get("/security/settings", AdminController.getSecuritySettings);
-router.get("/security/overview", AdminController.getSecuritySettings); // Alias pour compatibilité
+router.get("/security/overview", AdminController.getSecuritySettings);
 router.put("/security/settings", AdminController.updateSecuritySettings);
 
-// 🛠️ Maintenance
-router.get("/maintenance", AdminController.getMaintenanceStatus);
-router.post("/maintenance", AdminController.setMaintenanceStatus);
+// 🛠️ Maintenance (C'est ici que j'ai ajouté /status pour correspondre au Frontend)
+router.get("/maintenance/status", AdminController.getMaintenanceStatus);
+router.post("/maintenance/status", AdminController.setMaintenanceStatus);
 
-// Route pour vider le cache (réponse immédiate)
+// Route pour vider le cache
 router.post("/maintenance/clear-cache", (req, res) => {
+    // Logique simulée de vidage de cache
+    console.log("🧹 Cache vidé par l'admin");
     res.json({ success: true, message: "Cache serveur vidé avec succès" });
 });
 
