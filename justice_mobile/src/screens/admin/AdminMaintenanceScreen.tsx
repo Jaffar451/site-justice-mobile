@@ -1,4 +1,4 @@
-import React from "react"; // useState supprimé car géré par React Query
+import React, { useState } from "react"; 
 import { 
   View, 
   Text, 
@@ -18,33 +18,33 @@ import ScreenContainer from "../../components/layout/ScreenContainer";
 import AppHeader from "../../components/layout/AppHeader";
 import { useAppTheme } from "../../theme/AppThemeProvider";
 
-// ✅ AJOUT DES IMPORTS MANQUANTS
+// ✅ SERVICES API
 import { 
   getSystemHealth, 
   getSystemLogs, 
   clearServerCache,
-  getMaintenanceStatus, // Assure-toi que ce service existe
-  setMaintenanceStatus  // Assure-toi que ce service existe
+  getMaintenanceStatus, 
+  setMaintenanceStatus  
 } from "../../services/admin.service";
 
 export default function AdminMaintenanceScreen({ navigation }: any) {
   const { theme, isDark } = useAppTheme();
   const queryClient = useQueryClient();
   
-  // 1. SANTÉ SYSTÈME
+  // 1. SANTÉ SYSTÈME (Polling toutes les 30s)
   const { data: health, isLoading: loadingHealth, refetch: refetchHealth } = useQuery({
     queryKey: ['systemHealth'],
     queryFn: getSystemHealth,
     refetchInterval: 30000, 
   });
 
-  // 2. LOGS
+  // 2. LOGS SYSTÈME
   const { data: logs, isLoading: loadingLogs } = useQuery({
     queryKey: ['systemLogs'],
     queryFn: getSystemLogs,
   });
 
-  // 3. ÉTAT MAINTENANCE (Récupération)
+  // 3. ÉTAT MAINTENANCE
   const { data: maintenanceData, isLoading: loadingMaint } = useQuery({
     queryKey: ['maintenanceStatus'],
     queryFn: getMaintenanceStatus,
@@ -54,8 +54,9 @@ export default function AdminMaintenanceScreen({ navigation }: any) {
   const maintenanceMutation = useMutation({
     mutationFn: setMaintenanceStatus, // Attend { isActive: boolean }
     onSuccess: (newData) => {
-      queryClient.setQueryData(['maintenanceStatus'], newData); // Mise à jour optimiste
-      Alert.alert("Succès", `Mode Maintenance ${newData.data.isActive ? "ACTIVÉ" : "DÉSACTIVÉ"}`);
+      queryClient.setQueryData(['maintenanceStatus'], newData); 
+      const state = newData.data.isActive ? "ACTIVÉ" : "DÉSACTIVÉ";
+      Alert.alert("Mise à jour réussie", `Le Mode Maintenance est désormais ${state}.`);
     },
     onError: () => Alert.alert("Erreur", "Impossible de changer le mode maintenance.")
   });
@@ -79,8 +80,8 @@ export default function AdminMaintenanceScreen({ navigation }: any) {
     Alert.alert(
       currentState ? "Désactiver la maintenance ?" : "Activer la maintenance ?",
       currentState 
-        ? "Les utilisateurs pourront à nouveau se connecter." 
-        : "Seuls les administrateurs pourront accéder à l'application.",
+        ? "Les utilisateurs pourront à nouveau se connecter à l'application." 
+        : "⚠️ Attention : Seuls les administrateurs pourront accéder à l'application.",
       [
         { text: "Annuler", style: "cancel" },
         { 
@@ -100,6 +101,13 @@ export default function AdminMaintenanceScreen({ navigation }: any) {
     success: "#10B981",
     warning: "#F59E0B",
     error: "#EF4444"
+  };
+
+  // Helper pour les couleurs de logs
+  const getLogColor = (status: number) => {
+      if (status >= 500) return colors.error;
+      if (status >= 400) return colors.warning;
+      return colors.success; // 200-299
   };
 
   return (
@@ -142,11 +150,11 @@ export default function AdminMaintenanceScreen({ navigation }: any) {
           />
         </View>
 
-        {/* 🛠️ ACTIONS TECHNIQUES RÉELLES */}
+        {/* 🛠️ ACTIONS TECHNIQUES */}
         <Text style={[styles.sectionTitle, { color: colors.textSub, marginTop: 25 }]}>ACTIONS TECHNIQUES</Text>
         <Surface style={[styles.card, { backgroundColor: colors.bgCard }]} elevation={2}>
             
-            {/* ✅ INTERRUPTEUR MAINTENANCE CONNECTÉ */}
+            {/* ✅ INTERRUPTEUR MAINTENANCE */}
             <List.Item
               title="Mode Maintenance"
               description="Bloque l'accès utilisateur"
@@ -180,24 +188,33 @@ export default function AdminMaintenanceScreen({ navigation }: any) {
             />
         </Surface>
 
-        {/* 📜 LOGS RÉELS VENANT DU BACKEND */}
+        {/* 📜 LOGS BACKEND */}
         <Text style={[styles.sectionTitle, { color: colors.textSub, marginTop: 25 }]}>LOGS SERVEUR (DERNIÈRES 24H)</Text>
         <View style={[styles.logsContainer, { backgroundColor: "#0F172A" }]}>
             {loadingLogs ? (
                 <ActivityIndicator color="#FFF" style={{ padding: 20 }} />
             ) : logs && logs.length > 0 ? (
-                logs.map((log: any, index: number) => (
-                    <View key={index} style={styles.logRow}>
-                        {/* ⚠️ CORRECTION DATE : createdAt au lieu de created_at */}
-                        <Text style={styles.logTime}>
-                            {log.createdAt ? new Date(log.createdAt).toLocaleTimeString() : "--:--"}
-                        </Text>
-                        <Text style={[styles.logType, { 
-                            color: log.level === 'INFO' ? '#60A5FA' : log.level === 'WARNING' ? '#FBBF24' : '#F87171' 
-                        }]}>{log.level}</Text>
-                        <Text style={styles.logMsg} numberOfLines={1}>{log.message}</Text>
-                    </View>
-                ))
+                logs.map((log: any, index: number) => {
+                    const statusColor = getLogColor(log.status || 200);
+                    return (
+                        <View key={index} style={styles.logRow}>
+                            {/* Date: timestamp renvoyé par le controlleur backend */}
+                            <Text style={styles.logTime}>
+                                {log.timestamp ? new Date(log.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "--:--"}
+                            </Text>
+                            
+                            {/* Méthode et Statut */}
+                            <Text style={[styles.logType, { color: statusColor }]}>
+                                {log.method} {log.status}
+                            </Text>
+                            
+                            {/* Message: Endpoint ou Action */}
+                            <Text style={styles.logMsg} numberOfLines={1}>
+                                {log.endpoint || log.action}
+                            </Text>
+                        </View>
+                    );
+                })
             ) : (
                 <Text style={{ color: '#64748B', textAlign: 'center', padding: 20 }}>Aucun log récent.</Text>
             )}
@@ -209,8 +226,8 @@ export default function AdminMaintenanceScreen({ navigation }: any) {
   );
 }
 
-// ... Le composant StatusCard et les styles restent identiques ...
-// (Je ne les remets pas pour économiser de la place, tu peux garder ceux d'avant)
+// 📦 COMPOSANTS HELPER
+
 const StatusCard = ({ label, value, status, colors, icon }: any) => {
     const getColor = () => {
         if (status === 'ok') return colors.success;
@@ -241,9 +258,10 @@ const styles = StyleSheet.create({
   statusLabel: { fontSize: 11, fontWeight: '600' },
   statusDot: { position: 'absolute', top: 12, right: 12, width: 8, height: 8, borderRadius: 4 },
   card: { borderRadius: 16, padding: 8, overflow: 'hidden' },
+  
   logsContainer: { borderRadius: 12, padding: 16 },
-  logRow: { flexDirection: 'row', marginBottom: 8, gap: 10 },
-  logTime: { color: '#64748B', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', fontSize: 11 },
-  logType: { fontWeight: 'bold', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', fontSize: 11, width: 55 },
+  logRow: { flexDirection: 'row', marginBottom: 8, gap: 10, alignItems: 'center' },
+  logTime: { color: '#64748B', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', fontSize: 11, width: 40 },
+  logType: { fontWeight: 'bold', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', fontSize: 11, width: 70 },
   logMsg: { color: '#E2E8F0', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', fontSize: 11, flex: 1 },
 });

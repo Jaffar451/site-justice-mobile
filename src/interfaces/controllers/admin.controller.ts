@@ -1,6 +1,5 @@
-// PATH: src/interfaces/controllers/admin.controller.ts
 import { Request, Response } from 'express';
-import { User, Complaint, PoliceStation, AuditLog } from '../../models'; 
+import { User, Complaint, PoliceStation, AuditLog, sequelize } from '../../models'; // ✅ Assurez-vous d'importer 'sequelize' ici
 import { Op, Sequelize } from 'sequelize';
 
 // --- STOCKAGE TEMPORAIRE (SIMULATION CONFIG) ---
@@ -17,17 +16,50 @@ let maintenanceConfig = {
 };
 
 /**
- * 📜 RÉCUPÉRER LES LOGS SYSTÈME (INDISPENSABLE POUR AdminLogsScreen)
+ * 🏥 SANTÉ DU SYSTÈME (INDISPENSABLE POUR AdminMaintenanceScreen)
+ * Permet d'afficher "Connected" au lieu de "Unknown"
+ */
+export const getSystemHealth = async (req: Request, res: Response) => {
+  const start = Date.now();
+  let dbStatus = 'Disconnected';
+  let serverStatus = 'OK';
+
+  try {
+    // Test simple de connexion BDD
+    await sequelize.authenticate(); 
+    dbStatus = 'Connected';
+  } catch (error) {
+    console.error("❌ Erreur connexion DB:", error);
+    dbStatus = 'Disconnected';
+    serverStatus = 'Warning';
+  }
+
+  const latency = Date.now() - start;
+
+  res.status(200).json({
+    success: true,
+    data: {
+      serverStatus: serverStatus,
+      dbStatus: dbStatus,
+      latency: latency,
+      version: '1.0.5',
+      uptime: process.uptime()
+    }
+  });
+};
+
+/**
+ * 📜 RÉCUPÉRER LES LOGS SYSTÈME
  */
 export const getSystemLogs = async (req: Request, res: Response) => {
   try {
     const logs = await AuditLog.findAll({
-      order: [['createdAt', 'DESC']], // ✅ Correction: createdAt au lieu de timestamp
+      order: [['createdAt', 'DESC']], // ✅ Correct
       limit: 100,
       include: [
         {
           model: User,
-          as: 'actor', // ✅ Correction: Doit correspondre à l'alias du modèle
+          as: 'actor', // ✅ Correct (alias défini dans le modèle)
           attributes: ['id', 'firstname', 'lastname', 'role']
         }
       ]
@@ -39,7 +71,7 @@ export const getSystemLogs = async (req: Request, res: Response) => {
       action: log.action,
       method: log.method,
       endpoint: log.endpoint,
-      ip: log.ipAddress, // Le modèle a ipAddress, le front attend ip
+      ip: log.ipAddress, // Mapping BDD -> Front
       details: log.details,
       status: parseInt(log.status) || 200,
       timestamp: log.createdAt,
@@ -62,8 +94,6 @@ export const getSystemLogs = async (req: Request, res: Response) => {
  */
 export const getDashboardStats = async (req: Request, res: Response) => {
   try {
-    console.log('📊 [Admin] Génération des statistiques...');
-
     // 1. 🟢 RÉPARTITION PAR STATUT
     let statusStats: any[] = [];
     try {
@@ -89,7 +119,7 @@ export const getDashboardStats = async (req: Request, res: Response) => {
     try {
       const countStations = await PoliceStation.count();
       if (countStations > 0) {
-        const groupByCol = 'city'; // Assure-toi que cette colonne existe
+        const groupByCol = 'city'; 
         
         const regionalStatsRaw = await PoliceStation.findAll({
           attributes: [
@@ -139,10 +169,10 @@ export const getDashboardStats = async (req: Request, res: Response) => {
     try {
         recentActivity = await AuditLog.findAll({
             limit: 5,
-            order: [['createdAt', 'DESC']], // ✅ Correction: createdAt
+            order: [['createdAt', 'DESC']], // ✅ Correct
             include: [{ 
                 model: User, 
-                as: 'actor', // ✅ Correction: actor au lieu de user
+                as: 'actor', // ✅ Correct
                 attributes: ['firstname', 'lastname', 'role'],
                 required: false 
             }]
