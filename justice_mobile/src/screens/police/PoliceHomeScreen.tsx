@@ -1,4 +1,3 @@
-// PATH: src/screens/police/PoliceHomeScreen.tsx
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { 
   View, Text, StyleSheet, TouchableOpacity, 
@@ -135,11 +134,19 @@ export default function PoliceHomeScreen({ navigation }: PoliceScreenProps<'Poli
             colors={colors} 
           />
 
+          {/* ✅ NOUVEAUX OUTILS AJOUTÉS ICI */}
           <ActionBtn 
-            label="Nouveau PV" icon="document-text" color="#059669" bg="#D1FAE5" 
-            onPress={() => navigation.navigate("PolicePVScreen", {})}
+            label="Scanner" icon="qr-code-outline" color="#059669" bg="#D1FAE5" 
+            onPress={() => navigation.navigate("VerificationScanner" as any)}
             colors={colors} 
           />
+
+          <ActionBtn 
+            label="Rapport Hebdo" icon="stats-chart" color="#DB2777" bg="#FCE7F3" 
+            onPress={() => navigation.navigate("WeeklyReport" as any)}
+            colors={colors} 
+          />
+          {/* ----------------------------- */}
 
           <ActionBtn 
             label="Mandats CID" icon="shield-half" color="#D97706" bg="#FEF3C7" 
@@ -160,14 +167,8 @@ export default function PoliceHomeScreen({ navigation }: PoliceScreenProps<'Poli
           />
 
           <ActionBtn 
-            label="Écrou" icon="key" color="#B45309" bg="#FFEDD5" 
-            onPress={() => navigation.navigate("PoliceDetention", { complaintId: 0, suspectName: "Nouveau" })}
-            colors={colors} 
-          />
-
-          <ActionBtn 
-            label="SOS / Cartes" icon="map" color="#DB2777" bg="#FCE7F3" 
-            onPress={() => navigation.navigate("NationalMap")}
+            label="Nouveau PV" icon="document-text" color="#1E40AF" bg="#DBEAFE" 
+            onPress={() => navigation.navigate("PolicePVScreen", {})}
             colors={colors} 
           />
 

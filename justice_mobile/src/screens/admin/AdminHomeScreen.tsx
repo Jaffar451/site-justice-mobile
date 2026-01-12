@@ -20,7 +20,7 @@ import { AdminScreenProps } from "../../types/navigation";
 import { useAuthStore } from "../../stores/useAuthStore";
 import { useAppTheme } from "../../theme/AppThemeProvider";
 import api from "../../services/api"; 
-import { getAdminStats } from "../../services/stats.service"; // ✅ Basé sur votre structure service
+import { getAdminStats } from "../../services/stats.service";
 
 // Composants
 import ScreenContainer from "../../components/layout/ScreenContainer";
@@ -43,6 +43,7 @@ export default function AdminHomeScreen({ navigation }: AdminScreenProps<'AdminH
   const { data: apiUser } = useQuery({
     queryKey: ['me'],
     queryFn: fetchUserProfile,
+    staleTime: 5 * 60 * 1000, // 5 minutes de cache
   });
 
   useEffect(() => {
@@ -57,6 +58,7 @@ export default function AdminHomeScreen({ navigation }: AdminScreenProps<'AdminH
   const { data: stats, isLoading: statsLoading, refetch } = useQuery({
     queryKey: ['admin-global-stats'],
     queryFn: getAdminStats,
+    initialData: { usersCount: 0, courtsCount: 0, activityRate: "0%", systemStatus: "Stable" }
   });
 
   useFocusEffect(
@@ -85,15 +87,26 @@ export default function AdminHomeScreen({ navigation }: AdminScreenProps<'AdminH
     bgCard: isDark ? "#1E293B" : "#FFFFFF",
     textMain: isDark ? "#FFFFFF" : "#1E293B",
     textSub: isDark ? "#94A3B8" : "#64748B",
-    border: isDark ? "#334155" : "#F1F5F9",
+    border: isDark ? "#334155" : "#E2E8F0",
   };
 
+  // ✅ LISTE DES MENUS (Mise à jour avec Maintenance & Outils)
   const menuItems = [
+    // GESTION RH & STRUCTURES
     { title: "Comptes & Rôles", sub: "Habilitations et accès RH", icon: "people-circle-outline", route: "AdminUsers", color: "#6366F1" },
     { title: "Unités de Sécurité", sub: "Gendarmeries et Commissariats", icon: "shield-half-outline", route: "ManageStations", color: "#2563EB" },
     { title: "Cours et Tribunaux", sub: "Juridictions et Greffes", icon: "business-outline", route: "AdminCourts", color: "#059669" },
+    
+    // PILOTAGE & SYSTÈME
     { title: "Carte du Maillage", sub: "Déploiement territorial", icon: "map-outline", route: "NationalMap", color: "#0891B2" },
-    { title: "Audit & Sécurité", sub: "Traçabilité des actes judiciaires", icon: "finger-print-outline", route: "AdminLogs", color: "#475569" },
+    { title: "Audit & Sécurité", sub: "Traçabilité des actes", icon: "finger-print-outline", route: "AdminAudit", color: "#475569" },
+    
+    // 🛠️ NOUVEAUX MODULES TECHNIQUES
+    { title: "Maintenance Système", sub: "Cache, Logs & Santé", icon: "construct-outline", route: "AdminMaintenance", color: "#EF4444" }, // ✅ Nouveau
+    
+    // 🔍 OUTILS DE CONTRÔLE
+    { title: "Scanner de Contrôle", sub: "Vérifier Badges & Actes", icon: "qr-code-outline", route: "VerificationScanner", color: "#F59E0B" }, // ✅ Nouveau
+    { title: "Rapports Hebdo", sub: "Statistiques d'activité", icon: "stats-chart-outline", route: "WeeklyReport", color: "#8B5CF6" }, // ✅ Nouveau
   ];
 
   return (
@@ -123,8 +136,10 @@ export default function AdminHomeScreen({ navigation }: AdminScreenProps<'AdminH
           style={styles.clockWidget}
         >
           <View style={styles.clockHeader}>
-            <View style={styles.statusDot} />
-            <Text style={styles.statusText}>SERVEUR CENTRAL : OPÉRATIONNEL</Text>
+            <View style={[styles.statusDot, { backgroundColor: stats?.systemStatus === 'Maintenance' ? '#EF4444' : '#10B981' }]} />
+            <Text style={[styles.statusText, { color: stats?.systemStatus === 'Maintenance' ? '#EF4444' : '#10B981' }]}>
+                {stats?.systemStatus === 'Maintenance' ? 'MODE MAINTENANCE' : 'SERVEUR CENTRAL : OPÉRATIONNEL'}
+            </Text>
           </View>
           <Text style={styles.timeText}>{formattedTime}</Text>
           <Text style={styles.dateText}>{formattedDate}</Text>
@@ -136,11 +151,11 @@ export default function AdminHomeScreen({ navigation }: AdminScreenProps<'AdminH
         <View style={styles.statsGrid}>
           <StatMiniCard icon="people" val={stats?.usersCount || "---"} label="Utilisateurs" color="#6366F1" colors={colors} />
           <StatMiniCard icon="business" val={stats?.courtsCount || "---"} label="Juridictions" color="#8B5CF6" colors={colors} />
-          <StatMiniCard icon="bar-chart" val={stats?.activityRate || "94%"} label="Flux Actif" color="#EC4899" colors={colors} />
+          <StatMiniCard icon="bar-chart" val={stats?.activityRate || "---"} label="Flux Actif" color="#EC4899" colors={colors} />
           <StatMiniCard icon="pulse" val={stats?.systemStatus || "Stable"} label="État Système" color="#10B981" colors={colors} />
         </View>
 
-        <Text style={[styles.sectionTitle, { marginTop: 30, color: colors.textSub }]}>Unités de Gestion MJ</Text>
+        <Text style={[styles.sectionTitle, { marginTop: 30, color: colors.textSub }]}>Gestion & Outils Techniques</Text>
 
         {/* MENU LIST */}
         <View style={styles.menuList}>
@@ -191,38 +206,38 @@ const StatMiniCard = ({ icon, val, label, color, colors }: any) => (
 );
 
 const styles = StyleSheet.create({
-  content: { paddingHorizontal: 16, paddingTop: 10 },
-  welcomeSection: { marginBottom: 20 },
-  welcomeTitle: { fontSize: 22, fontWeight: "900" },
-  welcomeSub: { fontSize: 13, fontWeight: "600", marginTop: 2 },
+  content: { paddingHorizontal: 16, paddingTop: 20 },
+  welcomeSection: { marginBottom: 25 },
+  welcomeTitle: { fontSize: 24, fontWeight: "900", letterSpacing: -0.5 },
+  welcomeSub: { fontSize: 13, fontWeight: "600", marginTop: 4 },
   
   clockWidget: {
-    padding: 24, borderRadius: 28, marginBottom: 25, alignItems: 'center',
+    padding: 24, borderRadius: 28, marginBottom: 30, alignItems: 'center',
     ...Platform.select({
-        ios: { shadowColor: "#000", shadowOpacity: 0.3, shadowRadius: 15 },
-        android: { elevation: 8 }
+        ios: { shadowColor: "#000", shadowOpacity: 0.25, shadowRadius: 15, shadowOffset: { width: 0, height: 8 } },
+        android: { elevation: 10 }
     })
   },
-  clockHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 15, backgroundColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
-  statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#10B981', marginRight: 8 },
-  statusText: { color: '#10B981', fontSize: 9, fontWeight: '900', letterSpacing: 1 },
-  timeText: { fontSize: 38, fontWeight: "900", color: "#FFF", fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
-  dateText: { fontSize: 11, fontWeight: "700", color: "rgba(255,255,255,0.6)", marginTop: 8, letterSpacing: 1.5 },
+  clockHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 15, backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
+  statusDot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
+  statusText: { fontSize: 9, fontWeight: '900', letterSpacing: 1 },
+  timeText: { fontSize: 42, fontWeight: "900", color: "#FFF", fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', letterSpacing: -1 },
+  dateText: { fontSize: 11, fontWeight: "700", color: "rgba(255,255,255,0.7)", marginTop: 8, letterSpacing: 1.5 },
 
   sectionTitle: { fontSize: 11, fontWeight: "900", marginBottom: 15, letterSpacing: 1.2, textTransform: 'uppercase', marginLeft: 4 },
   
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
-  statCard: { width: '48.5%', padding: 16, borderRadius: 22, borderWidth: 1, flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 12 },
+  statCard: { width: '48%', padding: 16, borderRadius: 20, borderWidth: 1, flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 10 },
   statIconBox: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
   statValue: { fontSize: 16, fontWeight: "900" },
-  statLabel: { fontSize: 9, fontWeight: "800" },
+  statLabel: { fontSize: 9, fontWeight: "800", textTransform: 'uppercase' },
   
   menuList: { gap: 12 },
   menuCard: { flexDirection: 'row', alignItems: 'center', padding: 20, borderRadius: 24, borderWidth: 1 },
   iconCircle: { width: 54, height: 54, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
   menuTextContainer: { flex: 1, marginLeft: 15 },
   menuTitle: { fontSize: 15, fontWeight: "800" },
-  menuSub: { fontSize: 12, marginTop: 2, fontWeight: '500' },
+  menuSub: { fontSize: 12, marginTop: 3, fontWeight: '500' },
   
   footerSpacing: { height: 140 },
 });

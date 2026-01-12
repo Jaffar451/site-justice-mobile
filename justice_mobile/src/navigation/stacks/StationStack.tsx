@@ -1,4 +1,3 @@
-// PATH: src/navigation/stacks/StationStack.tsx
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AdminStackParamList } from '../../types/navigation';
@@ -9,6 +8,10 @@ import NationalMapScreen from '../../screens/admin/NationalMapScreen';
 import AdminUsersScreen from '../../screens/admin/AdminUsersScreen';
 import AdminStatsScreen from '../../screens/admin/AdminStatsScreen';
 import AdminNotificationsScreen from '../../screens/admin/AdminNotificationsScreen';
+
+// --- ✅ NOUVEAUX ÉCRANS PARTAGÉS (Scanner & Rapport) ---
+import VerificationScannerScreen from '../../screens/shared/VerificationScannerScreen';
+import WeeklyReportScreen from '../../screens/shared/WeeklyReportScreen';
 
 // --- 🌍 Écrans Communs & Support ---
 import ProfileScreen from '../../screens/Profile/ProfileScreen';
@@ -26,10 +29,11 @@ import UserGuideScreen from '../../screens/shared/UserGuideScreen';
 import SupportScreen from '../../screens/shared/SupportScreen';
 
 // ✅ CORRECTION TYPAGE : Création d'un type local hybride
-// Cela permet d'inclure les routes Admin + les exceptions (WarrantSearch, SosDetail)
 type StationStackParams = AdminStackParamList & {
   WarrantSearch: undefined;
   SosDetail: { alert: any };
+  VerificationScanner: undefined; // Ajouté
+  WeeklyReport: undefined;        // Ajouté
 };
 
 const Stack = createNativeStackNavigator<StationStackParams>();
@@ -47,6 +51,12 @@ export const StationStack = () => (
     ========================================== */}
     <Stack.Screen name="ManageStations" component={ManageStationsScreen} />
     <Stack.Screen name="NationalMap" component={NationalMapScreen} />
+
+    {/* ==========================================
+        ✅ OUTILS DE CONTRÔLE & INVENTAIRE (Nouveaux)
+    ========================================== */}
+    <Stack.Screen name="VerificationScanner" component={VerificationScannerScreen as any} />
+    <Stack.Screen name="WeeklyReport" component={WeeklyReportScreen as any} />
 
     {/* ==========================================
         👥 AGENTS ET RESSOURCES HUMAINES
@@ -73,7 +83,6 @@ export const StationStack = () => (
     {/* ==========================================
         🗺️ OUTILS TRANSVERSAUX & SOS
     ========================================== */}
-    {/* ✅ Plus d'erreur ici grâce au type StationStackParams */}
     <Stack.Screen name="WarrantSearch" component={WarrantSearchScreen as any} />
     <Stack.Screen name="SosDetail" component={SosDetailScreen as any} />
 

@@ -7,10 +7,14 @@ import {
   KeyboardAvoidingView, 
   Platform, 
   Text,
-  StatusBar
+  StatusBar,
+  TouchableOpacity, // ✅ Ajout
+  Image // ✅ Ajout
 } from "react-native";
 import { TextInput, Button, SegmentedButtons, Surface } from "react-native-paper";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import * as ImagePicker from 'expo-image-picker'; // ✅ Ajout
+import { Ionicons } from "@expo/vector-icons"; // ✅ Ajout
 
 // Architecture
 import { useAuthStore } from "../../stores/useAuthStore";
@@ -56,6 +60,9 @@ export default function EditProfileScreen({ navigation }: any) {
     gender: "M",
   });
 
+  // ✅ État pour l'image
+  const [avatarUri, setAvatarUri] = useState<string | null>(null);
+
   const { data: fullProfile, isLoading: isLoadingProfile } = useQuery({
     queryKey: ['userProfile'],
     queryFn: getProfile,
@@ -73,14 +80,39 @@ export default function EditProfileScreen({ navigation }: any) {
             cni: fullProfile.cni || "",
             gender: fullProfile.gender || "M",
         });
+        if (fullProfile.avatar) setAvatarUri(fullProfile.avatar);
     }
   }, [fullProfile, user]);
+
+  // ✅ Fonction pour choisir une image
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    
+    if (status !== 'granted') {
+      Alert.alert("Permission refusée", "Nous avons besoin d'accéder à vos photos pour changer l'avatar.");
+      return;
+    }
+
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+    });
+
+    if (!result.canceled) {
+      setAvatarUri(result.assets[0].uri);
+    }
+  };
 
   const mutation = useMutation({
     mutationFn: updateProfile,
     onSuccess: (updatedUser) => {
       const newUser = updatedUser.data || updatedUser; 
-      setUser({ ...user, ...newUser });
+      
+      // On fusionne les nouvelles données + l'avatar (qui serait uploadé en prod)
+      const userToStore = { ...user, ...newUser, avatar: avatarUri };
+      setUser(userToStore);
       
       // Invalider le cache pour forcer le rafraîchissement partout
       queryClient.invalidateQueries({ queryKey: ['userProfile'] });
@@ -103,7 +135,8 @@ export default function EditProfileScreen({ navigation }: any) {
         Alert.alert("Champs requis", "Veuillez remplir au moins le nom, le prénom et l'email.");
         return;
     }
-    mutation.mutate(form as any);
+    // En prod, il faudrait uploader l'image ici et récupérer l'URL
+    mutation.mutate({ ...form, avatar: avatarUri } as any);
   };
 
   return (
@@ -122,13 +155,23 @@ export default function EditProfileScreen({ navigation }: any) {
         >
           
           <View style={[styles.headerBackground, { backgroundColor: roleColor }]}>
-              <View style={styles.avatarContainer}>
-                <View style={[styles.avatar, { borderColor: 'rgba(255,255,255,0.4)' }]}>
-                    <Text style={styles.avatarText}>
-                        {(form.firstname?.[0] || "")}{(form.lastname?.[0] || "")}
-                    </Text>
+              {/* ✅ Avatar Cliquable */}
+              <TouchableOpacity onPress={pickImage} activeOpacity={0.8} style={styles.avatarContainer}>
+                <View style={[styles.avatar, { borderColor: 'rgba(255,255,255,0.4)', overflow: 'hidden' }]}>
+                    {avatarUri ? (
+                        <Image source={{ uri: avatarUri }} style={{ width: '100%', height: '100%' }} />
+                    ) : (
+                        <Text style={styles.avatarText}>
+                            {(form.firstname?.[0] || "")}{(form.lastname?.[0] || "")}
+                        </Text>
+                    )}
                 </View>
-              </View>
+                {/* Icône caméra */}
+                <View style={[styles.cameraBadge, { backgroundColor: roleColor }]}>
+                    <Ionicons name="camera" size={16} color="#FFF" />
+                </View>
+              </TouchableOpacity>
+
               <Text style={styles.headerTitle}>{form.firstname} {form.lastname}</Text>
               <Text style={styles.headerRole}>{user?.role?.replace('_', ' ').toUpperCase()}</Text>
           </View>
@@ -252,9 +295,15 @@ export default function EditProfileScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   scrollContent: { paddingBottom: 40 },
   headerBackground: { alignItems: 'center', paddingVertical: 40, borderBottomLeftRadius: 35, borderBottomRightRadius: 35 },
-  avatarContainer: { marginBottom: 12 },
+  avatarContainer: { marginBottom: 12, position: 'relative' },
   avatar: { width: 90, height: 90, borderRadius: 45, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center', borderWidth: 3 },
   avatarText: { color: '#FFF', fontSize: 32, fontWeight: 'bold' },
+  cameraBadge: { 
+      position: 'absolute', bottom: 0, right: 0, 
+      width: 28, height: 28, borderRadius: 14, 
+      justifyContent: 'center', alignItems: 'center', 
+      borderWidth: 2, borderColor: '#FFF' 
+  },
   headerTitle: { fontSize: 22, fontWeight: 'bold', color: '#FFF' },
   headerRole: { fontSize: 12, color: 'rgba(255,255,255,0.7)', fontWeight: '800', marginTop: 4, letterSpacing: 1 },
   formCard: { marginHorizontal: 20, marginTop: -30, borderRadius: 24, padding: 20 },

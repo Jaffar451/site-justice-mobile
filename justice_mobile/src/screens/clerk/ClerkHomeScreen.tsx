@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { 
   View, 
   Text, 
@@ -8,15 +8,16 @@ import {
   Dimensions,
   Platform,
   StatusBar,
-  ActivityIndicator
+  RefreshControl
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from 'expo-linear-gradient';
 import { useQuery } from "@tanstack/react-query";
+import { useFocusEffect } from "@react-navigation/native";
 
 // ✅ Architecture
 import { useAuthStore } from "../../stores/useAuthStore";
-import { useAppTheme } from "../../theme/AppThemeProvider"; // ✅ Utilisation du hook dynamique
+import { useAppTheme } from "../../theme/AppThemeProvider"; 
 import { ClerkScreenProps } from "../../types/navigation";
 
 // Composants
@@ -41,6 +42,18 @@ export default function ClerkHomeScreen({ navigation }: ClerkScreenProps<'ClerkH
     return () => clearInterval(timer);
   }, []);
 
+  // 🔄 DONNÉES SIMULÉES (Stats)
+  const { data: stats, isLoading, refetch } = useQuery({
+    queryKey: ['clerk-stats'],
+    queryFn: async () => ({
+        pending: 14, // À enrôler
+        hearings: 5, // Audiences du jour
+        detention: 32 // Écrous
+    })
+  });
+
+  useFocusEffect(useCallback(() => { refetch(); }, []));
+
   const timeString = currentTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
   const dateFull = currentTime.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }).toUpperCase();
 
@@ -53,17 +66,21 @@ export default function ClerkHomeScreen({ navigation }: ClerkScreenProps<'ClerkH
     border: isDark ? "#334155" : "#F1F5F9",
   };
 
-  // 📊 STATISTIQUES (Simulation ou Service API)
-  const stats = [
-    { label: "À Enrôler", value: "14", color: "#F59E0B", icon: "document-text", alert: true },
-    { label: "Audiences", value: "5", color: "#10B981", icon: "calendar", alert: false },
-    { label: "Écrous", value: "32", color: "#EF4444", icon: "lock-closed", alert: true },
+  // 📊 STATISTIQUES AFFICHÉES
+  const statsDisplay = [
+    { label: "À Enrôler", value: stats?.pending || 0, color: "#F59E0B", icon: "document-text", alert: true },
+    { label: "Audiences", value: stats?.hearings || 0, color: "#10B981", icon: "calendar", alert: false },
+    { label: "Écrous", value: stats?.detention || 0, color: "#EF4444", icon: "lock-closed", alert: true },
   ];
 
-  // 🛠️ MENU MÉTIER
+  // 🛠️ MENU MÉTIER (Mis à jour avec Scanner & Rapport)
   const menuItems = [
-    { title: "Enrôlement (RP)", subtitle: "Réception Parquet", icon: "create", route: "ClerkComplaints", color: primaryColor },
-    { title: "Rôle d'Audience", subtitle: "Planning Journalier", icon: "list", route: "ClerkCalendar", color: "#6366F1" },
+    { title: "Enrôlement (RP)", subtitle: "Réception Parquet", icon: "create", route: "ClerkComplaints", color: "#F59E0B" },
+    { title: "Rôle d'Audience", subtitle: "Planning Journalier", icon: "calendar", route: "ClerkCalendar", color: "#10B981" },
+    // ✅ NOUVEAUX OUTILS
+    { title: "Scanner Pièce", subtitle: "Vérification Acte", icon: "qr-code-outline", route: "VerificationScanner", color: "#2563EB" },
+    { title: "Rapport Hebdo", subtitle: "Statistiques Greffe", icon: "stats-chart", route: "WeeklyReport", color: "#7C3AED" },
+    // -----------------
     { title: "Registre Scellés", subtitle: "Pièces à Conviction", icon: "archive", route: "ClerkConfiscation", color: "#8B5CF6" },
     { title: "Levée d'Écrou", subtitle: "Ordres de Libération", icon: "key", route: "ClerkRelease", color: "#EC4899" }
   ];
@@ -77,6 +94,7 @@ export default function ClerkHomeScreen({ navigation }: ClerkScreenProps<'ClerkH
         style={{ backgroundColor: colors.bgMain }}
         contentContainerStyle={styles.container} 
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={primaryColor} />}
       >
         
         {/* 👋 BIENVENUE & HEURE */}
@@ -100,7 +118,7 @@ export default function ClerkHomeScreen({ navigation }: ClerkScreenProps<'ClerkH
 
         {/* 📊 INDICATEURS RAPIDES */}
         <View style={styles.statsRow}>
-          {stats.map((stat, index) => (
+          {statsDisplay.map((stat, index) => (
             <View key={index} style={[styles.statCard, { backgroundColor: colors.bgCard, borderTopColor: stat.color, borderColor: colors.border }]}>
               {stat.alert && <View style={[styles.alertDot, { backgroundColor: stat.color }]} />}
               <Ionicons name={stat.icon as any} size={18} color={stat.color} />

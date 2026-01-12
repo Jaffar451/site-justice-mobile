@@ -11,6 +11,10 @@ import LawyerNotificationsScreen from '../../screens/lawyer/LawyerNotificationsS
 import LawyerSubmitBriefScreen from '../../screens/lawyer/LawyerSubmitBriefScreen';
 import LawyerTrackingScreen from '../../screens/lawyer/LawyerTrackingScreen';
 
+// --- ✅ NOUVEAUX ÉCRANS PARTAGÉS (Scanner & Rapport) ---
+import VerificationScannerScreen from '../../screens/shared/VerificationScannerScreen';
+import WeeklyReportScreen from '../../screens/shared/WeeklyReportScreen';
+
 // --- 🌍 Écrans PARTAGÉS (Système & Support) ---
 import ProfileScreen from '../../screens/Profile/ProfileScreen';
 import EditProfileScreen from '../../screens/Profile/EditProfileScreen';
@@ -39,6 +43,14 @@ export default function LawyerStack() {
       <Stack.Screen name="LawyerCaseList" component={LawyerCaseListScreen} />
       <Stack.Screen name="LawyerCaseDetail" component={LawyerCaseDetailScreen} />
       <Stack.Screen name="LawyerSubmitBrief" component={LawyerSubmitBriefScreen} />
+
+      {/* ==========================================
+          ✅ OUTILS JURIDIQUES (Nouveaux)
+      ========================================== */}
+      {/* Scanner pour vérifier l'authenticité des actes/jugements */}
+      <Stack.Screen name="VerificationScanner" component={VerificationScannerScreen as any} />
+      {/* Rapport d'activité / Suivi des audiences (Lundi) */}
+      <Stack.Screen name="WeeklyReport" component={WeeklyReportScreen as any} />
 
       {/* ==========================================
           📅 AGENDA & SUIVI

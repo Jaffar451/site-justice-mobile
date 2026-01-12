@@ -54,6 +54,14 @@ export default function CitizenHomeScreen({ navigation }: CitizenScreenProps<'Ci
       desc: "État d'avancement" 
     },
     { 
+      id: "scanner", 
+      title: "Vérifier un Acte", 
+      icon: "qr-code-outline", 
+      color: "#059669", // Vert émeraude
+      route: "VerificationScanner", 
+      desc: "Authenticité document" 
+    },
+    { 
       id: "record", 
       title: "Casier Judiciaire", 
       icon: "ribbon", 
@@ -66,16 +74,8 @@ export default function CitizenHomeScreen({ navigation }: CitizenScreenProps<'Ci
       title: "Carte des Services", 
       icon: "map-outline", 
       color: "#6366F1", 
-      route: "StationMapScreen", // ✅ Mis à jour
+      route: "StationMapScreen", 
       desc: "Police & Tribunaux" 
-    },
-    { 
-      id: "help", 
-      title: "Aide Juridique", 
-      icon: "help-buoy", 
-      color: "#8B5CF6", 
-      route: "UserGuide", 
-      desc: "Guide & Support" 
     }
   ];
 
@@ -217,7 +217,6 @@ const styles = StyleSheet.create({
   gridDesc: { fontSize: 11, fontWeight: "600" },
   infoCard: { marginTop: 25, borderRadius: 24, overflow: 'hidden', borderWidth: 1 },
   infoGradient: { padding: 20, flexDirection: "row", gap: 15, alignItems: "center" },
-  // ✅ Correction styles texte information
   infoTitle: { fontWeight: "900", fontSize: 14, marginBottom: 2 },
   infoText: { fontSize: 11, fontWeight: "500", lineHeight: 16 },
 });

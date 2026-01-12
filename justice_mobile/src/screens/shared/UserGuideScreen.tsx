@@ -16,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "../../theme/AppThemeProvider"; 
 import ScreenContainer from "../../components/layout/ScreenContainer";
 import AppHeader from "../../components/layout/AppHeader";
+import SmartFooter from "../../components/layout/SmartFooter"; // ✅ Ajout
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -61,6 +62,12 @@ export default function UserGuideScreen() {
       title: "Demande de Casier Judiciaire",
       icon: "ribbon",
       content: "Le module 'Casier Judiciaire' vous permet de commander un extrait B3. Vous devrez scanner votre acte de naissance et payer les frais de chancellerie via Mobile Money."
+    },
+    {
+        id: 6,
+        title: "Comment vérifier un acte (Scanner) ?",
+        icon: "qr-code-outline",
+        content: "Utilisez le bouton 'Scanner' ou 'Vérifier Acte' présent sur votre tableau de bord. Scannez le QR Code présent sur le document papier pour confirmer son authenticité via la base de données centrale."
     }
   ];
 
@@ -125,10 +132,10 @@ export default function UserGuideScreen() {
 
                 {isOpen && (
                   <View style={styles.contentBox}>
-                     <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                     <Text style={[styles.content, { color: isDark ? "#CBD5E1" : "#475569" }]}>
-                       {step.content}
-                     </Text>
+                      <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                      <Text style={[styles.content, { color: isDark ? "#CBD5E1" : "#475569" }]}>
+                        {step.content}
+                      </Text>
                   </View>
                 )}
               </View>
@@ -167,6 +174,9 @@ export default function UserGuideScreen() {
         <Text style={[styles.versionText, { color: colors.textSub }]}>Version 1.0.2 • e-Justice Niger</Text>
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* Footer standardisé */}
+      <SmartFooter />
     </ScreenContainer>
   );
 }

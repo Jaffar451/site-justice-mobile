@@ -11,12 +11,16 @@ import CommissaireGAVSupervisionScreen from '../../screens/commissaire/Commissai
 import CommissaireRegistryScreen from '../../screens/commissaire/CommissaireRegistryScreen';
 import CommissaireCommandCenter from '../../screens/commissaire/CommissaireCommandCenter';
 
+// --- ✅ NOUVEAUX ÉCRANS PARTAGÉS (Scanner & Rapport) ---
+import VerificationScannerScreen from '../../screens/shared/VerificationScannerScreen';
+import WeeklyReportScreen from '../../screens/shared/WeeklyReportScreen';
+
 // --- 🌍 Écrans PARTAGÉS (Système & Support) ---
 import ProfileScreen from '../../screens/Profile/ProfileScreen';
 import EditProfileScreen from '../../screens/Profile/EditProfileScreen';
 import SettingsScreen from '../../screens/Settings/SettingsScreen';
 import NationalMapScreen from '../../screens/admin/NationalMapScreen';
-import AdminNotificationsScreen from '../../screens/admin/AdminNotificationsScreen'; // Pour les notifs
+import AdminNotificationsScreen from '../../screens/admin/AdminNotificationsScreen'; 
 import UserGuideScreen from '../../screens/shared/UserGuideScreen';
 import SupportScreen from '../../screens/shared/SupportScreen';
 import AboutScreen from '../../screens/shared/AboutScreen';
@@ -39,6 +43,14 @@ export default function CommissaireStack() {
       <Stack.Screen name="CommissaireDashboard" component={CommissaireDashboard} />
       <Stack.Screen name="CommissaireCommandCenter" component={CommissaireCommandCenter} />
       <Stack.Screen name="NationalMap" component={NationalMapScreen} />
+
+      {/* ==========================================
+          ✅ OUTILS DE CONTRÔLE (Nouveaux)
+      ========================================== */}
+      {/* Scanner pour vérifier les pièces et identités */}
+      <Stack.Screen name="VerificationScanner" component={VerificationScannerScreen as any} />
+      {/* Rapport d'activité de l'Unité (Lundi) */}
+      <Stack.Screen name="WeeklyReport" component={WeeklyReportScreen as any} />
 
       {/* ==========================================
           ✅ VALIDATION & VISAS (OPJ)

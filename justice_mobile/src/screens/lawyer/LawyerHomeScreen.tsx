@@ -1,4 +1,3 @@
-// PATH: src/screens/lawyer/LawyerHomeScreen.tsx
 import React, { useState, useEffect, useCallback } from "react";
 import { 
   View, 
@@ -74,7 +73,11 @@ export default function LawyerHomeScreen({ navigation }: LawyerScreenProps<'Lawy
   const services = [
     { id: "portfolio", title: "Mon Répertoire", icon: "briefcase", color: primaryColor, route: "LawyerCaseList", desc: "Dossiers constitués" },
     { id: "agenda", title: "Mon Agenda", icon: "calendar", color: "#EA580C", route: "LawyerCalendar", desc: "Audiences fixées" },
-    { id: "tracking", title: "Suivi RPVA", icon: "sync", color: "#6366F1", route: "LawyerTracking", desc: "État des procédures" },
+    // ✅ NOUVEAUX OUTILS
+    { id: "scanner", title: "Scanner Acte", icon: "qr-code-outline", color: "#10B981", route: "VerificationScanner", desc: "Vérifier notification" },
+    { id: "rapport", title: "Stats Cabinet", icon: "stats-chart", color: "#6366F1", route: "WeeklyReport", desc: "Rapport d'activité" },
+    // -----------------
+    { id: "tracking", title: "Suivi RPVA", icon: "sync", color: "#0891B2", route: "LawyerTracking", desc: "État des procédures" },
     { id: "notifs", title: "Notifications", icon: "notifications", color: accentColor, route: "Notifications", desc: "Alertes du Greffe" }
   ];
 

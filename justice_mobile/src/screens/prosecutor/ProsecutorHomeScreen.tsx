@@ -1,4 +1,3 @@
-// PATH: src/screens/prosecutor/ProsecutorHomeScreen.tsx
 import React, { useState, useEffect, useCallback } from "react";
 import { 
   View, 
@@ -74,8 +73,12 @@ export default function ProsecutorHomeScreen({ navigation }: ProsecutorScreenPro
   const services = [
     { id: "cases", title: "Dossiers", icon: "folder-open", color: primaryColor, route: "ProsecutorCaseList", desc: "Traiter les PV" },
     { id: "calendar", title: "Audiences", icon: "calendar", color: "#EA580C", route: "ProsecutorCalendar", desc: "Rôle du jour" },
-    { id: "warrants", title: "Mandats", icon: "shield-checkmark", color: "#6366F1", route: "WarrantSearch", desc: "Écrous & Recherche" },
-    { id: "stats", title: "Statistiques", icon: "bar-chart", color: "#059669", route: "ProsecutorCaseList", desc: "Volume d'activité" }
+    // ✅ NOUVEAUX OUTILS
+    { id: "scanner", title: "Scanner PV", icon: "qr-code-outline", color: "#10B981", route: "VerificationScanner", desc: "Vérifier pièce/scellé" },
+    { id: "rapport", title: "Rapport Hebdo", icon: "stats-chart", color: "#6366F1", route: "WeeklyReport", desc: "Activité Parquet" },
+    // -----------------
+    { id: "warrants", title: "Mandats", icon: "shield-checkmark", color: "#0891B2", route: "WarrantSearch", desc: "Écrous & Recherche" },
+    { id: "assign", title: "Assignation", icon: "person-add", color: "#059669", route: "ProsecutorAssignJudge", desc: "Désigner un juge" }
   ];
 
   return (
@@ -216,7 +219,6 @@ const styles = StyleSheet.create({
   gridDesc: { fontSize: 11, fontWeight: "600" },
   infoCard: { marginTop: 25, borderRadius: 24, overflow: 'hidden', borderWidth: 1 },
   infoGradient: { padding: 22, flexDirection: "row", gap: 15, alignItems: "center" },
-  // ✅ STYLES CORRIGÉS
   infoTitle: { fontWeight: "900", fontSize: 14, marginBottom: 4, color: "#EF4444" },
   infoText: { fontSize: 12, fontWeight: "500", lineHeight: 18 },
 });

@@ -7,8 +7,6 @@ import {
   TouchableOpacity, 
   Dimensions, 
   StatusBar, 
-  Platform, 
-  ActivityIndicator,
   RefreshControl 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,15 +18,21 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useAppTheme } from '../../theme/AppThemeProvider';
 import { getPoliceStats } from "../../services/stats.service";
+import { CommissaireScreenProps } from "../../types/navigation";
+
+// Composants
 import ScreenContainer from '../../components/layout/ScreenContainer';
 import AppHeader from '../../components/layout/AppHeader';
 import SmartFooter from '../../components/layout/SmartFooter';
 
-export default function CommissaireDashboard() {
+const { width } = Dimensions.get("window");
+const gap = 12;
+const itemWidth = (width - 48) / 2;
+
+export default function CommissaireDashboard({ navigation }: CommissaireScreenProps<'CommissaireDashboard'>) {
   const { theme, isDark } = useAppTheme();
   const primaryColor = theme.colors.primary;
   const { user } = useAuthStore();
-  const navigation = useNavigation<any>();
 
   // 🕒 Horloge temps réel
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -38,7 +42,7 @@ export default function CommissaireDashboard() {
     return () => clearInterval(timer);
   }, []);
 
-  // 🔄 Statistiques réelles
+  // 🔄 Statistiques réelles (ou simulées)
   const { data: stats, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ["police-stats"],
     queryFn: getPoliceStats,
@@ -50,7 +54,7 @@ export default function CommissaireDashboard() {
     }, [refetch])
   );
 
-  // 🎨 Palette
+  // 🎨 Palette Commissaire (Indigo/Violet pour l'autorité)
   const colors = {
     bgMain: isDark ? "#0F172A" : "#F8FAFC",
     bgCard: isDark ? "#1E293B" : "#FFFFFF",
@@ -58,15 +62,29 @@ export default function CommissaireDashboard() {
     textSub: isDark ? "#94A3B8" : "#64748B",
     border: isDark ? "#334155" : "#F1F5F9",
     alertBorder: isDark ? "#7F1D1D" : "#FEE2E2",
-    alertBg: isDark ? "#450A0A" : "#FFF5F5",
+    alertBg: isDark ? "#450A0A" : "#FEF2F2",
   };
 
-  const timeString = currentTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const timeString = currentTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
   const dateString = currentTime.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
   const unitTitle = user?.lastname 
     ? `Commissariat de ${(user as any)?.district || 'Niamey'}`
     : 'Unité de Commandement';
+
+  // 🛠️ MENU ACTIONS
+  const actions = [
+    { title: "Validation Visas", icon: "checkmark-done-circle", color: "#8B5CF6", route: "CommissaireVisaList", sub: "Actes en attente" },
+    { title: "Supervision GAV", icon: "lock-closed", color: "#EF4444", route: "CommissaireGAVSupervision", sub: "Délais légaux" },
+    { title: "Registre Main Courante", icon: "book", color: primaryColor, route: "CommissaireRegistry", sub: "Journal du poste" },
+    { title: "Commandement", icon: "map", color: "#F59E0B", route: "CommissaireCommandCenter", sub: "Carte opérationnelle" },
+  ];
+
+  // ✅ NOUVEAUX OUTILS DE CONTRÔLE
+  const tools = [
+    { title: "Scanner Contrôle", icon: "qr-code-outline", color: "#10B981", route: "VerificationScanner", sub: "Vérifier pièce/badge" },
+    { title: "Rapport Hebdo", icon: "stats-chart", color: "#6366F1", route: "WeeklyReport", sub: "Synthèse activité" },
+  ];
 
   return (
     <ScreenContainer withPadding={false}>
@@ -82,7 +100,7 @@ export default function CommissaireDashboard() {
         }
       >
         
-        {/* 🏛️ HEADER */}
+        {/* 🏛️ HEADER UNITÉ & HEURE */}
         <View style={styles.headerSection}>
           <View style={styles.headerTop}>
             <View>
@@ -107,7 +125,7 @@ export default function CommissaireDashboard() {
           </LinearGradient>
         </View>
 
-        {/* 🚨 ALERTE GAV */}
+        {/* 🚨 ALERTE GAV (Priorité absolue) */}
         <TouchableOpacity 
           style={[styles.alertCard, { backgroundColor: colors.alertBg, borderColor: colors.alertBorder }]} 
           activeOpacity={0.9}
@@ -129,14 +147,13 @@ export default function CommissaireDashboard() {
           </View>
         </TouchableOpacity>
 
-        {/* 📊 KPI */}
+        {/* 📊 KPI RAPIDES */}
         <View style={styles.statsGrid}>
           <StatCard 
             label="VISAS REQUIS" 
             value={isLoading ? "..." : stats?.nouveaux?.toString() || "0"} 
             icon="shield-checkmark-outline" 
             color="#8B5CF6" 
-            onPress={() => navigation.navigate('CommissaireVisaList')}
             colors={colors}
           />
           <StatCard 
@@ -144,61 +161,71 @@ export default function CommissaireDashboard() {
             value={isLoading ? "..." : stats?.total?.toString() || "0"} 
             icon="search-outline" 
             color={primaryColor} 
-            onPress={() => navigation.navigate('CommissaireRegistry')}
             colors={colors}
           />
         </View>
 
-        {/* 🚀 ACTIONS RAPIDES */}
-        <Text style={[styles.sectionTitle, { color: colors.textSub }]}>COMMANDEMENT OPÉRATIONNEL</Text>
-        <View style={styles.actionGrid}>
-          <QuickAction title="Assigner" icon="person-add-outline" color="#0EA5E9" onPress={() => {}} colors={colors} />
-          <QuickAction title="Visas" icon="document-text-outline" color="#8B5CF6" onPress={() => navigation.navigate('CommissaireVisaList')} colors={colors} />
-          <QuickAction title="Registre" icon="archive-outline" color="#64748B" onPress={() => navigation.navigate('CommissaireRegistry')} colors={colors} />
-          <QuickAction title="Commandement" icon="map-outline" color="#F59E0B" onPress={() => navigation.navigate('CommissaireCommandCenter')} colors={colors} />
+        {/* 🚀 COMMANDEMENT & OPÉRATIONS */}
+        <Text style={[styles.sectionTitle, { color: colors.textSub }]}>Pilotage Opérationnel</Text>
+        <View style={styles.gridContainer}>
+          {actions.map((action, index) => (
+             <ActionCard key={index} item={action} navigation={navigation} colors={colors} />
+          ))}
         </View>
 
-        {/* 📈 PERFORMANCE */}
+        {/* ✅ OUTILS DE CONTRÔLE (Nouveaux) */}
+        <Text style={[styles.sectionTitle, { color: colors.textSub, marginTop: 20 }]}>Outils de Contrôle</Text>
+        <View style={styles.gridContainer}>
+          {tools.map((tool, index) => (
+             <ActionCard key={index} item={tool} navigation={navigation} colors={colors} />
+          ))}
+        </View>
+
+        {/* 📈 BARRE PERFORMANCE */}
         <View style={[styles.performanceCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-          <Text style={[styles.perfTitle, { color: colors.textMain }]}>Taux de Transmission Parquet</Text>
+          <Text style={[styles.perfTitle, { color: colors.textMain }]}>Taux d'Élucidation Mensuel</Text>
           <View style={styles.perfRow}>
             <View style={[styles.progressBarBg, { backgroundColor: isDark ? "#334155" : "#F1F5F9" }]}>
-              <View style={[styles.progressBarFill, { width: '84%', backgroundColor: primaryColor }]} />
+              <View style={[styles.progressBarFill, { width: '78%', backgroundColor: "#10B981" }]} />
             </View>
-            <Text style={[styles.perfValue, { color: primaryColor }]}>84%</Text>
+            <Text style={[styles.perfValue, { color: "#10B981" }]}>78%</Text>
           </View>
-          <Text style={[styles.perfSub, { color: colors.textSub }]}>Objectif : 90% (Célérité Judiciaire)</Text>
+          <Text style={[styles.perfSub, { color: colors.textSub }]}>Objectif Direction Générale : 75%</Text>
         </View>
 
-        <View style={{ height: 40 }} />
+        <View style={{ height: 140 }} />
       </ScrollView>
       <SmartFooter />
     </ScreenContainer>
   );
 }
 
-const StatCard = ({ label, value, icon, color, onPress, colors }: any) => (
-  <TouchableOpacity 
-    style={[styles.statCard, { backgroundColor: colors.bgCard, borderLeftColor: color, borderColor: colors.border, borderWidth: 1 }]} 
-    onPress={onPress}
-  >
+// --- SOUS-COMPOSANTS ---
+
+const StatCard = ({ label, value, icon, color, colors }: any) => (
+  <View style={[styles.statCard, { backgroundColor: colors.bgCard, borderLeftColor: color, borderColor: colors.border, borderWidth: 1 }]}>
     <Ionicons name={icon} size={22} color={color} />
     <Text style={[styles.statValue, { color: colors.textMain }]}>{value}</Text>
     <Text style={[styles.statLabel, { color: colors.textSub }]}>{label}</Text>
-  </TouchableOpacity>
+  </View>
 );
 
-const QuickAction = ({ title, icon, color, onPress, colors }: any) => (
-  <TouchableOpacity style={styles.qAction} onPress={onPress}>
-    <View style={[styles.qIconBox, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-      <Ionicons name={icon} size={26} color={color} />
+const ActionCard = ({ item, navigation, colors }: any) => (
+  <TouchableOpacity 
+    style={[styles.actionCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
+    onPress={() => navigation.navigate(item.route)}
+    activeOpacity={0.8}
+  >
+    <View style={[styles.iconCircle, { backgroundColor: item.color + "15" }]}>
+      <Ionicons name={item.icon} size={24} color={item.color} />
     </View>
-    <Text style={[styles.qText, { color: colors.textMain }]}>{title}</Text>
+    <Text style={[styles.actionTitle, { color: colors.textMain }]}>{item.title}</Text>
+    <Text style={[styles.actionSub, { color: colors.textSub }]} numberOfLines={1}>{item.sub}</Text>
   </TouchableOpacity>
 );
 
 const styles = StyleSheet.create({
-  scrollContent: { padding: 20, paddingBottom: 140 },
+  scrollContent: { padding: 20, paddingTop: 10 },
   headerSection: { marginBottom: 25 },
   headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
   unitLabel: { fontSize: 10, fontWeight: '900', letterSpacing: 2 },
@@ -207,27 +234,33 @@ const styles = StyleSheet.create({
   clockCard: { borderRadius: 24, padding: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', elevation: 4 },
   clockTime: { fontSize: 32, fontWeight: '900', color: '#FFF', letterSpacing: 1 },
   clockDate: { fontSize: 10, color: 'rgba(255,255,255,0.8)', fontWeight: '700', marginTop: 4 },
-  alertCard: { marginBottom: 25, borderRadius: 20, borderWidth: 1.5, elevation: 2 },
+  
+  alertCard: { marginBottom: 25, borderRadius: 20, borderWidth: 1, elevation: 2 },
   alertContent: { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 12 },
   alertIconBox: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
   alertTitle: { fontSize: 13, fontWeight: '800' },
   alertSub: { fontSize: 11, marginTop: 2, fontWeight: '600' },
   badgeCritical: { backgroundColor: '#EF4444', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   badgeText: { color: '#FFF', fontSize: 8, fontWeight: '900' },
+
   statsGrid: { flexDirection: 'row', gap: 15, marginBottom: 25 },
-  statCard: { flex: 1, padding: 18, borderRadius: 24, borderLeftWidth: 6 },
+  statCard: { flex: 1, padding: 18, borderRadius: 24, borderLeftWidth: 5, elevation: 1 },
   statValue: { fontSize: 24, fontWeight: '900', marginVertical: 4 },
   statLabel: { fontSize: 9, fontWeight: '800' },
+
   sectionTitle: { fontSize: 11, fontWeight: '900', letterSpacing: 1.5, marginBottom: 15, textTransform: 'uppercase' },
-  actionGrid: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 25 },
-  qAction: { alignItems: 'center', width: (Dimensions.get('window').width - 40) / 4.5 },
-  qIconBox: { width: 56, height: 56, borderRadius: 18, justifyContent: 'center', alignItems: 'center', marginBottom: 8, borderWidth: 1 },
-  qText: { fontSize: 11, fontWeight: '700' },
-  performanceCard: { padding: 20, borderRadius: 24, borderWidth: 1 },
+  
+  gridContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: gap },
+  actionCard: { width: itemWidth, padding: 16, borderRadius: 20, borderWidth: 1, marginBottom: 2 },
+  iconCircle: { width: 46, height: 46, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
+  actionTitle: { fontSize: 13, fontWeight: '800', marginBottom: 2 },
+  actionSub: { fontSize: 10, fontWeight: '600' },
+
+  performanceCard: { padding: 20, borderRadius: 24, borderWidth: 1, marginTop: 25 },
   perfTitle: { fontSize: 13, fontWeight: '800', marginBottom: 12 },
   perfRow: { flexDirection: 'row', alignItems: 'center', gap: 15 },
   progressBarBg: { flex: 1, height: 10, borderRadius: 5, overflow: 'hidden' },
   progressBarFill: { height: '100%', borderRadius: 5 },
   perfValue: { fontSize: 16, fontWeight: '900' },
-  perfSub: { fontSize: 10, fontWeight: '600', marginTop: 10 } // ✅ Ajout de perfSub
+  perfSub: { fontSize: 10, fontWeight: '600', marginTop: 10 }
 });

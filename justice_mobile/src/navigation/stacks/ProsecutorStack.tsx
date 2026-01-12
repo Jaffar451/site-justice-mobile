@@ -9,12 +9,16 @@ import ProsecutorCaseDetailScreen from '../../screens/prosecutor/ProsecutorCaseD
 import ProsecutorCalendarScreen from '../../screens/prosecutor/ProsecutorCalendarScreen';
 import ProsecutorAssignJudgeScreen from '../../screens/prosecutor/ProsecutorAssignJudgeScreen';
 
+// --- ✅ NOUVEAUX ÉCRANS PARTAGÉS (Scanner & Rapport) ---
+import VerificationScannerScreen from '../../screens/shared/VerificationScannerScreen';
+import WeeklyReportScreen from '../../screens/shared/WeeklyReportScreen';
+
 // --- 🌍 Écrans PARTAGÉS (Système & Support) ---
 import ProfileScreen from '../../screens/Profile/ProfileScreen';
 import EditProfileScreen from '../../screens/Profile/EditProfileScreen';
 import SettingsScreen from '../../screens/Settings/SettingsScreen';
 import NationalMapScreen from '../../screens/admin/NationalMapScreen';
-import AdminNotificationsScreen from '../../screens/admin/AdminNotificationsScreen'; // Pour les notifications
+import AdminNotificationsScreen from '../../screens/admin/AdminNotificationsScreen';
 import UserGuideScreen from '../../screens/shared/UserGuideScreen';
 import SupportScreen from '../../screens/shared/SupportScreen';
 import AboutScreen from '../../screens/shared/AboutScreen';
@@ -43,6 +47,14 @@ export default function ProsecutorStack() {
       <Stack.Screen name="ProsecutorAssignJudge" component={ProsecutorAssignJudgeScreen} />
 
       {/* ==========================================
+          ✅ OUTILS DU PARQUET (Nouveaux)
+      ========================================== */}
+      {/* Scanner pour vérifier les PV et Pièces */}
+      <Stack.Screen name="VerificationScanner" component={VerificationScannerScreen as any} />
+      {/* Rapport d'activité du Parquet (Lundi) */}
+      <Stack.Screen name="WeeklyReport" component={WeeklyReportScreen as any} />
+
+      {/* ==========================================
           📅 AGENDA
       ========================================== */}
       <Stack.Screen name="ProsecutorCalendar" component={ProsecutorCalendarScreen} />
@@ -55,7 +67,7 @@ export default function ProsecutorStack() {
       <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="NationalMap" component={NationalMapScreen} />
       
-      {/* Notifications (utilise l'écran Admin par défaut ou créez-en un spécifique) */}
+      {/* Notifications */}
       <Stack.Screen name="Notifications" component={AdminNotificationsScreen as any} />
 
       {/* ==========================================

@@ -10,16 +10,17 @@ import {
   ScrollView, 
   KeyboardAvoidingView, 
   Platform,
+  Image,
   ViewStyle,
   KeyboardTypeOptions,
   StatusBar
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { CommonActions } from "@react-navigation/native";
+import * as ImagePicker from 'expo-image-picker'; // ✅ Import ImagePicker
 
 // ✅ 1. Architecture & Thème
 import { AdminScreenProps } from "../../types/navigation";
-import { useAppTheme } from "../../theme/AppThemeProvider"; // ✅ Hook dynamique
+import { useAppTheme } from "../../theme/AppThemeProvider"; 
 import { useAuthStore } from "../../stores/useAuthStore";
 import { saveUser } from "../../utils/secureStorage";
 
@@ -76,12 +77,12 @@ const InputField = React.memo(({
 ));
 
 export default function AdminEditProfileScreen({ navigation }: AdminScreenProps<'AdminEditProfile'>) {
-  // ✅ 2. Thème Dynamique
   const { theme, isDark } = useAppTheme();
   const primaryColor = theme.colors.primary;
 
   const { user, setUser } = useAuthStore();
   const [loading, setLoading] = useState(false);
+  const [avatarUri, setAvatarUri] = useState<string | null>(null); // ✅ État pour l'image
 
   // 🎨 PALETTE DYNAMIQUE
   const colors = {
@@ -110,8 +111,34 @@ export default function AdminEditProfileScreen({ navigation }: AdminScreenProps<
         email: user.email || "",
         matricule: (user as any).matricule || (user as any).registrationNumber || "ADMIN-SYS",
       });
+      // Si l'utilisateur a déjà une photo (simulé ici via secureStorage ou API)
+      if ((user as any).avatar) {
+          setAvatarUri((user as any).avatar);
+      }
     }
   }, [user]);
+
+  // ✅ Fonction pour choisir une image
+  const pickImage = async () => {
+    // Demander la permission
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    
+    if (status !== 'granted') {
+      Alert.alert("Permission refusée", "Nous avons besoin d'accéder à vos photos pour changer l'avatar.");
+      return;
+    }
+
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+    });
+
+    if (!result.canceled) {
+      setAvatarUri(result.assets[0].uri);
+    }
+  };
 
   const handleSave = async () => {
     const cleanFirstname = form.firstname.trim();
@@ -125,13 +152,20 @@ export default function AdminEditProfileScreen({ navigation }: AdminScreenProps<
 
     setLoading(true);
     try {
+      // 1. Mise à jour des infos texte
       const updatedData = await updateMe({
         firstname: cleanFirstname,
         lastname: cleanLastname,
         telephone: cleanTelephone,
       });
 
-      const fullUpdatedUser = { ...user, ...updatedData };
+      // 2. Mise à jour locale (Store + Storage) incluant l'avatar
+      const fullUpdatedUser = { 
+          ...user, 
+          ...updatedData, 
+          avatar: avatarUri // On sauvegarde l'URI locale (en prod, il faudrait uploader l'image)
+      };
+      
       await saveUser(fullUpdatedUser as any);
       setUser(fullUpdatedUser as any);
 
@@ -166,11 +200,20 @@ export default function AdminEditProfileScreen({ navigation }: AdminScreenProps<
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
         >
-          {/* Section Avatar */}
+          {/* Section Avatar Cliquable */}
           <View style={styles.headerSection}>
-            <View style={[styles.avatarCircle, { backgroundColor: primaryColor + "15" }]}>
-              <Ionicons name="person-circle-outline" size={100} color={primaryColor} />
-            </View>
+            <TouchableOpacity onPress={pickImage} style={[styles.avatarCircle, { backgroundColor: primaryColor + "15", borderColor: primaryColor }]}>
+              {avatarUri ? (
+                  <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+              ) : (
+                  <Ionicons name="person-circle-outline" size={100} color={primaryColor} />
+              )}
+              {/* Petit badge caméra */}
+              <View style={[styles.cameraBadge, { backgroundColor: primaryColor }]}>
+                  <Ionicons name="camera" size={20} color="#FFF" />
+              </View>
+            </TouchableOpacity>
+            
             <View style={styles.badgeRow}>
               <Text style={[styles.roleBadge, { color: primaryColor, backgroundColor: primaryColor + "15" }]}>
                 {user?.role?.toUpperCase() || "ADMINISTRATEUR"}
@@ -260,7 +303,21 @@ export default function AdminEditProfileScreen({ navigation }: AdminScreenProps<
 const styles = StyleSheet.create({
   scrollContent: { padding: 20 }, 
   headerSection: { alignItems: "center", marginBottom: 35 },
-  avatarCircle: { width: 120, height: 120, borderRadius: 60, justifyContent: "center", alignItems: "center", marginBottom: 15 },
+  
+  // ✅ Avatar Styles
+  avatarCircle: { 
+      width: 120, height: 120, borderRadius: 60, 
+      justifyContent: "center", alignItems: "center", marginBottom: 15,
+      borderWidth: 2, overflow: 'hidden', position: 'relative'
+  },
+  avatarImage: { width: '100%', height: '100%' },
+  cameraBadge: {
+      position: 'absolute', bottom: 5, right: 10,
+      width: 32, height: 32, borderRadius: 16,
+      justifyContent: 'center', alignItems: 'center',
+      borderWidth: 2, borderColor: '#FFF'
+  },
+
   badgeRow: { flexDirection: 'row', gap: 8 },
   roleBadge: { fontSize: 10, fontWeight: "900", paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8, letterSpacing: 1 },
   formCard: { gap: 4 },

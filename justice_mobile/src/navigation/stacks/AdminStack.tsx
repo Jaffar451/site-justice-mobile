@@ -2,108 +2,107 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AdminStackParamList } from '../../types/navigation';
 
-// --- 📊 TABLEAU DE BORD & STATS ---
-import AdminHomeScreen from '../../screens/admin/AdminHomeScreen';
-import AdminStatsScreen from '../../screens/admin/AdminStatsScreen';
-import AdminLogsScreen from '../../screens/admin/AdminLogsScreen';
+// ==========================================
+// IMPORTS
+// ==========================================
 
-// --- 👥 GESTION UTILISATEURS ---
+// 1. Admin Core
+import AdminHomeScreen from '../../screens/admin/AdminHomeScreen';
 import AdminUsersScreen from '../../screens/admin/AdminUsersScreen';
+import AdminUserDetailsScreen from '../../screens/admin/AdminUserDetailsScreen';
 import AdminCreateUserScreen from '../../screens/admin/AdminCreateUserScreen';
 import AdminEditUserScreen from '../../screens/admin/AdminEditUserScreen';
-import AdminUserDetailsScreen from '../../screens/admin/AdminUserDetailsScreen';
 
-// --- 🔒 SÉCURITÉ & MAINTENANCE ---
-import AdminSecurityScreen from '../../screens/admin/AdminSecurityScreen';
-import AdminSecurityDashboardScreen from '../../screens/admin/AdminSecurityDashboardScreen';
-import AdminAuditTrailScreen from '../../screens/admin/AdminAuditTrailScreen';
-import AdminMaintenanceScreen from '../../screens/admin/AdminMaintenanceScreen';
-
-// --- 🏢 JURIDICTIONS & LOGISTIQUE ---
+// 2. Admin Structures
 import AdminCourtsScreen from '../../screens/admin/AdminCourtsScreen';
 import AdminCreateCourtScreen from '../../screens/admin/AdminCreateCourtScreen';
 import ManageStationsScreen from '../../screens/admin/ManageStationsScreen';
-import NationalMapScreen from '../../screens/admin/NationalMapScreen';
 
-// --- ⚙️ PARAMÈTRES & NOTIFICATIONS ADMIN ---
+// 3. Admin Tools & Tech
+import NationalMapScreen from '../../screens/admin/NationalMapScreen';
+import AdminStatsScreen from '../../screens/admin/AdminStatsScreen';
+import AdminAuditTrailScreen from '../../screens/admin/AdminAuditTrailScreen';
+import AdminLogsScreen from '../../screens/admin/AdminLogsScreen';
 import AdminSettingsScreen from '../../screens/admin/AdminSettingsScreen';
-import AdminNotificationsScreen from '../../screens/admin/AdminNotificationsScreen';
+import AdminMaintenanceScreen from '../../screens/admin/AdminMaintenanceScreen';
+import AdminSecurityScreen from '../../screens/admin/AdminSecurityScreen';
 import AdminEditProfileScreen from '../../screens/admin/AdminEditProfileScreen';
 
-// --- 🌍 ÉCRANS PARTAGÉS (Hérités de SharedStackParamList) ---
-import ProfileScreen from '../../screens/Profile/ProfileScreen';
-import SettingsScreen from '../../screens/Settings/SettingsScreen';
-import EditProfileScreen from '../../screens/Profile/EditProfileScreen'; // Version standard
-import AboutScreen from '../../screens/shared/AboutScreen';
+// 4. Shared Screens
+import VerificationScannerScreen from '../../screens/shared/VerificationScannerScreen';
+import WeeklyReportScreen from '../../screens/shared/WeeklyReportScreen';
 import UserGuideScreen from '../../screens/shared/UserGuideScreen';
 import SupportScreen from '../../screens/shared/SupportScreen';
+import AboutScreen from '../../screens/shared/AboutScreen';
 import MyDownloadsScreen from '../../screens/citizen/MyDownloadsScreen';
 
-const Stack = createNativeStackNavigator<AdminStackParamList>();
+// 5. Shared Profile & Settings
+import ProfileScreen from '../../screens/Profile/ProfileScreen';
+import EditProfileScreen from '../../screens/Profile/EditProfileScreen';
+import SettingsScreen from '../../screens/Settings/SettingsScreen';
+import AdminNotificationsScreen from '../../screens/admin/AdminNotificationsScreen';
+
+// TYPAGE
+type AdminStackParams = AdminStackParamList & {
+  VerificationScanner: undefined;
+  WeeklyReport: undefined;
+  Notifications: undefined;
+  HelpCenter: undefined;
+  AdminLogs: undefined;
+  AdminSecurity: undefined;
+  AdminMaintenance: undefined;
+  AdminEditProfile: undefined;
+  AdminHome: undefined;
+};
+
+const Stack = createNativeStackNavigator<AdminStackParams>();
 
 export default function AdminStack() {
   return (
     <Stack.Navigator 
-      initialRouteName="AdminHome" 
+      initialRouteName="AdminDashboard" 
       screenOptions={{ 
         headerShown: false,
         animation: 'slide_from_right'
       }}
     >
-      {/* ==========================================
-          📊 DASHBOARD
-      ========================================== */}
+      <Stack.Screen name="AdminDashboard" component={AdminHomeScreen} />
       <Stack.Screen name="AdminHome" component={AdminHomeScreen} />
-      <Stack.Screen name="AdminStats" component={AdminStatsScreen} />
+      
+      <Stack.Screen name="AdminMaintenance" component={AdminMaintenanceScreen} />
       <Stack.Screen name="AdminLogs" component={AdminLogsScreen} />
+      <Stack.Screen name="AdminSecurity" component={AdminSecurityScreen} />
 
-      {/* ==========================================
-          👥 GESTION RH (Utilisateurs)
-      ========================================== */}
       <Stack.Screen name="AdminUsers" component={AdminUsersScreen} />
+      <Stack.Screen name="AdminUserDetail" component={AdminUserDetailsScreen} />
       <Stack.Screen name="AdminCreateUser" component={AdminCreateUserScreen} />
       <Stack.Screen name="AdminEditUser" component={AdminEditUserScreen} />
-      <Stack.Screen name="AdminUserDetails" component={AdminUserDetailsScreen} />
-
-      {/* ==========================================
-          🔒 SÉCURITÉ & SYSTÈME
-      ========================================== */}
-      <Stack.Screen name="AdminSecurity" component={AdminSecurityScreen} />
-      <Stack.Screen name="AdminSecurityDashboard" component={AdminSecurityDashboardScreen} />
-      <Stack.Screen name="AdminAuditTrail" component={AdminAuditTrailScreen} />
-      <Stack.Screen name="AdminMaintenance" component={AdminMaintenanceScreen} />
-
-      {/* ==========================================
-          🏢 INFRASTRUCTURE (Tribunaux & Commissariats)
-      ========================================== */}
+      
       <Stack.Screen name="AdminCourts" component={AdminCourtsScreen} />
       <Stack.Screen name="AdminCreateCourt" component={AdminCreateCourtScreen} />
       <Stack.Screen name="ManageStations" component={ManageStationsScreen} />
-      <Stack.Screen name="NationalMap" component={NationalMapScreen} />
-
-      {/* ==========================================
-          ⚙️ CONFIGURATION ADMIN
-      ========================================== */}
-      <Stack.Screen name="AdminSettings" component={AdminSettingsScreen} />
-      <Stack.Screen name="AdminNotifications" component={AdminNotificationsScreen} />
-      {/* Profil spécifique Admin (si différent du profil standard) */}
-      <Stack.Screen name="AdminEditProfile" component={AdminEditProfileScreen} />
-
-      {/* ==========================================
-          🌍 ROUTES PARTAGÉES (Profil, Aide, etc.)
-      ========================================== */}
-      <Stack.Screen name="Profile" component={ProfileScreen} />
-      {/* EditProfile standard (au cas où on navigue vers celui-ci) */}
-      <Stack.Screen name="EditProfile" component={EditProfileScreen} />
-      <Stack.Screen name="Settings" component={SettingsScreen} />
-      <Stack.Screen name="Notifications" component={AdminNotificationsScreen} /> {/* Alias */}
       
+      <Stack.Screen name="NationalMap" component={NationalMapScreen} />
+      <Stack.Screen name="AdminStats" component={AdminStatsScreen} />
+      <Stack.Screen name="AdminAudit" component={AdminAuditTrailScreen} />
+      <Stack.Screen name="AdminSettings" component={AdminSettingsScreen} />
+
+      <Stack.Screen name="VerificationScanner" component={VerificationScannerScreen as any} />
+      <Stack.Screen name="WeeklyReport" component={WeeklyReportScreen as any} />
+
+      <Stack.Screen name="Profile" component={ProfileScreen} />
+      <Stack.Screen name="AdminEditProfile" component={AdminEditProfileScreen} />
+      <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+
+      <Stack.Screen name="Settings" component={SettingsScreen} />
+      <Stack.Screen name="AdminNotifications" component={AdminNotificationsScreen} />
+      <Stack.Screen name="Notifications" component={AdminNotificationsScreen} />
+
       <Stack.Screen name="UserGuide" component={UserGuideScreen} />
-      <Stack.Screen name="HelpCenter" component={UserGuideScreen} /> {/* Alias */}
+      <Stack.Screen name="HelpCenter" component={UserGuideScreen} />
       <Stack.Screen name="Support" component={SupportScreen} />
       <Stack.Screen name="About" component={AboutScreen} />
       <Stack.Screen name="MyDownloads" component={MyDownloadsScreen} />
-
     </Stack.Navigator>
   );
 }

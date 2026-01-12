@@ -43,33 +43,44 @@ export default function VerificationScannerScreen() {
     setScanned(true);
 
     try {
-      // Extraction de l'identifiant unique (Format attendu: https://.../verify/ID)
-      const parts = data.split('/');
-      const lastPart = parts[parts.length - 1];
-      const complaintId = parseInt(lastPart, 10);
+      // ✅ 1. Extraction Robuste avec Regex (Gère les slashs de fin ou formats variés)
+      // Cherche un nombre à la fin de la chaîne (ex: .../verify/123 ou .../verify/123/)
+      const match = data.match(/(\d+)\/?$/);
+      
+      if (match && match[1]) {
+        const complaintId = parseInt(match[1], 10);
 
-      if (!isNaN(complaintId)) {
-        Alert.alert(
-          "Document Authentifié ✅",
-          `Ce document est certifié par le Ministère de la Justice du Niger.\n\nDossier N° : RG-${complaintId}`,
-          [
-            { text: "Fermer", onPress: () => setScanned(false), style: "cancel" },
-            { 
-              text: "Consulter le Registre", 
-              onPress: () => {
-                // Redirection intelligente selon le rôle
-                const targetScreen = (user?.role === 'police' || user?.role === 'opj') 
-                    ? "PoliceComplaintDetails" 
-                    : "ComplaintDetail";
-                
-                navigation.navigate(targetScreen, { 
-                    id: complaintId, 
-                    complaintId: complaintId 
-                });
-              } 
-            }
-          ]
-        );
+        if (!isNaN(complaintId)) {
+          Alert.alert(
+            "Document Authentifié ✅",
+            `Ce document est certifié par le Ministère de la Justice du Niger.\n\nDossier N° : RG-${complaintId}`,
+            [
+              { text: "Fermer", onPress: () => setScanned(false), style: "cancel" },
+              { 
+                text: "Consulter le Registre", 
+                onPress: () => {
+                   // ✅ 2. Redirection Intelligente & Typée
+                   // Liste des rôles "Forces de l'ordre" (Police/OPJ)
+                   const policeRoles = ['officier_police', 'inspecteur', 'commissaire', 'opj_gendarme', 'gendarme'];
+                   
+                   // Vérification sécurisée du rôle (évite l'erreur TypeScript)
+                   const isLawEnforcement = user?.role && policeRoles.includes(user.role as string);
+
+                   const targetScreen = isLawEnforcement 
+                       ? "PoliceComplaintDetails" 
+                       : "ComplaintDetail";
+                   
+                   navigation.navigate(targetScreen, { 
+                       id: complaintId, 
+                       complaintId: complaintId 
+                   });
+                } 
+              }
+            ]
+          );
+        } else {
+          throw new Error("ID Invalide");
+        }
       } else {
         throw new Error("Format Invalide");
       }

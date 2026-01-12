@@ -1,4 +1,3 @@
-// PATH: src/screens/bailiff/BailiffHomeScreen.tsx
 import React, { useState, useEffect, useCallback } from "react";
 import { 
   View, 
@@ -44,11 +43,11 @@ export default function BailiffHomeScreen({ navigation }: BailiffScreenProps<'Ba
     return () => clearInterval(timer);
   }, []);
 
-  // 🔄 Simulation de stats (À lier à un futur bailiff.service.ts)
+  // 🔄 Simulation de stats
   const { data: stats, isLoading, refetch } = useQuery({
     queryKey: ["bailiff-stats"],
     queryFn: async () => {
-        // En attendant le service réel, on simule les missions
+        // En attendant le service réel
         return { pending: 8, urgent: 3, completed: 25 };
     }
   });
@@ -63,14 +62,14 @@ export default function BailiffHomeScreen({ navigation }: BailiffScreenProps<'Ba
     bgCard: isDark ? "#1E293B" : "#FFFFFF",
     textMain: isDark ? "#FFFFFF" : "#1E293B",
     textSub: isDark ? "#94A3B8" : "#64748B",
-    border: isDark ? "#334155" : "#F1F5F9",
+    border: isDark ? "#334155" : "#E2E8F0",
   };
 
   const services = [
     { id: "missions", title: "Missions", icon: "briefcase", color: primaryColor, route: "BailiffMissions", desc: "Significations en attente" },
-    { id: "map", title: "Géolocalisation", icon: "map", color: "#065F46", route: "NationalMap", desc: "Itinéraires de remise" },
-    { id: "docs", title: "Procès-Verbaux", icon: "copy", color: "#7C2D12", route: "BailiffMissions", desc: "Rédaction d'actes" },
-    { id: "notifs", title: "Alertes", icon: "notifications", color: "#EA580C", route: "Notifications", desc: "Urgences judiciaires" }
+    { id: "scanner", title: "Scanner Acte", icon: "qr-code-outline", color: "#065F46", route: "VerificationScanner", desc: "Vérifier titre exécutoire" },
+    { id: "rapport", title: "Rapport Hebdo", icon: "stats-chart", color: "#7C2D12", route: "WeeklyReport", desc: "Compte-rendu d'activité" },
+    { id: "agenda", title: "Agenda", icon: "calendar", color: "#EA580C", route: "BailiffCalendar", desc: "Audiences & RDV" }
   ];
 
   return (
@@ -136,7 +135,9 @@ export default function BailiffHomeScreen({ navigation }: BailiffScreenProps<'Ba
               style={[styles.gridItem, { backgroundColor: colors.bgCard, borderColor: colors.border }]} 
               onPress={() => navigation.navigate(s.route as any)}
             >
-              <View style={[styles.iconCircle, { backgroundColor: s.color + "12" }]}><Ionicons name={s.icon as any} size={24} color={s.color} /></View>
+              <View style={[styles.iconCircle, { backgroundColor: s.color + "12" }]}>
+                <Ionicons name={s.icon as any} size={24} color={s.color} />
+              </View>
               <Text style={[styles.gridTitle, { color: colors.textMain }]}>{s.title}</Text>
               <Text style={[styles.gridDesc, { color: colors.textSub }]}>{s.desc}</Text>
             </TouchableOpacity>

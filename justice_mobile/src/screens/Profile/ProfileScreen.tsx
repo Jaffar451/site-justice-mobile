@@ -8,7 +8,8 @@ import {
   Alert,
   Platform,
   StatusBar,
-  Switch
+  Switch,
+  Image // ✅ Ajout pour l'image
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -23,8 +24,6 @@ export default function ProfileScreen({ navigation }: any) {
   const { user, logout } = useAuthStore();
   const { isDark, setScheme } = useAppTheme(); 
   
-  const [isBiometricEnabled, setIsBiometricEnabled] = useState(false);
-
   // 🎨 PALETTE DYNAMIQUE
   const colors = {
     bgMain: isDark ? "#0F172A" : "#F8FAFC",
@@ -65,20 +64,6 @@ export default function ProfileScreen({ navigation }: any) {
     }
   };
 
-  const handleThemeToggle = () => {
-    setScheme(isDark ? 'light' : 'dark');
-  };
-
-  const handleBiometricToggle = () => {
-    if (Platform.OS === 'web') {
-      return Alert.alert("Indisponible", "La biométrie n'est pas supportée sur navigateur.");
-    }
-    setIsBiometricEnabled(!isBiometricEnabled);
-    if (!isBiometricEnabled) {
-        Alert.alert("Sécurité e-Justice", "Authentification par empreinte digitale activée pour les prochains accès.");
-    }
-  };
-
   const getRoleLabel = (role: string) => {
     const roles: Record<string, string> = {
       citizen: "Citoyen",
@@ -108,9 +93,17 @@ export default function ProfileScreen({ navigation }: any) {
         <View style={[styles.header, { backgroundColor: roleColor }]}>
             <View style={styles.avatarContainer}>
               <View style={[styles.avatar, { borderColor: 'rgba(255,255,255,0.4)' }]}>
-                  <Text style={styles.avatarText}>
-                    {user?.firstname?.[0]}{user?.lastname?.[0]}
-                  </Text>
+                  {/* ✅ Affichage conditionnel : Image ou Initiales */}
+                  {(user as any)?.avatar ? (
+                    <Image 
+                      source={{ uri: (user as any).avatar }} 
+                      style={styles.avatarImage} 
+                    />
+                  ) : (
+                    <Text style={styles.avatarText}>
+                      {user?.firstname?.[0]}{user?.lastname?.[0]}
+                    </Text>
+                  )}
               </View>
               <View style={[styles.onlineBadge, { borderColor: roleColor }]} />
             </View>
@@ -121,7 +114,7 @@ export default function ProfileScreen({ navigation }: any) {
             </View>
         </View>
 
-        {/* 📊 STATISTIQUES (Données simulées ou issues de l'API) */}
+        {/* 📊 STATISTIQUES */}
         <View style={[styles.statsCard, { backgroundColor: colors.bgCard }]}>
             <View style={styles.statItem}>
               <Text style={[styles.statValue, { color: colors.textMain }]}>12</Text>
@@ -141,54 +134,40 @@ export default function ProfileScreen({ navigation }: any) {
 
         {/* 📋 MENU */}
         <View style={styles.menuWrapper}>
-            <Text style={[styles.sectionTitle, { color: colors.textSub }]}>SÉCURITÉ ET IDENTITÉ</Text>
+            <Text style={[styles.sectionTitle, { color: colors.textSub }]}>COMPTE</Text>
             
             <MenuItem 
-              icon="person-outline" 
-              label="Editer mon profil" 
+              icon="create-outline" 
+              label="Modifier mes informations" 
               primaryColor={roleColor}
               colors={colors}
-              onPress={() => navigation.navigate("EditProfile")} 
+              onPress={() => navigation.navigate("EditProfile")} // Ou AdminEditProfile selon le stack
+            />
+
+            <MenuItem 
+              icon="settings-outline" 
+              label="Paramètres & Sécurité" 
+              primaryColor={roleColor}
+              colors={colors}
+              onPress={() => navigation.navigate("Settings")} 
             />
             
-            <View style={[styles.menuItem, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-                <View style={styles.menuLeft}>
-                    <View style={[styles.iconBox, { backgroundColor: roleColor + "15" }]}>
-                        <Ionicons name="finger-print" size={20} color={roleColor} />
-                    </View>
-                    <Text style={[styles.menuText, { color: colors.textMain }]}>Accès Biométrique</Text>
-                </View>
-                <Switch 
-                    value={isBiometricEnabled}
-                    onValueChange={handleBiometricToggle}
-                    trackColor={{ false: "#CBD5E1", true: roleColor }}
-                    thumbColor={"#FFF"}
-                />
-            </View>
+            <Text style={[styles.sectionTitle, { marginTop: 25, color: colors.textSub }]}>AIDE & SUPPORT</Text>
 
-            <Text style={[styles.sectionTitle, { marginTop: 25, color: colors.textSub }]}>PRÉFÉRENCES</Text>
-            
-            <TouchableOpacity 
-                style={[styles.menuItem, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
-                onPress={handleThemeToggle}
-            >
-                <View style={styles.menuLeft}>
-                    <View style={[styles.iconBox, { backgroundColor: roleColor + "15" }]}>
-                        <Ionicons name={isDark ? "moon" : "sunny"} size={20} color={roleColor} />
-                    </View>
-                    <Text style={[styles.menuText, { color: colors.textMain }]}>
-                        Apparence : {isDark ? "Sombre" : "Claire"}
-                    </Text>
-                </View>
-                <Ionicons name="repeat" size={20} color={colors.textSub} />
-            </TouchableOpacity>
+            <MenuItem 
+              icon="book-outline" 
+              label="Guide Utilisateur" 
+              primaryColor={roleColor}
+              colors={colors}
+              onPress={() => navigation.navigate("UserGuide")} 
+            />
 
             <MenuItem 
               icon="help-buoy-outline" 
-              label="Assistance & Support" 
+              label="Contacter le Support" 
               primaryColor={roleColor}
               colors={colors}
-              onPress={() => navigation.navigate("HelpCenter" as any)} 
+              onPress={() => navigation.navigate("Support")} 
             />
             
             {/* 🚪 DÉCONNEXION */}
@@ -198,11 +177,11 @@ export default function ProfileScreen({ navigation }: any) {
               activeOpacity={0.8}
             >
               <Ionicons name="log-out" size={22} color="#EF4444" />
-              <Text style={styles.logoutText}>Fermer la session sécurisée</Text>
+              <Text style={styles.logoutText}>Fermer la session</Text>
             </TouchableOpacity>
 
             <Text style={[styles.versionFooter, { color: colors.textSub }]}>
-              RÉPUBLIQUE DU NIGER • Version 1.5.0
+              e-JUSTICE NIGER • v1.5.0
             </Text>
         </View>
 
@@ -247,7 +226,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center', 
     alignItems: 'center', 
     borderWidth: 4, 
+    overflow: 'hidden' // Important pour l'image
   },
+  avatarImage: { width: '100%', height: '100%' }, // Style image
   avatarText: { color: '#FFF', fontSize: 36, fontWeight: '900' },
   onlineBadge: { 
     width: 24, 

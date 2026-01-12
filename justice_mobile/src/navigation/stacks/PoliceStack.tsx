@@ -18,6 +18,10 @@ import PoliceDetentionScreen from '../../screens/police/PoliceDetentionScreen';
 import WarrantSearchScreen from '../../screens/police/WarrantSearchScreen';
 import SosDetailScreen from '../../screens/police/SosDetailScreen';
 
+// --- ✅ NOUVEAUX ÉCRANS PARTAGÉS (Scanner & Rapport) ---
+import VerificationScannerScreen from '../../screens/shared/VerificationScannerScreen';
+import WeeklyReportScreen from '../../screens/shared/WeeklyReportScreen';
+
 // --- 🌍 Écrans PARTAGÉS (Système & Support MJ) ---
 import NationalMapScreen from '../../screens/admin/NationalMapScreen';
 import ProfileScreen from '../../screens/Profile/ProfileScreen';
@@ -47,6 +51,14 @@ export default function PoliceStack() {
       <Stack.Screen name="PoliceHome" component={PoliceHomeScreen} />
       <Stack.Screen name="NationalMap" component={NationalMapScreen} /> 
       <Stack.Screen name="SosDetail" component={SosDetailScreen} />
+
+      {/* ==========================================
+          ✅ OUTILS DE TERRAIN (Nouveaux)
+      ========================================== */}
+      {/* Scanner pour vérifier les documents sur le terrain */}
+      <Stack.Screen name="VerificationScanner" component={VerificationScannerScreen as any} />
+      {/* Rapport d'activité hebdomadaire */}
+      <Stack.Screen name="WeeklyReport" component={WeeklyReportScreen as any} />
 
       {/* ==========================================
           📁 BUREAU DES ENQUÊTES ET PLAINTES
@@ -83,7 +95,7 @@ export default function PoliceStack() {
       <Stack.Screen name="Profile" component={ProfileScreen} />
       <Stack.Screen name="EditProfile" component={EditProfileScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} /> 
-      <Stack.Screen name="Notifications" component={AdminNotificationsScreen} />
+      <Stack.Screen name="Notifications" component={AdminNotificationsScreen as any} />
 
       {/* ==========================================
           ℹ️ ASSISTANCE & CENTRE DE TÉLÉCHARGEMENT

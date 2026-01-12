@@ -7,12 +7,16 @@ import BailiffHomeScreen from '../../screens/bailiff/BailiffHomeScreen';
 import BailiffMissionsScreen from '../../screens/bailiff/BailiffMissionsScreen';
 import BailiffCalendarScreen from '../../screens/bailiff/BailiffCalendarScreen';
 
+// --- ✅ NOUVEAUX ÉCRANS PARTAGÉS (Scanner & Rapport) ---
+import VerificationScannerScreen from '../../screens/shared/VerificationScannerScreen';
+import WeeklyReportScreen from '../../screens/shared/WeeklyReportScreen';
+
 // --- 🌍 Écrans PARTAGÉS (Système & Support) ---
 import ProfileScreen from '../../screens/Profile/ProfileScreen';
 import EditProfileScreen from '../../screens/Profile/EditProfileScreen';
 import SettingsScreen from '../../screens/Settings/SettingsScreen';
 import NationalMapScreen from '../../screens/admin/NationalMapScreen';
-import AdminNotificationsScreen from '../../screens/admin/AdminNotificationsScreen'; // Utilisé pour les notifs
+import AdminNotificationsScreen from '../../screens/admin/AdminNotificationsScreen';
 import UserGuideScreen from '../../screens/shared/UserGuideScreen';
 import SupportScreen from '../../screens/shared/SupportScreen';
 import AboutScreen from '../../screens/shared/AboutScreen';
@@ -37,11 +41,21 @@ export default function BailiffStack() {
       <Stack.Screen name="BailiffCalendar" component={BailiffCalendarScreen} />
 
       {/* ==========================================
+          ✅ OUTILS DE TERRAIN (Nouveaux)
+      ========================================== */}
+      {/* Scanner pour vérifier les titres exécutoires ou identités */}
+      <Stack.Screen name="VerificationScanner" component={VerificationScannerScreen as any} />
+      {/* Rapport d'exécution / significations (Lundi) */}
+      <Stack.Screen name="WeeklyReport" component={WeeklyReportScreen as any} />
+
+      {/* ==========================================
           👤 COMPTE & SYSTÈME
       ========================================== */}
       <Stack.Screen name="Profile" component={ProfileScreen} />
       <Stack.Screen name="EditProfile" component={EditProfileScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
+      
+      {/* Notifications */}
       <Stack.Screen name="Notifications" component={AdminNotificationsScreen as any} />
       <Stack.Screen name="NationalMap" component={NationalMapScreen} />
 

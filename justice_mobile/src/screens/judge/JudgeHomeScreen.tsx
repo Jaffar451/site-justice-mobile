@@ -1,4 +1,3 @@
-// PATH: src/screens/judge/JudgeHomeScreen.tsx
 import React, { useState, useEffect, useCallback } from "react";
 import { 
   View, 
@@ -22,7 +21,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useAuthStore } from "../../stores/useAuthStore";
 import { useAppTheme } from "../../theme/AppThemeProvider";
 import { JudgeScreenProps } from "../../types/navigation";
-import { getProsecutorStats } from "../../services/stats.service"; // On utilise les stats judiciaires globales
+import { getProsecutorStats } from "../../services/stats.service"; 
 
 // ✅ UI Components
 import ScreenContainer from "../../components/layout/ScreenContainer";
@@ -30,6 +29,8 @@ import AppHeader from "../../components/layout/AppHeader";
 import SmartFooter from "../../components/layout/SmartFooter";
 
 const { width } = Dimensions.get("window");
+const gap = 12;
+const halfWidth = (width - 44) / 2;
 
 export default function JudgeHomeScreen({ navigation }: JudgeScreenProps<'JudgeHome'>) {
   const { theme, isDark } = useAppTheme();
@@ -121,7 +122,7 @@ export default function JudgeHomeScreen({ navigation }: JudgeScreenProps<'JudgeH
           />
           <StatCard 
             icon="calendar" 
-            value="3" // À lier au service d'audience
+            value="3" 
             label="Audiences" 
             color="#10B981" 
             bgColor={isDark ? "#064E3B" : "#F0FDF4"} 
@@ -157,10 +158,31 @@ export default function JudgeHomeScreen({ navigation }: JudgeScreenProps<'JudgeH
           desc="Saisir un verdict, un non-lieu ou une relaxe."
           color="#10B981"
           colors={colors}
-          onPress={() => navigation.navigate("JudgeDecisions" as any)} // Vers l'historique des décisions
+          onPress={() => navigation.navigate("JudgeDecisions" as any)} 
         />
 
-        {/* 🛠️ 5. OUTILS PROFESSIONNELS */}
+        {/* ✅ 5. OUTILS DE CONTRÔLE (Nouveaux) */}
+        <Text style={[styles.sectionHeader, { color: colors.textSub }]}>Gestion & Contrôle</Text>
+        <View style={styles.gridContainer}>
+           <GridCard 
+              title="Scanner Pièce" 
+              icon="qr-code-outline" 
+              color="#2563EB" 
+              desc="Vérification PV/Scellé"
+              colors={colors}
+              onPress={() => navigation.navigate("VerificationScanner" as any)}
+           />
+           <GridCard 
+              title="Rapport Hebdo" 
+              icon="stats-chart" 
+              color="#EA580C" 
+              desc="Statistiques Cabinet"
+              colors={colors}
+              onPress={() => navigation.navigate("WeeklyReport" as any)}
+           />
+        </View>
+
+        {/* 🛠️ 6. OUTILS DU QUOTIDIEN */}
         <Text style={[styles.sectionHeader, { color: colors.textSub }]}>Outils du Quotidien</Text>
         <View style={styles.toolsRow}>
             <ToolBtn 
@@ -227,6 +249,20 @@ const ActionCard = ({ icon, title, desc, color, colors, onPress }: any) => (
   </TouchableOpacity>
 );
 
+const GridCard = ({ icon, title, desc, color, colors, onPress }: any) => (
+  <TouchableOpacity 
+    activeOpacity={0.8}
+    style={[styles.gridCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
+    onPress={onPress}
+  >
+    <View style={[styles.iconCircleSmall, { backgroundColor: color + "15" }]}>
+       <Ionicons name={icon} size={22} color={color} />
+    </View>
+    <Text style={[styles.gridTitle, { color: colors.textMain }]}>{title}</Text>
+    <Text style={[styles.gridDesc, { color: colors.textSub }]} numberOfLines={1}>{desc}</Text>
+  </TouchableOpacity>
+);
+
 const ToolBtn = ({ icon, label, color, colors, onPress }: any) => (
   <TouchableOpacity style={[styles.toolBtn, { backgroundColor: colors.bgCard, borderColor: colors.border }]} onPress={onPress}>
     <Ionicons name={icon} size={22} color={color} />
@@ -256,6 +292,13 @@ const styles = StyleSheet.create({
   actionContent: { flex: 1 },
   actionTitle: { fontSize: 15, fontWeight: "800" },
   actionDesc: { fontSize: 11, marginTop: 2, fontWeight: "600" },
+  
+  gridContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: gap, marginBottom: 20 },
+  gridCard: { width: halfWidth, padding: 16, borderRadius: 20, borderWidth: 1, elevation: 1 },
+  iconCircleSmall: { width: 40, height: 40, borderRadius: 12, justifyContent: "center", alignItems: "center", marginBottom: 10 },
+  gridTitle: { fontSize: 13, fontWeight: "800", marginBottom: 2 },
+  gridDesc: { fontSize: 10, fontWeight: "600" },
+
   toolsRow: { flexDirection: "row", gap: 12 },
   toolBtn: { flex: 1, paddingVertical: 18, borderRadius: 20, alignItems: "center", borderWidth: 1, gap: 8 },
   toolText: { fontSize: 10, fontWeight: "800" }

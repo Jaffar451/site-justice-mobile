@@ -1,4 +1,3 @@
-// PATH: src/navigation/stacks/UserStack.tsx
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AdminStackParamList } from '../../types/navigation';
@@ -9,6 +8,10 @@ import AdminCreateUserScreen from '../../screens/admin/AdminCreateUserScreen';
 import AdminUserDetailsScreen from '../../screens/admin/AdminUserDetailsScreen';
 import AdminEditUserScreen from '../../screens/admin/AdminEditUserScreen';
 
+// --- ✅ NOUVEAUX ÉCRANS PARTAGÉS (Scanner & Rapport) ---
+import VerificationScannerScreen from '../../screens/shared/VerificationScannerScreen';
+import WeeklyReportScreen from '../../screens/shared/WeeklyReportScreen';
+
 // --- 🏢 Écrans Contexte & Pilotage ---
 import ManageStationsScreen from '../../screens/admin/ManageStationsScreen';
 import AdminStatsScreen from '../../screens/admin/AdminStatsScreen';
@@ -18,8 +21,8 @@ import NationalMapScreen from '../../screens/admin/NationalMapScreen';
 // --- 🌍 Écrans Profil & Système (Partagés) ---
 import ProfileScreen from '../../screens/Profile/ProfileScreen';
 import EditProfileScreen from '../../screens/Profile/EditProfileScreen';
-import SettingsScreen from '../../screens/Settings/SettingsScreen'; // ✅ Vrai écran
-import AboutScreen from '../../screens/shared/AboutScreen'; // ✅ Vrai écran
+import SettingsScreen from '../../screens/Settings/SettingsScreen'; 
+import AboutScreen from '../../screens/shared/AboutScreen'; 
 import MyDownloadsScreen from '../../screens/citizen/MyDownloadsScreen';
 import UserGuideScreen from '../../screens/shared/UserGuideScreen';
 import SupportScreen from '../../screens/shared/SupportScreen';
@@ -27,9 +30,11 @@ import SupportScreen from '../../screens/shared/SupportScreen';
 // --- 🚨 Écrans Transversaux ---
 import SosDetailScreen from '../../screens/police/SosDetailScreen';
 
-// ✅ TYPAGE HYBRIDE : Admin + SosDetail
+// ✅ TYPAGE HYBRIDE : Admin + Outils Transversaux
 type UserStackParams = AdminStackParamList & {
   SosDetail: { alert: any };
+  VerificationScanner: undefined; // Ajouté
+  WeeklyReport: undefined;        // Ajouté
 };
 
 const Stack = createNativeStackNavigator<UserStackParams>();
@@ -51,6 +56,14 @@ export const UserStack = () => (
     <Stack.Screen name="AdminEditUser" component={AdminEditUserScreen} />
 
     {/* ==========================================
+        ✅ OUTILS RH & CONTRÔLE (Nouveaux)
+    ========================================== */}
+    {/* Scanner pour vérifier les badges ou dossiers agents */}
+    <Stack.Screen name="VerificationScanner" component={VerificationScannerScreen as any} />
+    {/* Rapport d'activité RH (Recrutements, effectifs...) */}
+    <Stack.Screen name="WeeklyReport" component={WeeklyReportScreen as any} />
+
+    {/* ==========================================
         🏢 CONTEXTE OPÉRATIONNEL & PERFORMANCE
     ========================================== */}
     <Stack.Screen name="ManageStations" component={ManageStationsScreen} />
@@ -62,6 +75,10 @@ export const UserStack = () => (
     ========================================== */}
     <Stack.Screen name="Profile" component={ProfileScreen} />
     <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+    
+    {/* ✅ CORRECTION : Alias pour éviter le crash "AdminEditProfile not handled" */}
+    <Stack.Screen name="AdminEditProfile" component={EditProfileScreen} />
+    
     <Stack.Screen name="Settings" component={SettingsScreen} /> 
     
     <Stack.Screen name="AdminNotifications" component={AdminNotificationsScreen} />

@@ -15,12 +15,15 @@ import CitizenDirectoryScreen from '../../screens/citizen/CitizenDirectoryScreen
 import StationMapScreen from '../../screens/citizen/StationMapScreen';
 import MyDownloadsScreen from '../../screens/citizen/MyDownloadsScreen';
 
+// --- ✅ NOUVEL ÉCRAN PARTAGÉ (Scanner uniquement) ---
+import VerificationScannerScreen from '../../screens/shared/VerificationScannerScreen';
+
 // --- 🌍 Écrans PARTAGÉS (Système & Support) ---
 import ProfileScreen from '../../screens/Profile/ProfileScreen';
 import EditProfileScreen from '../../screens/Profile/EditProfileScreen';
 import SettingsScreen from '../../screens/Settings/SettingsScreen';
 import NationalMapScreen from '../../screens/admin/NationalMapScreen';
-import AdminNotificationsScreen from '../../screens/admin/AdminNotificationsScreen'; // Utilisé pour 'Notifications'
+import AdminNotificationsScreen from '../../screens/admin/AdminNotificationsScreen';
 import UserGuideScreen from '../../screens/shared/UserGuideScreen';
 import SupportScreen from '../../screens/shared/SupportScreen';
 import AboutScreen from '../../screens/shared/AboutScreen';
@@ -42,6 +45,12 @@ export default function CitizenStack() {
       <Stack.Screen name="CitizenHome" component={CitizenHomeScreen} />
       <Stack.Screen name="CitizenDirectory" component={CitizenDirectoryScreen} />
       <Stack.Screen name="StationMapScreen" component={StationMapScreen} />
+
+      {/* ==========================================
+          ✅ OUTILS (Vérification Document)
+      ========================================== */}
+      {/* Utile pour vérifier l'authenticité d'une convocation ou d'un casier judiciaire */}
+      <Stack.Screen name="VerificationScanner" component={VerificationScannerScreen as any} />
 
       {/* ==========================================
           📝 GESTION DES PLAINTES

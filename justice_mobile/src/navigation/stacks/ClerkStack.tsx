@@ -17,6 +17,10 @@ import ClerkEvidenceScreen from '../../screens/clerk/ClerkEvidenceScreen';
 import ClerkReleaseScreen from '../../screens/clerk/ClerkReleaseScreen';
 import ClerkWitnessScreen from '../../screens/clerk/ClerkWitnessScreen';
 
+// --- ✅ NOUVEAUX ÉCRANS PARTAGÉS (Scanner & Rapport) ---
+import VerificationScannerScreen from '../../screens/shared/VerificationScannerScreen';
+import WeeklyReportScreen from '../../screens/shared/WeeklyReportScreen';
+
 // --- 🌍 Écrans PARTAGÉS (Système & Support) ---
 import ProfileScreen from '../../screens/Profile/ProfileScreen';
 import EditProfileScreen from '../../screens/Profile/EditProfileScreen';
@@ -46,6 +50,14 @@ export default function ClerkStack() {
       <Stack.Screen name="ClerkCalendar" component={ClerkCalendarScreen} />
 
       {/* ==========================================
+          ✅ OUTILS QUOTIDIENS (Nouveaux)
+      ========================================== */}
+      {/* Scanner pour vérifier les actes et QR Codes */}
+      <Stack.Screen name="VerificationScanner" component={VerificationScannerScreen as any} />
+      {/* Rapport d'activité du Greffe (Lundi) */}
+      <Stack.Screen name="WeeklyReport" component={WeeklyReportScreen as any} />
+
+      {/* ==========================================
           📂 GESTION DES DOSSIERS & ENRÔLEMENT
       ========================================== */}
       <Stack.Screen name="ClerkComplaints" component={ClerkComplaintsScreen} />
@@ -57,7 +69,6 @@ export default function ClerkStack() {
           ⚖️ AUDIENCES & PROCÈS
       ========================================== */}
       <Stack.Screen name="ClerkHearings" component={ClerkHearingsScreen} />
-      {/* Alias pour compatibilité si 'ClerkHearing' est utilisé au singulier */}
       <Stack.Screen name="ClerkHearing" component={ClerkHearingsScreen} /> 
       <Stack.Screen name="ClerkHearingDetails" component={ClerkHearingDetailsScreen} />
       <Stack.Screen name="ClerkAdjournHearing" component={ClerkAdjournHearingScreen} />

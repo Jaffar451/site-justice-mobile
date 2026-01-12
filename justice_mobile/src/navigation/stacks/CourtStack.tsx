@@ -8,6 +8,10 @@ import AdminCreateCourtScreen from '../../screens/admin/AdminCreateCourtScreen';
 import ManageStationsScreen from '../../screens/admin/ManageStationsScreen'; // Stations (Commissariats)
 import NationalMapScreen from '../../screens/admin/NationalMapScreen';
 
+// --- ✅ NOUVEAUX ÉCRANS PARTAGÉS (Scanner & Rapport) ---
+import VerificationScannerScreen from '../../screens/shared/VerificationScannerScreen';
+import WeeklyReportScreen from '../../screens/shared/WeeklyReportScreen';
+
 // --- 🌍 Écrans PARTAGÉS (Système & Support) ---
 import ProfileScreen from '../../screens/Profile/ProfileScreen';
 import EditProfileScreen from '../../screens/Profile/EditProfileScreen';
@@ -37,6 +41,12 @@ export default function CourtStack() {
       <Stack.Screen name="AdminCreateCourt" component={AdminCreateCourtScreen} />
       <Stack.Screen name="ManageStations" component={ManageStationsScreen} />
       <Stack.Screen name="NationalMap" component={NationalMapScreen} />
+
+      {/* ==========================================
+          ✅ OUTILS DE CONTRÔLE (Nouveaux)
+      ========================================== */}
+      <Stack.Screen name="VerificationScanner" component={VerificationScannerScreen as any} />
+      <Stack.Screen name="WeeklyReport" component={WeeklyReportScreen as any} />
 
       {/* ==========================================
           👤 COMPTE & SYSTÈME
