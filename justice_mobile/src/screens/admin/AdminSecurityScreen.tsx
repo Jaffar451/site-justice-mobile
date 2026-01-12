@@ -1,250 +1,136 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  View, Text, StyleSheet, Switch, ScrollView, 
-  TextInput, TouchableOpacity, Alert, ActivityIndicator, StatusBar, Platform 
-} from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, StatusBar, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Surface, Divider } from 'react-native-paper';
+import { useQuery, useMutation } from '@tanstack/react-query'; // ✅ VRAI SYSTÈME
 
-// ✅ Architecture & Thème
 import ScreenContainer from '../../components/layout/ScreenContainer';
 import AppHeader from '../../components/layout/AppHeader';
 import { useAppTheme } from '../../theme/AppThemeProvider';
-import api from '../../services/api'; 
-
-// --- SERVICES AVEC SIMULATION (MOCK) ---
-const fetchSecurityPolicy = async () => {
-  try {
-    const response = await api.get('/admin/settings/security');
-    return response.data.data || response.data;
-  } catch (e) {
-    return {
-      minLength: 8,
-      requireSpecialChar: true,
-      requireNumbers: true,
-      expirationDays: 90,
-      maxLoginAttempts: 5
-    };
-  }
-};
-
-const updateSecurityPolicy = async (payload: any) => {
-  try {
-    const response = await api.put('/admin/settings/security', payload);
-    return response.data;
-  } catch (e) {
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    return { success: true };
-  }
-};
+import { getSecurityOverview, triggerSecurityScan } from '../../services/admin.service'; // ✅ IMPORT API
 
 export default function AdminSecurityScreen({ navigation }: any) {
   const { theme, isDark } = useAppTheme();
-  const primaryColor = theme.colors.primary;
-  const queryClient = useQueryClient();
   
-  // 🎨 PALETTE DYNAMIQUE
+  // ✅ 1. RÉCUPÉRATION DU SCORE DE SÉCURITÉ RÉEL
+  const { data: securityData, isLoading, refetch } = useQuery({
+    queryKey: ['securityOverview'],
+    queryFn: getSecurityOverview,
+  });
+
+  // ✅ 2. LANCEMENT D'UN SCAN RÉEL SUR LE BACKEND
+  const scanMutation = useMutation({
+    mutationFn: triggerSecurityScan,
+    onSuccess: (data: any) => {
+        Alert.alert("Rapport de Scan", `Menaces trouvées : ${data.threatsFound}\nVulnérabilités : ${data.vulnerabilities}`);
+        refetch(); // Rafraîchir les données après le scan
+    },
+    onError: () => Alert.alert("Erreur", "Le scan n'a pas pu démarrer.")
+  });
+
+  const handleScan = () => {
+    scanMutation.mutate();
+  };
+
+  const securityScore = securityData?.score || 0; // Donnée réelle ou 0 si chargement
+
   const colors = {
-    bgMain: isDark ? "#0F172A" : "#F8FAFC",
-    bgCard: isDark ? "#1E293B" : "#FFFFFF",
-    textMain: isDark ? "#FFFFFF" : "#1E293B",
-    textSub: isDark ? "#94A3B8" : "#64748B",
-    border: isDark ? "#334155" : "#E2E8F0",
-    inputBg: isDark ? "#0F172A" : "#F1F5F9",
-    infoBg: isDark ? "#1E3A8A40" : "#E2E8F0",
+    bg: isDark ? "#0F172A" : "#F8FAFC",
+    card: isDark ? "#1E293B" : "#FFFFFF",
+    text: isDark ? "#FFFFFF" : "#1E293B",
+    sub: isDark ? "#94A3B8" : "#64748B",
+    good: "#10B981",
+    warning: "#F59E0B",
+    bad: "#EF4444"
   };
-
-  const [requireSpecialChar, setRequireSpecialChar] = useState(true);
-  const [requireNumbers, setRequireNumbers] = useState(true);
-  const [minLength, setMinLength] = useState("8");
-  const [expirationDays, setExpirationDays] = useState("90");
-  const [maxLoginAttempts, setMaxLoginAttempts] = useState("5");
-
-  const { data: policy, isLoading: isFetching } = useQuery({
-    queryKey: ['security-policy'],
-    queryFn: fetchSecurityPolicy,
-  });
-
-  useEffect(() => {
-    if (policy) {
-      setMinLength(String(policy.minLength || "8"));
-      setRequireSpecialChar(!!policy.requireSpecialChar);
-      setRequireNumbers(!!policy.requireNumbers);
-      setExpirationDays(String(policy.expirationDays || "90"));
-      setMaxLoginAttempts(String(policy.maxLoginAttempts || "5"));
-    }
-  }, [policy]);
-
-  const mutation = useMutation({
-    mutationFn: updateSecurityPolicy,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['security-policy'] });
-      const title = "Stratégie Appliquée";
-      const msg = "La politique de sécurité a été mise à jour avec succès.";
-      
-      if (Platform.OS === 'web') window.alert(`${title}: ${msg}`);
-      else Alert.alert(title, msg, [{ text: "OK", onPress: () => navigation.goBack() }]);
-    }
-  });
-
-  const handleSave = () => {
-    if (parseInt(minLength) < 6) {
-      return Alert.alert("Sécurité Faible", "La longueur minimale doit être de 6 caractères pour les comptes MJ.");
-    }
-    mutation.mutate({
-      minLength: parseInt(minLength),
-      requireSpecialChar,
-      requireNumbers,
-      expirationDays: parseInt(expirationDays),
-      maxLoginAttempts: parseInt(maxLoginAttempts)
-    });
-  };
-
-  // --- COMPOSANTS INTERNES ---
-  const Section = ({ title, children }: any) => (
-    <View style={styles.section}>
-      <Text style={[styles.sectionTitle, { color: colors.textSub }]}>{title}</Text>
-      <View style={[styles.card, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-        {children}
-      </View>
-    </View>
-  );
-
-  const ToggleItem = ({ label, value, onValueChange, icon }: any) => (
-    <View style={styles.row}>
-      <View style={styles.labelRow}>
-        <Ionicons name={icon} size={18} color={primaryColor} style={{ marginRight: 10 }} />
-        <Text style={[styles.label, { color: colors.textMain }]}>{label}</Text>
-      </View>
-      <Switch 
-        value={value} 
-        onValueChange={onValueChange} 
-        trackColor={{ false: "#767577", true: primaryColor + "80" }}
-        thumbColor={value ? primaryColor : "#f4f3f4"}
-      />
-    </View>
-  );
-
-  const InputItem = ({ label, value, onChangeText, placeholder, icon }: any) => (
-    <View style={styles.inputRow}>
-      <View style={styles.labelRow}>
-        <Ionicons name={icon} size={18} color={primaryColor} style={{ marginRight: 10 }} />
-        <Text style={[styles.label, { color: colors.textMain }]}>{label}</Text>
-      </View>
-      <TextInput
-        style={[styles.input, { color: colors.textMain, borderColor: colors.border, backgroundColor: colors.inputBg }]}
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor={colors.textSub}
-        keyboardType="numeric"
-      />
-    </View>
-  );
-
-  if (isFetching) {
-    return (
-      <ScreenContainer withPadding={false}>
-        <AppHeader title="Sécurité" showBack />
-        <View style={[styles.center, { backgroundColor: colors.bgMain }]}>
-          <ActivityIndicator size="large" color={primaryColor} />
-        </View>
-      </ScreenContainer>
-    );
-  }
 
   return (
     <ScreenContainer withPadding={false}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-      <AppHeader title="Politique de Sécurité" showBack={true} />
-      
-      <ScrollView 
-        style={{ backgroundColor: colors.bgMain }}
-        contentContainerStyle={styles.container}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={[styles.infoBox, { backgroundColor: colors.infoBg }]}>
-          <Ionicons name="shield-half-outline" size={24} color={isDark ? "#BAE6FD" : primaryColor} />
-          <Text style={[styles.infoText, { color: isDark ? "#BAE6FD" : "#475569" }]}>
-            Ces règles définissent la robustesse des comptes Magistrats et Officiers au niveau national.
-          </Text>
+      <AppHeader title="Centre de Sécurité" showBack />
+
+      <ScrollView contentContainerStyle={[styles.container, { backgroundColor: colors.bg }]}>
+        
+        {/* 🛡️ SCORE HEADER (Connecté API) */}
+        <View style={styles.scoreContainer}>
+            <View style={[styles.scoreCircle, { borderColor: securityScore > 80 ? colors.good : colors.warning }]}>
+                {isLoading ? (
+                    <ActivityIndicator color={colors.text} />
+                ) : (
+                    <>
+                        <Ionicons name="shield-checkmark" size={40} color={securityScore > 80 ? colors.good : colors.warning} />
+                        <Text style={[styles.scoreText, { color: colors.text }]}>{securityScore}%</Text>
+                    </>
+                )}
+            </View>
+            <View style={{ flex: 1 }}>
+                <Text style={[styles.scoreTitle, { color: colors.text }]}>État du Système</Text>
+                <Text style={[styles.scoreSub, { color: colors.sub }]}>
+                    {isLoading ? "Analyse..." : `Menaces actives : ${securityData?.threats || 0}`}
+                </Text>
+                
+                <TouchableOpacity 
+                    style={[styles.scanBtn, { backgroundColor: theme.colors.primary }]} 
+                    onPress={handleScan}
+                    disabled={scanMutation.isPending}
+                >
+                    {scanMutation.isPending ? (
+                        <ActivityIndicator color="white" size="small" />
+                    ) : (
+                        <Text style={styles.scanText}>LANCER UN SCAN COMPLET</Text>
+                    )}
+                </TouchableOpacity>
+            </View>
         </View>
 
-        <Section title="Complexité des Identifiants">
-          <InputItem 
-            label="Longueur minimale" 
-            value={minLength} 
-            onChangeText={setMinLength} 
-            icon="text-outline"
-          />
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
-          <ToggleItem 
-            label="Caractère spécial (@#$%...)" 
-            value={requireSpecialChar} 
-            onValueChange={setRequireSpecialChar} 
-            icon="at-outline"
-          />
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
-          <ToggleItem 
-            label="Chiffres obligatoires" 
-            value={requireNumbers} 
-            onValueChange={setRequireNumbers} 
-            icon="keypad-outline"
-          />
-        </Section>
+        {/* 🚨 ALERTES RÉCENTES (Données API) */}
+        <Text style={[styles.sectionTitle, { color: colors.sub, marginTop: 25 }]}>DERNIÈRES MENACES</Text>
+        <Surface style={[styles.card, { backgroundColor: colors.card }]} elevation={2}>
+            {securityData?.alerts && securityData.alerts.length > 0 ? (
+                securityData.alerts.map((alert: any, index: number) => (
+                    <View key={index}>
+                        <View style={styles.alertRow}>
+                            <Ionicons name="warning" size={20} color={colors.bad} />
+                            <View style={{flex: 1, marginLeft: 10}}>
+                                <Text style={[styles.alertTitle, { color: colors.text }]}>{alert.title}</Text>
+                                <Text style={[styles.alertTime, { color: colors.sub }]}>{alert.time} • IP: {alert.ip}</Text>
+                            </View>
+                        </View>
+                        <Divider />
+                    </View>
+                ))
+            ) : (
+                <View style={{ padding: 20, alignItems: 'center' }}>
+                    <Ionicons name="checkmark-circle" size={40} color={colors.good} />
+                    <Text style={{ color: colors.sub, marginTop: 10 }}>Aucune menace détectée.</Text>
+                </View>
+            )}
+        </Surface>
 
-        <Section title="Cycle de Vie & Protection">
-          <InputItem 
-            label="Expiration (jours)" 
-            value={expirationDays} 
-            onChangeText={setExpirationDays} 
-            icon="calendar-outline"
-          />
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
-          <InputItem 
-            label="Tentatives maximum" 
-            value={maxLoginAttempts} 
-            onChangeText={setMaxLoginAttempts} 
-            icon="lock-closed-outline"
-          />
-        </Section>
-
-        <TouchableOpacity 
-          activeOpacity={0.8}
-          style={[styles.saveButton, { backgroundColor: isDark ? primaryColor : "#1E293B" }, mutation.isPending && { opacity: 0.7 }]} 
-          onPress={handleSave}
-          disabled={mutation.isPending}
-        >
-          {mutation.isPending ? (
-            <ActivityIndicator color="#FFF" />
-          ) : (
-            <>
-                <Ionicons name="cloud-upload-outline" size={20} color="#FFF" style={{marginRight: 10}} />
-                <Text style={styles.saveText}>APPLIQUER LA POLITIQUE</Text>
-            </>
-          )}
-        </TouchableOpacity>
-
-        <View style={{ height: 120 }} />
+        <View style={{ height: 40 }} />
       </ScrollView>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 20 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  infoBox: { flexDirection: 'row', padding: 18, borderRadius: 20, marginBottom: 25, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(0,0,0,0.05)' },
-  infoText: { flex: 1, marginLeft: 15, fontSize: 13, lineHeight: 20, fontWeight: '600' },
-  section: { marginBottom: 30 },
-  sectionTitle: { fontSize: 11, fontWeight: '900', textTransform: 'uppercase', marginBottom: 12, marginLeft: 4, letterSpacing: 1.5 },
-  card: { borderRadius: 24, padding: 8, borderWidth: 1, ...Platform.select({ ios: { shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 10 }, android: { elevation: 2 } }) },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 18 },
-  labelRow: { flexDirection: 'row', alignItems: 'center' },
-  inputRow: { padding: 18 },
-  label: { fontSize: 15, fontWeight: '700' },
-  input: { borderWidth: 1.5, borderRadius: 14, padding: 14, marginTop: 12, fontSize: 16, fontWeight: '800' },
-  divider: { height: 1, width: '90%', alignSelf: 'flex-end' },
-  saveButton: { flexDirection: 'row', padding: 20, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginTop: 10, elevation: 4 },
-  saveText: { color: '#FFF', fontWeight: '900', fontSize: 14, letterSpacing: 1 },
+  container: { padding: 16 },
+  scoreContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 30, gap: 20 },
+  scoreCircle: { 
+      width: 90, height: 90, borderRadius: 45, borderWidth: 4, 
+      justifyContent: 'center', alignItems: 'center',
+      backgroundColor: 'rgba(0,0,0,0.02)' 
+  },
+  scoreText: { fontSize: 20, fontWeight: 'bold', marginTop: 4 },
+  scoreTitle: { fontSize: 18, fontWeight: '900' },
+  scoreSub: { fontSize: 12, marginBottom: 10 },
+  scanBtn: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 20, alignSelf: 'flex-start', minWidth: 150, alignItems: 'center' },
+  scanText: { color: 'white', fontWeight: 'bold', fontSize: 11 },
+
+  sectionTitle: { fontSize: 11, fontWeight: '900', marginBottom: 10, marginLeft: 5, opacity: 0.7 },
+  card: { borderRadius: 16, overflow: 'hidden' },
+  
+  alertRow: { flexDirection: 'row', alignItems: 'center', padding: 12 },
+  alertTitle: { fontSize: 13, fontWeight: '700' },
+  alertTime: { fontSize: 11 },
 });

@@ -1,9 +1,9 @@
-// PATH: src/interfaces/controllers/admin.controller.ts
 import { Request, Response } from 'express';
-import { User, Complaint, PoliceStation, AuditLog } from '../../models'; // ✅ Assure-toi d'importer les modèles correctement
+import { User, Complaint, PoliceStation, AuditLog } from '../../models'; 
 import { Op, Sequelize } from 'sequelize';
 
-// --- STOCKAGE TEMPORAIRE (SIMULATION) ---
+// --- STOCKAGE TEMPORAIRE (SIMULATION CONFIG) ---
+// Idéalement, à déplacer dans une table 'Settings' en DB
 let systemSecurityConfig = {
   minLength: 8,
   requireSpecialChar: true,
@@ -23,12 +23,12 @@ export const getDashboardStats = async (req: Request, res: Response) => {
   try {
     console.log('📊 [Admin] Génération des statistiques...');
 
-    // 1. 🟢 RÉPARTITION PAR STATUT (Sécurisé)
-    let statusStats = [];
+    // 1. 🟢 RÉPARTITION PAR STATUT
+    let statusStats: any[] = [];
     try {
       const statusStatsRaw = await Complaint.findAll({
         attributes: [
-          [Sequelize.fn('DISTINCT', Sequelize.col('status')), 'status'],
+          'status',
           [Sequelize.fn('COUNT', Sequelize.col('id')), 'count']
         ],
         group: ['status'],
@@ -40,16 +40,15 @@ export const getDashboardStats = async (req: Request, res: Response) => {
         count: s.count ? s.count.toString() : "0"
       }));
     } catch (e) {
-      console.warn("⚠️ Pas de stats statuts (Table vide ?)");
+      console.warn("⚠️ Erreur stats statuts (Table Complaint vide ou inexistante ?)", e);
     }
 
-    // 2. 🔵 RÉPARTITION GÉOGRAPHIQUE (Sécurisé)
-    let regionalStats = [];
+    // 2. 🔵 RÉPARTITION GÉOGRAPHIQUE
+    let regionalStats: any[] = [];
     try {
-      // On vérifie d'abord s'il y a des stations
       const countStations = await PoliceStation.count();
       if (countStations > 0) {
-        // Note: Si la colonne 'district' n'existe pas, utilise 'city' à la place
+        // Utilise 'city' ou 'district' selon ton modèle
         const groupByCol = 'city'; 
         
         const regionalStatsRaw = await PoliceStation.findAll({
@@ -67,31 +66,50 @@ export const getDashboardStats = async (req: Request, res: Response) => {
         }));
       }
     } catch (e) {
-      console.warn("⚠️ Pas de stats régionales (Table vide ?)");
+      console.warn("⚠️ Erreur stats régionales", e);
     }
 
-    // 3. 📈 COMPTEURS GLOBAUX (Promise.all pour la rapidité)
-    const [complaints_total, users_total, logs_total] = await Promise.all([
-      Complaint.count(),
-      User.count(),
-      AuditLog.count().catch(() => 0)
-    ]);
+    // 3. 📈 COMPTEURS GLOBAUX (Sécurisé avec Promise.allSettled ou try/catch individuels)
+    let complaints_total = 0;
+    let users_total = 0;
+    let logs_total = 0;
+
+    try { complaints_total = await Complaint.count(); } catch (e) {}
+    try { users_total = await User.count(); } catch (e) {}
+    try { logs_total = await AuditLog.count(); } catch (e) {}
 
     // Calculs dérivés
-    const closedStatuses = ['classée_sans_suite', 'jugée', 'archivée'];
-    const complaints_closed = await Complaint.count({ where: { status: { [Op.in]: closedStatuses } } });
-    const complaints_open = complaints_total - complaints_closed;
+    const closedStatuses = ['classée_sans_suite', 'jugée', 'archivée', 'cloture'];
+    let complaints_closed = 0;
+    try {
+        complaints_closed = await Complaint.count({ where: { status: { [Op.in]: closedStatuses } } });
+    } catch(e) {}
+    
+    const complaints_open = Math.max(0, complaints_total - complaints_closed);
 
-    const police_users = await User.count({ 
-      where: { role: { [Op.in]: ['police', 'commissaire', 'opj', 'gendarme'] } } 
-    });
+    let police_users = 0;
+    try {
+        police_users = await User.count({ 
+            where: { role: { [Op.in]: ['police', 'commissaire', 'opj', 'gendarme'] } } 
+        });
+    } catch(e) {}
 
     // 4. ACTIVITÉ RÉCENTE
-    const recentActivity = await AuditLog.findAll({
-        limit: 5,
-        order: [['timestamp', 'DESC']],
-        include: [{ model: User, as: 'user', attributes: ['firstname', 'lastname', 'role'] }]
-    }).catch(() => []);
+    let recentActivity: any[] = [];
+    try {
+        recentActivity = await AuditLog.findAll({
+            limit: 5,
+            order: [['timestamp', 'DESC']],
+            include: [{ 
+                model: User, 
+                as: 'user', 
+                attributes: ['firstname', 'lastname', 'role'],
+                required: false // Left join pour ne pas perdre le log si user supprimé
+            }]
+        });
+    } catch (e) {
+        console.warn("⚠️ Impossible de récupérer les logs récents");
+    }
 
     res.status(200).json({
       success: true,
@@ -105,6 +123,7 @@ export const getDashboardStats = async (req: Request, res: Response) => {
           complaints_closed,
           users_total,
           police_users,
+          logs_total,
           systemHealth: '100%'
         },
         recentActivity
@@ -154,6 +173,7 @@ export const getMaintenanceStatus = async (req: Request, res: Response) => {
  */
 export const setMaintenanceStatus = async (req: Request, res: Response) => {
   const { isActive } = req.body;
-  maintenanceConfig.isActive = isActive;
+  maintenanceConfig.isActive = !!isActive; // Force booléen
+  console.log(`🔧 Mode maintenance ${isActive ? 'ACTIVÉ' : 'DÉSACTIVÉ'}`);
   res.json({ success: true, message: isActive ? "Maintenance activée" : "Système actif", data: maintenanceConfig });
 };

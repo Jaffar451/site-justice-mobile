@@ -126,3 +126,33 @@ export const getAllPoliceStations = async () => {
     return [];
   }
 };
+
+// 📡 Récupère l'état de santé du serveur (CPU, RAM, Base de données)
+export const getSystemHealth = async () => {
+  const response = await api.get('/admin/system-health');
+  return response.data; // { server: "OK", db: "Connected", latency: 120, version: "1.0.5" }
+};
+
+// 📡 Récupère les logs techniques réels
+export const getSystemLogs = async () => {
+  const response = await api.get('/admin/logs');
+  return response.data; // [{ time: "...", level: "ERROR", message: "..." }]
+};
+
+// 📡 Récupère le score de sécurité et les alertes
+export const getSecurityOverview = async () => {
+  const response = await api.get('/admin/security/overview');
+  return response.data; // { score: 92, threats: 0, activeSessions: 14 }
+};
+
+// ⚡ Lance un scan de sécurité côté serveur
+export const triggerSecurityScan = async () => {
+  const response = await api.post('/admin/security/scan');
+  return response.data;
+};
+
+// 🧹 Vide le cache côté serveur (Laravel/Node)
+export const clearServerCache = async () => {
+  const response = await api.post('/admin/maintenance/clear-cache');
+  return response.data;
+};
