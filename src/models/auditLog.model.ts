@@ -38,6 +38,11 @@ export default class AuditLog extends Model {
   })
   ipAddress!: string;
 
+  // ✅ Getter Virtuel pour compatibilité Frontend (item.ip)
+  get ip(): string {
+    return this.ipAddress;
+  }
+
   @Column({
     type: DataType.ENUM('info', 'warning', 'critical'),
     defaultValue: 'info'
@@ -77,8 +82,12 @@ export default class AuditLog extends Model {
   @UpdatedAt
   updatedAt!: Date;
 
-  // ✅ Définition de l'alias 'operator' via décorateur uniquement
-  // Ne pas redéclarer cette association dans index.ts pour éviter l'erreur SequelizeAssociationError
+  // ✅ 1. Alias 'operator' (Existant - Ne pas supprimer)
   @BelongsTo(() => User, { foreignKey: 'userId', as: 'operator' })
   operator!: User;
+
+  // ✅ 2. Alias 'actor' (Ajouté pour compatibilité avec le Contrôleur Admin)
+  // Cela permet d'utiliser include: [{ model: User, as: 'actor' }]
+  @BelongsTo(() => User, { foreignKey: 'userId', as: 'actor' })
+  actor!: User;
 }

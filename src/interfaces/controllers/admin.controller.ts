@@ -1,9 +1,9 @@
+// PATH: src/interfaces/controllers/admin.controller.ts
 import { Request, Response } from 'express';
 import { User, Complaint, PoliceStation, AuditLog } from '../../models'; 
 import { Op, Sequelize } from 'sequelize';
 
 // --- STOCKAGE TEMPORAIRE (SIMULATION CONFIG) ---
-// Idéalement, à déplacer dans une table 'Settings' en DB
 let systemSecurityConfig = {
   minLength: 8,
   requireSpecialChar: true,
@@ -14,6 +14,47 @@ let systemSecurityConfig = {
 
 let maintenanceConfig = {
   isActive: false
+};
+
+/**
+ * 📜 RÉCUPÉRER LES LOGS SYSTÈME (INDISPENSABLE POUR AdminLogsScreen)
+ */
+export const getSystemLogs = async (req: Request, res: Response) => {
+  try {
+    const logs = await AuditLog.findAll({
+      order: [['createdAt', 'DESC']], // ✅ Correction: createdAt au lieu de timestamp
+      limit: 100,
+      include: [
+        {
+          model: User,
+          as: 'actor', // ✅ Correction: Doit correspondre à l'alias du modèle
+          attributes: ['id', 'firstname', 'lastname', 'role']
+        }
+      ]
+    });
+
+    // Formatage pour le frontend
+    const formattedLogs = logs.map((log: any) => ({
+      id: log.id,
+      action: log.action,
+      method: log.method,
+      endpoint: log.endpoint,
+      ip: log.ipAddress, // Le modèle a ipAddress, le front attend ip
+      details: log.details,
+      status: parseInt(log.status) || 200,
+      timestamp: log.createdAt,
+      actor: log.actor ? {
+        firstname: log.actor.firstname,
+        lastname: log.actor.lastname,
+        role: log.actor.role
+      } : null
+    }));
+
+    res.status(200).json(formattedLogs);
+  } catch (error) {
+    console.error("❌ Erreur logs:", error);
+    res.status(500).json({ message: "Erreur récupération logs" });
+  }
 };
 
 /**
@@ -40,7 +81,7 @@ export const getDashboardStats = async (req: Request, res: Response) => {
         count: s.count ? s.count.toString() : "0"
       }));
     } catch (e) {
-      console.warn("⚠️ Erreur stats statuts (Table Complaint vide ou inexistante ?)", e);
+      console.warn("⚠️ Erreur stats statuts", e);
     }
 
     // 2. 🔵 RÉPARTITION GÉOGRAPHIQUE
@@ -48,8 +89,7 @@ export const getDashboardStats = async (req: Request, res: Response) => {
     try {
       const countStations = await PoliceStation.count();
       if (countStations > 0) {
-        // Utilise 'city' ou 'district' selon ton modèle
-        const groupByCol = 'city'; 
+        const groupByCol = 'city'; // Assure-toi que cette colonne existe
         
         const regionalStatsRaw = await PoliceStation.findAll({
           attributes: [
@@ -69,7 +109,7 @@ export const getDashboardStats = async (req: Request, res: Response) => {
       console.warn("⚠️ Erreur stats régionales", e);
     }
 
-    // 3. 📈 COMPTEURS GLOBAUX (Sécurisé avec Promise.allSettled ou try/catch individuels)
+    // 3. 📈 COMPTEURS GLOBAUX
     let complaints_total = 0;
     let users_total = 0;
     let logs_total = 0;
@@ -99,16 +139,16 @@ export const getDashboardStats = async (req: Request, res: Response) => {
     try {
         recentActivity = await AuditLog.findAll({
             limit: 5,
-            order: [['timestamp', 'DESC']],
+            order: [['createdAt', 'DESC']], // ✅ Correction: createdAt
             include: [{ 
                 model: User, 
-                as: 'user', 
+                as: 'actor', // ✅ Correction: actor au lieu de user
                 attributes: ['firstname', 'lastname', 'role'],
-                required: false // Left join pour ne pas perdre le log si user supprimé
+                required: false 
             }]
         });
     } catch (e) {
-        console.warn("⚠️ Impossible de récupérer les logs récents");
+        console.warn("⚠️ Impossible de récupérer les logs récents", e);
     }
 
     res.status(200).json({
@@ -116,7 +156,7 @@ export const getDashboardStats = async (req: Request, res: Response) => {
       data: {
         statusStats,
         regionalStats,
-        timingStats: { avg_days: 14 }, // Donnée simulée pour l'instant
+        timingStats: { avg_days: 14 },
         summary: {
           complaints_total,
           complaints_open,
@@ -132,7 +172,6 @@ export const getDashboardStats = async (req: Request, res: Response) => {
 
   } catch (error: any) {
     console.error('❌ Erreur CRITIQUE stats admin:', error);
-    // On renvoie des zéros pour ne pas crasher l'appli mobile
     res.json({ 
       success: true,
       data: {
@@ -173,7 +212,7 @@ export const getMaintenanceStatus = async (req: Request, res: Response) => {
  */
 export const setMaintenanceStatus = async (req: Request, res: Response) => {
   const { isActive } = req.body;
-  maintenanceConfig.isActive = !!isActive; // Force booléen
+  maintenanceConfig.isActive = !!isActive;
   console.log(`🔧 Mode maintenance ${isActive ? 'ACTIVÉ' : 'DÉSACTIVÉ'}`);
   res.json({ success: true, message: isActive ? "Maintenance activée" : "Système actif", data: maintenanceConfig });
 };
