@@ -156,3 +156,14 @@ export const clearServerCache = async () => {
   const response = await api.post('/admin/maintenance/clear-cache');
   return response.data;
 };
+
+// Ajouter dans src/services/admin.service.ts
+export const getMaintenanceStatus = async () => {
+  const response = await api.get('/admin/maintenance');
+  return response.data;
+};
+
+export const setMaintenanceStatus = async (data: { isActive: boolean }) => {
+  const response = await api.post('/admin/maintenance', data);
+  return response.data;
+};

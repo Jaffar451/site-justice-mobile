@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react"; // useState supprimé car géré par React Query
 import { 
   View, 
   Text, 
@@ -10,36 +10,57 @@ import {
   RefreshControl
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Surface, Button, Switch, List, ActivityIndicator } from "react-native-paper";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; // ✅ VRAI SYSTÈME
+import { Surface, Button, List, ActivityIndicator, Switch, Divider } from "react-native-paper";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 // Architecture
 import ScreenContainer from "../../components/layout/ScreenContainer";
 import AppHeader from "../../components/layout/AppHeader";
 import { useAppTheme } from "../../theme/AppThemeProvider";
-import { getSystemHealth, getSystemLogs, clearServerCache } from "../../services/admin.service"; // ✅ IMPORT API
+
+// ✅ AJOUT DES IMPORTS MANQUANTS
+import { 
+  getSystemHealth, 
+  getSystemLogs, 
+  clearServerCache,
+  getMaintenanceStatus, // Assure-toi que ce service existe
+  setMaintenanceStatus  // Assure-toi que ce service existe
+} from "../../services/admin.service";
 
 export default function AdminMaintenanceScreen({ navigation }: any) {
   const { theme, isDark } = useAppTheme();
-  const primaryColor = theme.colors.primary;
   const queryClient = useQueryClient();
   
-  const [maintenanceMode, setMaintenanceMode] = useState(false);
-
-  // ✅ 1. RÉCUPÉRATION DES VRAIES DONNÉES SYSTÈME
+  // 1. SANTÉ SYSTÈME
   const { data: health, isLoading: loadingHealth, refetch: refetchHealth } = useQuery({
     queryKey: ['systemHealth'],
     queryFn: getSystemHealth,
-    refetchInterval: 30000, // Rafraîchir toutes les 30s
+    refetchInterval: 30000, 
   });
 
-  // ✅ 2. RÉCUPÉRATION DES VRAIS LOGS
+  // 2. LOGS
   const { data: logs, isLoading: loadingLogs } = useQuery({
     queryKey: ['systemLogs'],
     queryFn: getSystemLogs,
   });
 
-  // ✅ 3. ACTION RÉELLE : VIDER LE CACHE SERVEUR
+  // 3. ÉTAT MAINTENANCE (Récupération)
+  const { data: maintenanceData, isLoading: loadingMaint } = useQuery({
+    queryKey: ['maintenanceStatus'],
+    queryFn: getMaintenanceStatus,
+  });
+
+  // 4. MUTATION : ACTIVER/DÉSACTIVER MAINTENANCE
+  const maintenanceMutation = useMutation({
+    mutationFn: setMaintenanceStatus, // Attend { isActive: boolean }
+    onSuccess: (newData) => {
+      queryClient.setQueryData(['maintenanceStatus'], newData); // Mise à jour optimiste
+      Alert.alert("Succès", `Mode Maintenance ${newData.data.isActive ? "ACTIVÉ" : "DÉSACTIVÉ"}`);
+    },
+    onError: () => Alert.alert("Erreur", "Impossible de changer le mode maintenance.")
+  });
+
+  // 5. MUTATION : VIDER CACHE
   const clearCacheMutation = useMutation({
     mutationFn: clearServerCache,
     onSuccess: () => Alert.alert("Succès", "Le cache serveur a été vidé."),
@@ -49,6 +70,26 @@ export default function AdminMaintenanceScreen({ navigation }: any) {
   const onRefresh = () => {
     refetchHealth();
     queryClient.invalidateQueries({ queryKey: ['systemLogs'] });
+    queryClient.invalidateQueries({ queryKey: ['maintenanceStatus'] });
+  };
+
+  // Gestion du Switch Maintenance
+  const toggleMaintenance = () => {
+    const currentState = maintenanceData?.data?.isActive || false;
+    Alert.alert(
+      currentState ? "Désactiver la maintenance ?" : "Activer la maintenance ?",
+      currentState 
+        ? "Les utilisateurs pourront à nouveau se connecter." 
+        : "Seuls les administrateurs pourront accéder à l'application.",
+      [
+        { text: "Annuler", style: "cancel" },
+        { 
+          text: "Confirmer", 
+          onPress: () => maintenanceMutation.mutate({ isActive: !currentState }),
+          style: currentState ? "default" : "destructive"
+        }
+      ]
+    );
   };
 
   const colors = {
@@ -105,9 +146,25 @@ export default function AdminMaintenanceScreen({ navigation }: any) {
         <Text style={[styles.sectionTitle, { color: colors.textSub, marginTop: 25 }]}>ACTIONS TECHNIQUES</Text>
         <Surface style={[styles.card, { backgroundColor: colors.bgCard }]} elevation={2}>
             
+            {/* ✅ INTERRUPTEUR MAINTENANCE CONNECTÉ */}
+            <List.Item
+              title="Mode Maintenance"
+              description="Bloque l'accès utilisateur"
+              left={props => <List.Icon {...props} icon="alert-octagon" color={maintenanceData?.data?.isActive ? colors.error : colors.textSub} />}
+              right={() => (
+                <Switch 
+                  value={maintenanceData?.data?.isActive || false} 
+                  onValueChange={toggleMaintenance} 
+                  color={colors.error}
+                  disabled={maintenanceMutation.isPending || loadingMaint}
+                />
+              )}
+            />
+            <Divider style={{ backgroundColor: colors.border }} />
+
             <List.Item
               title="Vider le Cache Serveur"
-              description="Force le rechargement des configurations"
+              description="Force le rechargement des configs"
               left={props => <List.Icon {...props} icon="broom" color={colors.warning} />}
               right={() => (
                 <Button 
@@ -131,7 +188,10 @@ export default function AdminMaintenanceScreen({ navigation }: any) {
             ) : logs && logs.length > 0 ? (
                 logs.map((log: any, index: number) => (
                     <View key={index} style={styles.logRow}>
-                        <Text style={styles.logTime}>{new Date(log.created_at).toLocaleTimeString()}</Text>
+                        {/* ⚠️ CORRECTION DATE : createdAt au lieu de created_at */}
+                        <Text style={styles.logTime}>
+                            {log.createdAt ? new Date(log.createdAt).toLocaleTimeString() : "--:--"}
+                        </Text>
                         <Text style={[styles.logType, { 
                             color: log.level === 'INFO' ? '#60A5FA' : log.level === 'WARNING' ? '#FBBF24' : '#F87171' 
                         }]}>{log.level}</Text>
@@ -149,6 +209,8 @@ export default function AdminMaintenanceScreen({ navigation }: any) {
   );
 }
 
+// ... Le composant StatusCard et les styles restent identiques ...
+// (Je ne les remets pas pour économiser de la place, tu peux garder ceux d'avant)
 const StatusCard = ({ label, value, status, colors, icon }: any) => {
     const getColor = () => {
         if (status === 'ok') return colors.success;
