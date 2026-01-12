@@ -8,11 +8,12 @@ import {
   Linking,
   Platform,
   Share,
-  StatusBar
+  StatusBar,
+  Image // ✅ 1. Import de Image
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-// ✅ 1. Imports Navigation
+// Imports Navigation
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../../types/navigation";
@@ -25,7 +26,6 @@ import { useAppTheme } from "../../theme/AppThemeProvider";
 import { useAuthStore } from "../../stores/useAuthStore";
 
 export default function AboutScreen() {
-  // ✅ 2. Hook de Navigation
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const { theme, isDark } = useAppTheme();
@@ -34,9 +34,7 @@ export default function AboutScreen() {
   const APP_VERSION = "1.0.5 (Build 2026)";
   const WEBSITE_URL = "https://justice.gouv.ne"; 
 
-  /**
-   * ✅ Couleurs Institutionnelles Dynamiques
-   */
+  // ✅ Couleurs Institutionnelles Dynamiques
   const brandColor = useMemo(() => {
     const role = (user?.role || "citizen").toLowerCase();
     switch (role) {
@@ -99,7 +97,15 @@ export default function AboutScreen() {
         {/* 🏛️ SECTION MARQUE INSTITUTIONNELLE */}
         <View style={styles.brandSection}>
           <View style={[styles.logoContainer, { backgroundColor: isDark ? "#1A1A1A" : "#FFF", shadowColor: brandColor }]}>
-            <Ionicons name="scale-outline" size={64} color={brandColor} />
+            
+            {/* ✅ 2. Remplacement de l'icône par le Logo */}
+            {/* Assurez-vous que le chemin pointe vers votre logo réel */}
+            <Image 
+                source={require('../../../assets/armoirie.png')} 
+                style={styles.logoImage}
+                resizeMode="contain"
+            />
+
             <View style={[styles.badgeNiger, { backgroundColor: "#E67E22" }]}>
                 <Text style={styles.badgeText}>NIGER</Text>
             </View>
@@ -131,7 +137,6 @@ export default function AboutScreen() {
             action={() => handleOpenLink(WEBSITE_URL)} 
           />
           
-          {/* ✅ NAVIGATION INTERNE VERS LE GUIDE */}
           <InfoRow 
             icon="document-text-outline" 
             label="Guide de l'utilisateur" 
@@ -144,7 +149,6 @@ export default function AboutScreen() {
             action={handleShareApp} 
           />
           
-          {/* ✅ NAVIGATION INTERNE VERS LE SUPPORT */}
           <InfoRow 
             icon="headset-outline" 
             label="Support Technique" 
@@ -169,7 +173,6 @@ export default function AboutScreen() {
 
       </ScrollView>
 
-      {/* ✅ Footer ajouté pour permettre de revenir au menu principal rapidement */}
       <SmartFooter />
     </ScreenContainer>
   );
@@ -186,6 +189,11 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 5 },
     position: 'relative',
     borderWidth: 1, borderColor: 'rgba(0,0,0,0.05)'
+  },
+  // ✅ 3. Style pour l'image du logo
+  logoImage: {
+    width: 80, 
+    height: 80,
   },
   badgeNiger: {
     position: 'absolute', bottom: -10,

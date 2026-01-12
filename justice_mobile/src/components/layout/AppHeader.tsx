@@ -1,4 +1,3 @@
-// PATH: src/components/layout/AppHeader.tsx
 import React, { useMemo } from "react";
 import { 
   View, 
@@ -95,25 +94,28 @@ const AppHeader = ({
   const handleHomeAction = () => {
     if (onHomePress) return onHomePress();
     
+    // Mappage des rôles vers les écrans d'accueil
     const roleRoutes: Record<string, string> = {
       admin: "AdminHome", 
       officier_police: "PoliceHome",
       inspecteur: "PoliceHome",
       commissaire: "CommissaireDashboard", 
-      prosecutor: "ProsecutorDashboard", 
-      judge: "JudgeHome", 
-      greffier: "ClerkHome",
-      bailiff: "BailiffMissions",
-      lawyer: "LawyerTracking",
-      citizen: "CitizenHome",
+      prosecutor: "ProsecutorHomeScreen", 
+      judge: "JudgeHomeScreen", 
+      greffier: "ClerkHomeScreen",
+      bailiff: "BailiffHomeScreen",
+      lawyer: "LawyerHomeScreen",
+      citizen: "CitizenHomeScreen",
     };
     
-    const target = roleRoutes[userRole] || "CitizenHome";
+    // Détermine la route cible ou fallback vers Profile si introuvable
+    const target = roleRoutes[userRole] || "CitizenHomeScreen";
     
     try {
+        // Tente de naviguer vers la racine du stack si possible
         navigation.navigate(target);
     } catch (e) {
-        console.warn(`Route ${target} introuvable.`);
+        console.warn(`Route ${target} introuvable, redirection Profile.`);
         navigation.navigate("Profile");
     }
   };
@@ -228,7 +230,7 @@ const AppHeader = ({
           )}
 
           <TouchableOpacity 
-              onPress={onProfilePress || (() => navigation.navigate("Profile"))} 
+              onPress={onProfilePress || (() => navigation.navigate(userRole === 'admin' ? "AdminEditProfile" : "Profile"))} 
               style={[styles.profileButton, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}
               hitSlop={HIT_SLOP}
           >
