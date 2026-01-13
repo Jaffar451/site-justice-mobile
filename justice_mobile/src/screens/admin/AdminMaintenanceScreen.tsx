@@ -1,4 +1,4 @@
-import React, { useState } from "react"; 
+import React from "react"; 
 import { 
   View, 
   Text, 
@@ -6,7 +6,7 @@ import {
   ScrollView, 
   Alert, 
   StatusBar,
-  Platform,
+  Platform, // ✅ Indispensable pour la compatibilité Web
   RefreshControl
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -31,7 +31,7 @@ export default function AdminMaintenanceScreen({ navigation }: any) {
   const { theme, isDark } = useAppTheme();
   const queryClient = useQueryClient();
   
-  // 1. SANTÉ SYSTÈME (Polling toutes les 30s)
+  // 1. SANTÉ SYSTÈME
   const { data: health, isLoading: loadingHealth, refetch: refetchHealth } = useQuery({
     queryKey: ['systemHealth'],
     queryFn: getSystemHealth,
@@ -52,20 +52,35 @@ export default function AdminMaintenanceScreen({ navigation }: any) {
 
   // 4. MUTATION : ACTIVER/DÉSACTIVER MAINTENANCE
   const maintenanceMutation = useMutation({
-    mutationFn: setMaintenanceStatus, // Attend { isActive: boolean }
+    mutationFn: setMaintenanceStatus,
     onSuccess: (newData) => {
       queryClient.setQueryData(['maintenanceStatus'], newData); 
       const state = newData.data.isActive ? "ACTIVÉ" : "DÉSACTIVÉ";
-      Alert.alert("Mise à jour réussie", `Le Mode Maintenance est désormais ${state}.`);
+      
+      // Feedback adapté au support
+      if (Platform.OS === 'web') {
+          window.alert(`Mise à jour réussie : Mode Maintenance ${state}`);
+      } else {
+          Alert.alert("Mise à jour réussie", `Le Mode Maintenance est désormais ${state}.`);
+      }
     },
-    onError: () => Alert.alert("Erreur", "Impossible de changer le mode maintenance.")
+    onError: () => {
+        const msg = "Impossible de changer le mode maintenance.";
+        Platform.OS === 'web' ? window.alert(msg) : Alert.alert("Erreur", msg);
+    }
   });
 
   // 5. MUTATION : VIDER CACHE
   const clearCacheMutation = useMutation({
     mutationFn: clearServerCache,
-    onSuccess: () => Alert.alert("Succès", "Le cache serveur a été vidé."),
-    onError: () => Alert.alert("Erreur", "Impossible de vider le cache.")
+    onSuccess: () => {
+        const msg = "Le cache serveur a été vidé.";
+        Platform.OS === 'web' ? window.alert(msg) : Alert.alert("Succès", msg);
+    },
+    onError: () => {
+        const msg = "Impossible de vider le cache.";
+        Platform.OS === 'web' ? window.alert(msg) : Alert.alert("Erreur", msg);
+    }
   });
 
   const onRefresh = () => {
@@ -74,23 +89,33 @@ export default function AdminMaintenanceScreen({ navigation }: any) {
     queryClient.invalidateQueries({ queryKey: ['maintenanceStatus'] });
   };
 
-  // Gestion du Switch Maintenance
+  // ✅ CORRECTION DU BOUTON (Gestion Web vs Mobile)
   const toggleMaintenance = () => {
     const currentState = maintenanceData?.data?.isActive || false;
-    Alert.alert(
-      currentState ? "Désactiver la maintenance ?" : "Activer la maintenance ?",
-      currentState 
-        ? "Les utilisateurs pourront à nouveau se connecter à l'application." 
-        : "⚠️ Attention : Seuls les administrateurs pourront accéder à l'application.",
-      [
-        { text: "Annuler", style: "cancel" },
-        { 
-          text: "Confirmer", 
-          onPress: () => maintenanceMutation.mutate({ isActive: !currentState }),
-          style: currentState ? "default" : "destructive"
+    const message = currentState 
+        ? "Désactiver la maintenance ? Les utilisateurs pourront se reconnecter." 
+        : "⚠️ Activer la maintenance ? Seuls les admins auront accès.";
+
+    if (Platform.OS === 'web') {
+        // Sur Web, on utilise window.confirm car Alert.alert ne gère pas les choix
+        if (window.confirm(message)) {
+            maintenanceMutation.mutate({ isActive: !currentState });
         }
-      ]
-    );
+    } else {
+        // Sur Mobile, on utilise l'alerte native
+        Alert.alert(
+          "Confirmation",
+          message,
+          [
+            { text: "Annuler", style: "cancel" },
+            { 
+              text: "Confirmer", 
+              onPress: () => maintenanceMutation.mutate({ isActive: !currentState }),
+              style: currentState ? "default" : "destructive"
+            }
+          ]
+        );
+    }
   };
 
   const colors = {
@@ -103,11 +128,10 @@ export default function AdminMaintenanceScreen({ navigation }: any) {
     error: "#EF4444"
   };
 
-  // Helper pour les couleurs de logs
   const getLogColor = (status: number) => {
       if (status >= 500) return colors.error;
       if (status >= 400) return colors.warning;
-      return colors.success; // 200-299
+      return colors.success; 
   };
 
   return (
@@ -124,48 +148,31 @@ export default function AdminMaintenanceScreen({ navigation }: any) {
         {/* 🟢 ÉTAT RÉEL DU SYSTÈME */}
         <Text style={[styles.sectionTitle, { color: colors.textSub }]}>ÉTAT DES SERVICES (LIVE)</Text>
         <View style={styles.grid}>
-          <StatusCard 
-            label="Serveur API" 
-            value={health?.serverStatus || "Connexion..."} 
-            status={health?.serverStatus === 'OK' ? 'ok' : 'error'} 
-            colors={colors} icon="server" 
-          />
-          <StatusCard 
-            label="Base de Données" 
-            value={health?.dbStatus || "..."} 
-            status={health?.dbStatus === 'Connected' ? 'ok' : 'error'} 
-            colors={colors} icon="file-tray-full" 
-          />
-          <StatusCard 
-            label="Latence API" 
-            value={health?.latency ? `${health.latency}ms` : "--"} 
-            status={health?.latency < 200 ? 'ok' : 'warning'} 
-            colors={colors} icon="pulse" 
-          />
-          <StatusCard 
-            label="Version API" 
-            value={health?.version || "v1.0"} 
-            status="info" 
-            colors={colors} icon="git-branch" 
-          />
+          <StatusCard label="Serveur API" value={health?.serverStatus || "Connexion..."} status={health?.serverStatus === 'OK' ? 'ok' : 'error'} colors={colors} icon="server" />
+          <StatusCard label="Base de Données" value={health?.dbStatus || "..."} status={health?.dbStatus === 'Connected' ? 'ok' : 'error'} colors={colors} icon="file-tray-full" />
+          <StatusCard label="Latence API" value={health?.latency ? `${health.latency}ms` : "--"} status={health?.latency < 200 ? 'ok' : 'warning'} colors={colors} icon="pulse" />
+          <StatusCard label="Version API" value={health?.version || "v1.0"} status="info" colors={colors} icon="git-branch" />
         </View>
 
         {/* 🛠️ ACTIONS TECHNIQUES */}
         <Text style={[styles.sectionTitle, { color: colors.textSub, marginTop: 25 }]}>ACTIONS TECHNIQUES</Text>
         <Surface style={[styles.card, { backgroundColor: colors.bgCard }]} elevation={2}>
             
-            {/* ✅ INTERRUPTEUR MAINTENANCE */}
+            {/* ✅ INTERRUPTEUR MAINTENANCE (Corrigé pour le clic) */}
             <List.Item
               title="Mode Maintenance"
               description="Bloque l'accès utilisateur"
               left={props => <List.Icon {...props} icon="alert-octagon" color={maintenanceData?.data?.isActive ? colors.error : colors.textSub} />}
               right={() => (
-                <Switch 
-                  value={maintenanceData?.data?.isActive || false} 
-                  onValueChange={toggleMaintenance} 
-                  color={colors.error}
-                  disabled={maintenanceMutation.isPending || loadingMaint}
-                />
+                <View pointerEvents="auto">
+                    <Switch 
+                      value={maintenanceData?.data?.isActive || false} 
+                      onValueChange={toggleMaintenance} 
+                      color={colors.error}
+                      // On enlève le disabled strict pour permettre de cliquer même si chargement léger
+                      disabled={false} 
+                    />
+                </View>
               )}
             />
             <Divider style={{ backgroundColor: colors.border }} />
@@ -198,17 +205,12 @@ export default function AdminMaintenanceScreen({ navigation }: any) {
                     const statusColor = getLogColor(log.status || 200);
                     return (
                         <View key={index} style={styles.logRow}>
-                            {/* Date: timestamp renvoyé par le controlleur backend */}
                             <Text style={styles.logTime}>
                                 {log.timestamp ? new Date(log.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "--:--"}
                             </Text>
-                            
-                            {/* Méthode et Statut */}
                             <Text style={[styles.logType, { color: statusColor }]}>
                                 {log.method} {log.status}
                             </Text>
-                            
-                            {/* Message: Endpoint ou Action */}
                             <Text style={styles.logMsg} numberOfLines={1}>
                                 {log.endpoint || log.action}
                             </Text>
@@ -227,7 +229,6 @@ export default function AdminMaintenanceScreen({ navigation }: any) {
 }
 
 // 📦 COMPOSANTS HELPER
-
 const StatusCard = ({ label, value, status, colors, icon }: any) => {
     const getColor = () => {
         if (status === 'ok') return colors.success;
@@ -235,7 +236,6 @@ const StatusCard = ({ label, value, status, colors, icon }: any) => {
         if (status === 'error') return colors.error;
         return colors.textMain;
     };
-
     return (
         <View style={[styles.statusCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
             <Ionicons name={icon} size={24} color={getColor()} style={{ marginBottom: 8 }} />
