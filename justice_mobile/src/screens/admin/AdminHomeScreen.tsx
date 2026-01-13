@@ -6,68 +6,41 @@ import {
   ScrollView, 
   StatusBar,
   Pressable,
-  Platform,
-  ActivityIndicator,
-  RefreshControl
+  Platform, // ✅ Indispensable
+  RefreshControl,
+  Alert
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from 'expo-linear-gradient';
 import { useQuery } from "@tanstack/react-query"; 
 import { useFocusEffect } from "@react-navigation/native";
+import * as LocalAuthentication from 'expo-local-authentication'; 
+import * as Haptics from 'expo-haptics'; 
 
-// ✅ Architecture & Thème
+// ✅ Architecture
 import { AdminScreenProps } from "../../types/navigation";
 import { useAuthStore } from "../../stores/useAuthStore";
 import { useAppTheme } from "../../theme/AppThemeProvider";
 import api from "../../services/api"; 
 import { getAdminStats } from "../../services/stats.service";
 
-// Composants
+// Composants UI
 import ScreenContainer from "../../components/layout/ScreenContainer";
 import AppHeader from "../../components/layout/AppHeader";
 import SmartFooter from "../../components/layout/SmartFooter";
+import AnimatedCounter from "../../components/ui/AnimatedCounter"; 
+import DashboardSkeleton from "../../components/ui/DashboardSkeleton"; 
 
-// --- SERVICE API PROFIL ---
+// --- SERVICE API ---
 const fetchUserProfile = async () => {
   const response = await api.get('/auth/me');
   return response.data.data || response.data;
 };
 
-export default function AdminHomeScreen({ navigation }: AdminScreenProps<'AdminHome'>) {
-  const { isDark, theme } = useAppTheme();
-  const primaryColor = theme.colors.primary;
-  const { user: storeUser, setUser } = useAuthStore(); 
+// 🕒 COMPOSANT HORLOGE ISOLÉ
+const ClockWidget = React.memo(({ isDark, systemStatus }: { isDark: boolean, systemStatus: string }) => {
   const [now, setNow] = useState(new Date());
 
-  // ✅ 1. Synchronisation Profil
-  const { data: apiUser } = useQuery({
-    queryKey: ['me'],
-    queryFn: fetchUserProfile,
-    staleTime: 5 * 60 * 1000, // 5 minutes de cache
-  });
-
-  useEffect(() => {
-    if (apiUser && apiUser.id !== storeUser?.id) {
-      setUser(apiUser);
-    }
-  }, [apiUser]);
-
-  const userData = apiUser || storeUser;
-
-  // ✅ 2. Récupération des Statistiques Globales
-  const { data: stats, isLoading: statsLoading, refetch } = useQuery({
-    queryKey: ['admin-global-stats'],
-    queryFn: getAdminStats,
-    initialData: { usersCount: 0, courtsCount: 0, activityRate: "0%", systemStatus: "Stable" }
-  });
-
-  useFocusEffect(
-    useCallback(() => {
-      refetch();
-    }, [refetch])
-  );
-
-  // Horloge temps réel
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(timer);
@@ -81,7 +54,92 @@ export default function AdminHomeScreen({ navigation }: AdminScreenProps<'AdminH
     hour: '2-digit', minute: '2-digit', second: '2-digit' 
   }), [now]);
 
-  // 🎨 PALETTE DYNAMIQUE
+  return (
+    <LinearGradient
+      colors={isDark ? ['#1E293B', '#0F172A'] : ['#1E293B', '#334155']}
+      style={styles.clockWidget}
+    >
+      <View style={styles.clockHeader}>
+        <View style={[styles.statusDot, { backgroundColor: systemStatus === 'Maintenance' ? '#EF4444' : '#10B981' }]} />
+        <Text style={[styles.statusText, { color: systemStatus === 'Maintenance' ? '#EF4444' : '#10B981' }]}>
+            {systemStatus === 'Maintenance' ? 'MODE MAINTENANCE' : 'SERVEUR CENTRAL : OPÉRATIONNEL'}
+        </Text>
+      </View>
+      <Text style={styles.timeText}>{formattedTime}</Text>
+      <Text style={styles.dateText}>{formattedDate}</Text>
+    </LinearGradient>
+  );
+});
+
+export default function AdminHomeScreen({ navigation }: AdminScreenProps<'AdminHome'>) {
+  const { isDark, theme } = useAppTheme();
+  const primaryColor = theme.colors.primary;
+  const { user: storeUser, setUser } = useAuthStore(); 
+  const [isAuthenticated, setIsAuthenticated] = useState(false); 
+
+  // ✅ 1. SÉCURITÉ BIOMÉTRIQUE (Optimisée Web)
+  useEffect(() => {
+    const checkBiometrics = async () => {
+      // 🌍 Sur Web, on bypass la biométrie car non supportée
+      if (Platform.OS === 'web') {
+          setIsAuthenticated(true);
+          return;
+      }
+
+      const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+
+      if (hasHardware && isEnrolled) {
+        const result = await LocalAuthentication.authenticateAsync({
+          promptMessage: 'Accès Administrateur Sécurisé',
+          fallbackLabel: 'Utiliser le code PIN',
+          disableDeviceFallback: false,
+        });
+
+        if (result.success) {
+          setIsAuthenticated(true);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        } else {
+          Alert.alert("Accès Refusé", "Authentification requise.", [
+            { text: "Réessayer", onPress: checkBiometrics },
+            { text: "Quitter", onPress: () => navigation.goBack() } 
+          ]);
+        }
+      } else {
+        setIsAuthenticated(true);
+      }
+    };
+
+    checkBiometrics();
+  }, []);
+
+  // ✅ 2. SYNC PROFIL
+  const { data: apiUser } = useQuery({
+    queryKey: ['me'],
+    queryFn: fetchUserProfile,
+    staleTime: 5 * 60 * 1000, 
+  });
+
+  useEffect(() => {
+    if (apiUser && apiUser.id !== storeUser?.id) {
+      setUser(apiUser);
+    }
+  }, [apiUser]);
+
+  const userData = apiUser || storeUser;
+
+  // ✅ 3. STATS
+  const { data: stats, isLoading: statsLoading, refetch } = useQuery({
+    queryKey: ['admin-global-stats'],
+    queryFn: getAdminStats,
+  });
+
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
+
   const colors = {
     bgMain: isDark ? "#0F172A" : "#F8FAFC",
     bgCard: isDark ? "#1E293B" : "#FFFFFF",
@@ -90,24 +148,24 @@ export default function AdminHomeScreen({ navigation }: AdminScreenProps<'AdminH
     border: isDark ? "#334155" : "#E2E8F0",
   };
 
-  // ✅ LISTE DES MENUS (Mise à jour avec Maintenance & Outils)
   const menuItems = [
-    // GESTION RH & STRUCTURES
     { title: "Comptes & Rôles", sub: "Habilitations et accès RH", icon: "people-circle-outline", route: "AdminUsers", color: "#6366F1" },
     { title: "Unités de Sécurité", sub: "Gendarmeries et Commissariats", icon: "shield-half-outline", route: "ManageStations", color: "#2563EB" },
     { title: "Cours et Tribunaux", sub: "Juridictions et Greffes", icon: "business-outline", route: "AdminCourts", color: "#059669" },
-    
-    // PILOTAGE & SYSTÈME
     { title: "Carte du Maillage", sub: "Déploiement territorial", icon: "map-outline", route: "NationalMap", color: "#0891B2" },
     { title: "Audit & Sécurité", sub: "Traçabilité des actes", icon: "finger-print-outline", route: "AdminAudit", color: "#475569" },
-    
-    // 🛠️ NOUVEAUX MODULES TECHNIQUES
-    { title: "Maintenance Système", sub: "Cache, Logs & Santé", icon: "construct-outline", route: "AdminMaintenance", color: "#EF4444" }, // ✅ Nouveau
-    
-    // 🔍 OUTILS DE CONTRÔLE
-    { title: "Scanner de Contrôle", sub: "Vérifier Badges & Actes", icon: "qr-code-outline", route: "VerificationScanner", color: "#F59E0B" }, // ✅ Nouveau
-    { title: "Rapports Hebdo", sub: "Statistiques d'activité", icon: "stats-chart-outline", route: "WeeklyReport", color: "#8B5CF6" }, // ✅ Nouveau
+    { title: "Maintenance Système", sub: "Cache, Logs & Santé", icon: "construct-outline", route: "AdminMaintenance", color: "#EF4444" },
+    { title: "Scanner de Contrôle", sub: "Vérifier Badges & Actes", icon: "qr-code-outline", route: "VerificationScanner", color: "#F59E0B" },
+    { title: "Rapports Hebdo", sub: "Statistiques d'activité", icon: "stats-chart-outline", route: "WeeklyReport", color: "#8B5CF6" },
   ];
+
+  if (!isAuthenticated) {
+    return (
+      <ScreenContainer withPadding={false}>
+         <View style={{flex:1, backgroundColor: colors.bgMain}} /> 
+      </ScreenContainer>
+    );
+  }
 
   return (
     <ScreenContainer withPadding={false}>
@@ -122,7 +180,6 @@ export default function AdminHomeScreen({ navigation }: AdminScreenProps<'AdminH
           <RefreshControl refreshing={statsLoading} onRefresh={refetch} tintColor={primaryColor} />
         }
       >
-        {/* 👋 ENTÊTE BIENVENUE */}
         <View style={styles.welcomeSection}>
           <Text style={[styles.welcomeTitle, { color: colors.textMain }]}>
             Bonjour, {(userData?.firstname || "Administrateur").toUpperCase()}
@@ -130,39 +187,34 @@ export default function AdminHomeScreen({ navigation }: AdminScreenProps<'AdminH
           <Text style={[styles.welcomeSub, { color: colors.textSub }]}>Système Central e-Justice Niger</Text>
         </View>
 
-        {/* 🕒 CLOCK WIDGET */}
-        <LinearGradient
-          colors={isDark ? ['#1E293B', '#0F172A'] : ['#1E293B', '#334155']}
-          style={styles.clockWidget}
-        >
-          <View style={styles.clockHeader}>
-            <View style={[styles.statusDot, { backgroundColor: stats?.systemStatus === 'Maintenance' ? '#EF4444' : '#10B981' }]} />
-            <Text style={[styles.statusText, { color: stats?.systemStatus === 'Maintenance' ? '#EF4444' : '#10B981' }]}>
-                {stats?.systemStatus === 'Maintenance' ? 'MODE MAINTENANCE' : 'SERVEUR CENTRAL : OPÉRATIONNEL'}
-            </Text>
-          </View>
-          <Text style={styles.timeText}>{formattedTime}</Text>
-          <Text style={styles.dateText}>{formattedDate}</Text>
-        </LinearGradient>
+        <ClockWidget isDark={isDark} systemStatus={stats?.systemStatus || 'Stable'} />
 
         <Text style={[styles.sectionTitle, { color: colors.textSub }]}>Monitoring du Réseau National</Text>
         
-        {/* STATS GRID DYNAMIQUE */}
-        <View style={styles.statsGrid}>
-          <StatMiniCard icon="people" val={stats?.usersCount || "---"} label="Utilisateurs" color="#6366F1" colors={colors} />
-          <StatMiniCard icon="business" val={stats?.courtsCount || "---"} label="Juridictions" color="#8B5CF6" colors={colors} />
-          <StatMiniCard icon="bar-chart" val={stats?.activityRate || "---"} label="Flux Actif" color="#EC4899" colors={colors} />
-          <StatMiniCard icon="pulse" val={stats?.systemStatus || "Stable"} label="État Système" color="#10B981" colors={colors} />
-        </View>
+        {statsLoading && !stats ? (
+           <DashboardSkeleton />
+        ) : (
+          <View style={styles.statsGrid}>
+            <StatMiniCard icon="people" val={stats?.usersCount || 0} label="Utilisateurs" color="#6366F1" colors={colors} />
+            <StatMiniCard icon="business" val={stats?.courtsCount || 0} label="Juridictions" color="#8B5CF6" colors={colors} />
+            <StatMiniCard icon="bar-chart" val={stats?.activityRate || "0%"} label="Flux Actif" color="#EC4899" colors={colors} />
+            <StatMiniCard icon="pulse" val={stats?.systemStatus || "Stable"} label="État Système" color="#10B981" colors={colors} />
+          </View>
+        )}
 
         <Text style={[styles.sectionTitle, { marginTop: 30, color: colors.textSub }]}>Gestion & Outils Techniques</Text>
 
-        {/* MENU LIST */}
         <View style={styles.menuList}>
           {menuItems.map((item, i) => (
             <Pressable 
               key={i} 
-              onPress={() => navigation.navigate(item.route as any)}
+              onPress={() => {
+                // ✅ CORRECTION DU CRASH WEB ICI
+                if (Platform.OS !== 'web') {
+                    Haptics.selectionAsync();
+                }
+                navigation.navigate(item.route as any);
+              }}
               style={({ pressed }) => [
                 styles.menuCard, 
                 { 
@@ -193,13 +245,18 @@ export default function AdminHomeScreen({ navigation }: AdminScreenProps<'AdminH
   );
 }
 
+// 🔢 CARTE AVEC ANIMATION
 const StatMiniCard = ({ icon, val, label, color, colors }: any) => (
   <View style={[styles.statCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
     <View style={[styles.statIconBox, { backgroundColor: color + "15" }]}>
       <Ionicons name={icon} size={18} color={color} />
     </View>
     <View style={{ flex: 1 }}>
-      <Text style={[styles.statValue, { color: colors.textMain }]}>{val}</Text>
+      <AnimatedCounter 
+        value={val} 
+        style={[styles.statValue, { color: colors.textMain }]} 
+        duration={1200} 
+      />
       <Text style={[styles.statLabel, { color: colors.textSub }]}>{label}</Text>
     </View>
   </View>

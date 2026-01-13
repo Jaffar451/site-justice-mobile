@@ -6,7 +6,7 @@ import {
   ScrollView, 
   Alert, 
   StatusBar,
-  Platform, // ✅ Indispensable pour la compatibilité Web
+  Platform, // ✅ Import Platform for Web compatibility
   RefreshControl
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -45,9 +45,10 @@ export default function AdminMaintenanceScreen({ navigation }: any) {
   });
 
   // 3. ÉTAT MAINTENANCE
-  const { data: maintenanceData, isLoading: loadingMaint } = useQuery({
+  const { data: maintenanceData, isLoading: loadingMaint, isError } = useQuery({
     queryKey: ['maintenanceStatus'],
     queryFn: getMaintenanceStatus,
+    retry: 1 // Don't retry too much if 404
   });
 
   // 4. MUTATION : ACTIVER/DÉSACTIVER MAINTENANCE
@@ -57,16 +58,16 @@ export default function AdminMaintenanceScreen({ navigation }: any) {
       queryClient.setQueryData(['maintenanceStatus'], newData); 
       const state = newData.data.isActive ? "ACTIVÉ" : "DÉSACTIVÉ";
       
-      // Feedback adapté au support
       if (Platform.OS === 'web') {
-          window.alert(`Mise à jour réussie : Mode Maintenance ${state}`);
+        window.alert(`Succès : Mode Maintenance ${state}`);
       } else {
-          Alert.alert("Mise à jour réussie", `Le Mode Maintenance est désormais ${state}.`);
+        Alert.alert("Mise à jour réussie", `Le Mode Maintenance est désormais ${state}.`);
       }
     },
-    onError: () => {
-        const msg = "Impossible de changer le mode maintenance.";
-        Platform.OS === 'web' ? window.alert(msg) : Alert.alert("Erreur", msg);
+    onError: (error: any) => {
+      console.error("Erreur Mutation:", error);
+      const msg = "Impossible de changer le mode maintenance. Vérifiez votre connexion ou les droits Admin.";
+      Platform.OS === 'web' ? window.alert(msg) : Alert.alert("Erreur", msg);
     }
   });
 
@@ -74,12 +75,12 @@ export default function AdminMaintenanceScreen({ navigation }: any) {
   const clearCacheMutation = useMutation({
     mutationFn: clearServerCache,
     onSuccess: () => {
-        const msg = "Le cache serveur a été vidé.";
-        Platform.OS === 'web' ? window.alert(msg) : Alert.alert("Succès", msg);
+      const msg = "Le cache serveur a été vidé.";
+      Platform.OS === 'web' ? window.alert(msg) : Alert.alert("Succès", msg);
     },
     onError: () => {
-        const msg = "Impossible de vider le cache.";
-        Platform.OS === 'web' ? window.alert(msg) : Alert.alert("Erreur", msg);
+      const msg = "Impossible de vider le cache.";
+      Platform.OS === 'web' ? window.alert(msg) : Alert.alert("Erreur", msg);
     }
   });
 
@@ -89,32 +90,32 @@ export default function AdminMaintenanceScreen({ navigation }: any) {
     queryClient.invalidateQueries({ queryKey: ['maintenanceStatus'] });
   };
 
-  // ✅ CORRECTION DU BOUTON (Gestion Web vs Mobile)
+  // ✅ FIX: Fonction toggle compatible Web & Mobile
   const toggleMaintenance = () => {
     const currentState = maintenanceData?.data?.isActive || false;
     const message = currentState 
-        ? "Désactiver la maintenance ? Les utilisateurs pourront se reconnecter." 
-        : "⚠️ Activer la maintenance ? Seuls les admins auront accès.";
+      ? "Désactiver la maintenance ? Les utilisateurs pourront se reconnecter." 
+      : "⚠️ Activer la maintenance ? Seuls les admins auront accès.";
 
     if (Platform.OS === 'web') {
-        // Sur Web, on utilise window.confirm car Alert.alert ne gère pas les choix
-        if (window.confirm(message)) {
-            maintenanceMutation.mutate({ isActive: !currentState });
-        }
+      // Sur Web, Alert.alert ne propose pas de choix, on utilise window.confirm
+      if (window.confirm(message)) {
+        maintenanceMutation.mutate({ isActive: !currentState });
+      }
     } else {
-        // Sur Mobile, on utilise l'alerte native
-        Alert.alert(
-          "Confirmation",
-          message,
-          [
-            { text: "Annuler", style: "cancel" },
-            { 
-              text: "Confirmer", 
-              onPress: () => maintenanceMutation.mutate({ isActive: !currentState }),
-              style: currentState ? "default" : "destructive"
-            }
-          ]
-        );
+      // Sur Mobile, on utilise l'alerte native
+      Alert.alert(
+        "Confirmation",
+        message,
+        [
+          { text: "Annuler", style: "cancel" },
+          { 
+            text: "Confirmer", 
+            onPress: () => maintenanceMutation.mutate({ isActive: !currentState }),
+            style: currentState ? "default" : "destructive"
+          }
+        ]
+      );
     }
   };
 
@@ -129,10 +130,13 @@ export default function AdminMaintenanceScreen({ navigation }: any) {
   };
 
   const getLogColor = (status: number) => {
-      if (status >= 500) return colors.error;
-      if (status >= 400) return colors.warning;
-      return colors.success; 
+    if (status >= 500) return colors.error;
+    if (status >= 400) return colors.warning;
+    return colors.success; 
   };
+
+  // Force le switch à être actif même si loading (pour éviter l'effet grisé bloqué si erreur)
+  const isSwitchDisabled = maintenanceMutation.isPending;
 
   return (
     <ScreenContainer withPadding={false}>
@@ -158,7 +162,7 @@ export default function AdminMaintenanceScreen({ navigation }: any) {
         <Text style={[styles.sectionTitle, { color: colors.textSub, marginTop: 25 }]}>ACTIONS TECHNIQUES</Text>
         <Surface style={[styles.card, { backgroundColor: colors.bgCard }]} elevation={2}>
             
-            {/* ✅ INTERRUPTEUR MAINTENANCE (Corrigé pour le clic) */}
+            {/* ✅ INTERRUPTEUR MAINTENANCE (Visible & Actif) */}
             <List.Item
               title="Mode Maintenance"
               description="Bloque l'accès utilisateur"
@@ -169,8 +173,7 @@ export default function AdminMaintenanceScreen({ navigation }: any) {
                       value={maintenanceData?.data?.isActive || false} 
                       onValueChange={toggleMaintenance} 
                       color={colors.error}
-                      // On enlève le disabled strict pour permettre de cliquer même si chargement léger
-                      disabled={false} 
+                      disabled={isSwitchDisabled}
                     />
                 </View>
               )}

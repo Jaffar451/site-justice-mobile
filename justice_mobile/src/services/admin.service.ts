@@ -25,23 +25,58 @@ export interface DashboardData {
   statusStats: { status: string; count: string }[];
   regionalStats: { district: string; total: string }[];
   timingStats: { avg_days: number };
+  usersCount?: number;
+  courtsCount?: number;
+  activityRate?: string;
+  systemStatus?: string;
 }
 
 /**
  * 📊 GESTION DU DASHBOARD (Analytique)
+ * Cette fonction transforme les données du Backend pour l'UI
  */
-// Utilisé par AdminHomeScreen
 export const getAdminStats = async () => {
   try {
     const response = await api.get("/admin/dashboard-stats");
-    return response.data.success ? response.data.data : response.data;
+    const data = response.data.data;
+
+    // 🛡️ MAPPING INTELLIGENT (Backend -> Frontend)
+    // On transforme les données brutes pour que l'écran AdminHomeScreen les comprenne
+    return {
+        // Mapping du compteur utilisateurs (users_total -> usersCount)
+        usersCount: data.summary?.users_total || 0, 
+        
+        // Mapping du compteur juridictions
+        courtsCount: data.regionalStats?.length || 0,
+        
+        // Calcul du taux d'activité (Dossiers ouverts / Total)
+        activityRate: (data.summary?.complaints_total > 0)
+            ? Math.round((data.summary.complaints_open / data.summary.complaints_total) * 100) + "%" 
+            : "0%",
+            
+        // État du système
+        systemStatus: data.summary?.systemHealth === '100%' ? "Stable" : "Maintenance",
+        
+        // Données brutes pour les graphiques
+        statusStats: data.statusStats || [],
+        regionalStats: data.regionalStats || [],
+        timingStats: data.timingStats || { avg_days: 0 }
+    };
   } catch (error) {
     console.error("[ADMIN SERVICE] Erreur Stats:", error);
-    return { statusStats: [], regionalStats: [], summary: {} };
+    // Valeurs par défaut pour ne pas crasher l'UI
+    return { 
+        usersCount: 0, 
+        courtsCount: 0, 
+        activityRate: "0%", 
+        systemStatus: "Inconnu",
+        statusStats: [],
+        regionalStats: []
+    };
   }
 };
 
-// Alias pour compatibilité si utilisé ailleurs
+// Alias pour compatibilité
 export const getDashboardData = getAdminStats;
 
 /**
@@ -50,7 +85,6 @@ export const getDashboardData = getAdminStats;
 export const getAllUsers = async () => {
   try {
     const response = await api.get("/users");
-    // ✅ On retourne response.data.data car le backend enveloppe le tableau
     return response.data.success ? response.data.data : [];
   } catch (error) {
     console.error("Erreur récupération utilisateurs", error);
@@ -60,11 +94,9 @@ export const getAllUsers = async () => {
 
 /**
  * 👤 CRÉATION D'UTILISATEUR (Normalisée)
- * Convertit le camelCase (Frontend) en snake_case (Backend)
  */
 export const createUser = async (userData: CreateUserPayload) => {
   try {
-    // 🛡️ NORMALISATION : Préparation pour PostgreSQL
     const finalPayload = {
       firstname: userData.firstname,
       lastname: userData.lastname,
@@ -75,7 +107,6 @@ export const createUser = async (userData: CreateUserPayload) => {
       organization: userData.organization,
       matricule: userData.matricule,
       poste: userData.poste,
-      // Mappage explicite vers les colonnes SQL (snake_case)
       police_station_id: userData.policeStationId || null,
       court_id: userData.courtId || null,
       prison_id: userData.prisonId || null,
@@ -83,7 +114,6 @@ export const createUser = async (userData: CreateUserPayload) => {
       is_active: userData.is_active ?? true,
     };
 
-    // ✅ APPEL RÉEL AU BACKEND
     const response = await api.post('/users', finalPayload);
     return response.data;
 
@@ -107,7 +137,7 @@ export const getAllCourts = async () => {
 };
 
 /**
- * 👮 GESTION DES COMMISSARIATS (Directory)
+ * 👮 GESTION DES COMMISSARIATS
  */
 export const getAllPoliceStations = async () => {
   try {
@@ -121,35 +151,32 @@ export const getAllPoliceStations = async () => {
 
 // --- 🔧 MAINTENANCE & SYSTÈME ---
 
-// 📡 Récupère l'état de santé (Simulé ou réel selon backend)
-// Utilisé par la carte "État des Services"
+// 📡 Récupère l'état de santé
 export const getSystemHealth = async () => {
   try {
-    // Essaye d'appeler la route dédiée, sinon fallback sur maintenance
-    const response = await api.get('/admin/maintenance/status'); 
-    return {
-       serverStatus: 'OK', 
-       dbStatus: 'Connected', 
-       latency: 45, 
-       version: '1.5.0',
-       ...response.data.data // Fusionne avec les vraies données si dispos
-    };
+    // ✅ Utilise la route dédiée créée dans le backend
+    const response = await api.get('/admin/system-health');
+    
+    if (response.data && response.data.success) {
+        return response.data.data;
+    }
+    return response.data;
   } catch (e) {
+    console.error("❌ Erreur Health Check:", e);
     return { serverStatus: 'Unknown', dbStatus: 'Unknown', latency: 0 };
   }
 };
 
-// 📡 Récupère les logs techniques réels
+// 📡 Récupère les logs techniques
 export const getSystemLogs = async () => {
   const response = await api.get('/admin/logs');
   return response.data; 
 };
 
-// 📡 Récupère le score de sécurité et les alertes
+// 📡 Récupère la sécurité
 export const getSecurityOverview = async () => {
   try {
     const response = await api.get('/admin/security/settings');
-    // Adaptation pour l'écran Security
     return {
         score: 95, 
         threats: 0, 
@@ -163,7 +190,6 @@ export const getSecurityOverview = async () => {
 
 // ⚡ Lance un scan de sécurité
 export const triggerSecurityScan = async () => {
-  // Simulé pour l'instant si la route n'existe pas encore
   return new Promise((resolve) => {
     setTimeout(() => {
         resolve({ threatsFound: 0, vulnerabilities: "Aucune critique" });
@@ -177,14 +203,14 @@ export const clearServerCache = async () => {
   return response.data;
 };
 
-// 🚧 Statut Maintenance (Switch)
+// 🚧 Statut Maintenance
 export const getMaintenanceStatus = async () => {
-  const response = await api.get('/admin/maintenance/status'); // ✅ Chemin corrigé
+  const response = await api.get('/admin/maintenance/status');
   return response.data;
 };
 
 // 🚨 Activer/Désactiver Maintenance
 export const setMaintenanceStatus = async (data: { isActive: boolean }) => {
-  const response = await api.post('/admin/maintenance/status', data); // ✅ Chemin corrigé
+  const response = await api.post('/admin/maintenance/status', data);
   return response.data;
 };

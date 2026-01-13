@@ -8,15 +8,14 @@ import {
   ActivityIndicator, 
   RefreshControl,
   StatusBar,
-  Platform,
-  ViewStyle
+  Platform
 } from "react-native";
-import { PieChart, BarChart } from "react-native-chart-kit";
+import { PieChart, BarChart } from "react-native-chart-kit"; // ⚠️ Assure-toi d'avoir fait: npx expo install react-native-svg
 import { useQuery } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 
 // ✅ Architecture & Layout
-import { useAppTheme } from "../../theme/AppThemeProvider"; // ✅ Hook dynamique
+import { useAppTheme } from "../../theme/AppThemeProvider";
 import ScreenContainer from "../../components/layout/ScreenContainer";
 import AppHeader from "../../components/layout/AppHeader";
 import SmartFooter from "../../components/layout/SmartFooter";
@@ -25,7 +24,6 @@ import SmartFooter from "../../components/layout/SmartFooter";
 import { getDashboardData } from "../../services/admin.service";
 
 const screenWidth = Dimensions.get("window").width;
-const isWeb = Platform.OS === 'web';
 
 export default function AdminStatsScreen({ navigation }: any) {
   const { theme, isDark } = useAppTheme();
@@ -38,14 +36,13 @@ export default function AdminStatsScreen({ navigation }: any) {
     textMain: isDark ? "#FFFFFF" : "#1E293B",
     textSub: isDark ? "#94A3B8" : "#64748B",
     border: isDark ? "#334155" : "#F1F5F9",
-    chartBg: isDark ? "#1E293B" : "#FFFFFF",
   };
 
   // ✅ 1. CHARGEMENT DONNÉES
   const { data: rawData, isLoading, refetch } = useQuery({
     queryKey: ["judicial-stats"],
     queryFn: getDashboardData,
-    refetchInterval: 60000, // Refresh auto 1min
+    refetchInterval: 60000, 
   });
 
   // ✅ 2. EXTRACTION SÉCURISÉE
@@ -67,24 +64,6 @@ export default function AdminStatsScreen({ navigation }: any) {
     if (!stats?.statusStats) return 0;
     return stats.statusStats.reduce((acc: number, s: any) => acc + (parseInt(s.count) || 0), 0);
   }, [stats]);
-
-  /**
-   * 🖥️ TABLEAU WEB (Format Desktop)
-   */
-  const WebDataTable = ({ items, labelKey, valueKey, title }: any) => (
-    <View style={[styles.webTable, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-      <Text style={[styles.webTableTitle, { color: colors.textMain }]}>{title}</Text>
-      {(items || []).map((item: any, index: number) => (
-        <View key={index} style={[styles.webTableRow, { borderBottomColor: colors.border }]}>
-          <View style={styles.webRowLabelGroup}>
-              <View style={[styles.dot, { backgroundColor: chartColors[index % chartColors.length] }]} />
-              <Text style={[styles.webLabelText, { color: colors.textSub }]}>{item[labelKey]}</Text>
-          </View>
-          <Text style={[styles.webValueText, { color: colors.textMain }]}>{item[valueKey]}</Text>
-        </View>
-      ))}
-    </View>
-  );
 
   if (isLoading) return (
     <ScreenContainer withPadding={false}>
@@ -121,14 +100,8 @@ export default function AdminStatsScreen({ navigation }: any) {
               </View>
           </View>
 
-          {/* 📊 GRAPHIQUES & DATA VISUALIZATION */}
-          {isWeb ? (
-            <View style={{ gap: 20 }}>
-              <WebDataTable title="Répartition par Statut" items={stats?.statusStats} labelKey="status" valueKey="count" />
-              <WebDataTable title="Activité par District Judiciaire" items={stats?.regionalStats} labelKey="district" valueKey="total" />
-            </View>
-          ) : (
-            <View>
+          {/* 📊 GRAPHIQUES (Visibles partout maintenant) */}
+          <View>
               {/* CAMEMBERT STATUTS */}
               <Text style={[styles.chartTitle, { color: colors.textSub }]}>Distribution des Procédures</Text>
               <View style={[styles.chartContainer, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
@@ -141,7 +114,7 @@ export default function AdminStatsScreen({ navigation }: any) {
                             legendFontColor: colors.textSub,
                             legendFontSize: 11
                         }))}
-                        width={screenWidth - 40}
+                        width={screenWidth - 40} // Largeur adaptée
                         height={220}
                         chartConfig={{ 
                             color: (opacity = 1) => primaryColor,
@@ -153,7 +126,7 @@ export default function AdminStatsScreen({ navigation }: any) {
                         absolute
                     />
                 ) : (
-                    <Text style={[styles.emptyText, { color: colors.textSub }]}>Données insuffisantes</Text>
+                    <Text style={[styles.emptyText, { color: colors.textSub }]}>Pas assez de données pour le graphique</Text>
                 )}
               </View>
 
@@ -163,32 +136,35 @@ export default function AdminStatsScreen({ navigation }: any) {
                 {(stats?.regionalStats || []).length > 0 ? (
                     <BarChart
                         data={{
-                            labels: (stats?.regionalStats || []).slice(0, 5).map((r: any) => (r.district || "").substring(0, 5)),
+                            labels: (stats?.regionalStats || []).slice(0, 5).map((r: any) => (r.district || "N/A").substring(0, 8)),
                             datasets: [{ data: (stats?.regionalStats || []).slice(0, 5).map((r: any) => parseInt(r.total) || 0) }]
                         }}
-                        width={screenWidth - 60}
-                        height={240}
+                        width={screenWidth - 40}
+                        height={260}
                         yAxisLabel=""
                         yAxisSuffix=""
                         fromZero
+                        showValuesOnTopOfBars // Affiche les chiffres au dessus des barres
                         chartConfig={{
                             backgroundColor: colors.bgCard,
                             backgroundGradientFrom: colors.bgCard,
                             backgroundGradientTo: colors.bgCard,
-                            color: (opacity = 1) => isDark ? `rgba(99, 102, 241, ${opacity})` : primaryColor,
+                            fillShadowGradient: primaryColor,
+                            fillShadowGradientOpacity: 1,
+                            color: (opacity = 1) => primaryColor, // Couleur des barres
                             labelColor: (opacity = 1) => colors.textSub,
-                            barPercentage: 0.6,
+                            barPercentage: 0.7,
                             decimalPlaces: 0,
-                            style: { borderRadius: 16 }
                         }}
                         style={{ borderRadius: 16, marginTop: 10 }}
+                        // Fix pour éviter les labels coupés
+                        verticalLabelRotation={30} 
                     />
                 ) : (
                     <Text style={[styles.emptyText, { color: colors.textSub }]}>Aucune donnée régionale</Text>
                 )}
               </View>
-            </View>
-          )}
+          </View>
 
           <View style={styles.footerSpacing} />
         </ScrollView>
@@ -217,15 +193,8 @@ const styles = StyleSheet.create({
   chartTitle: { fontSize: 11, fontWeight: "900", marginBottom: 15, textTransform: 'uppercase', letterSpacing: 1.5, marginLeft: 5 },
   chartContainer: { 
     borderRadius: 32, paddingVertical: 20, alignItems: 'center', marginBottom: 15,
-    borderWidth: 1,
+    borderWidth: 1, overflow: 'hidden' // Important pour que le graphique ne dépasse pas
   },
-  webTable: { borderRadius: 24, padding: 25, borderWidth: 1 },
-  webTableTitle: { fontSize: 18, fontWeight: "900", marginBottom: 20 },
-  webTableRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 15, borderBottomWidth: 1 },
-  webRowLabelGroup: { flexDirection: 'row', alignItems: 'center' },
-  dot: { width: 10, height: 10, borderRadius: 5, marginRight: 12 },
-  webLabelText: { fontSize: 14, fontWeight: "700" },
-  webValueText: { fontSize: 15, fontWeight: "900" },
   emptyText: { margin: 30, fontStyle: "italic", fontWeight: "600" },
   footerSpacing: { height: 140 }
 });

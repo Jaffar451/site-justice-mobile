@@ -1,8 +1,9 @@
 import { Request, Response } from 'express';
-import { User, Complaint, PoliceStation, AuditLog, sequelize } from '../../models'; // ✅ Assurez-vous d'importer 'sequelize' ici
+import { User, Complaint, PoliceStation, AuditLog, sequelize } from '../../models'; 
 import { Op, Sequelize } from 'sequelize';
 
-// --- STOCKAGE TEMPORAIRE (SIMULATION CONFIG) ---
+// --- CONFIGURATION (SIMULATION) ---
+// À terme, ces configs pourraient être en base de données
 let systemSecurityConfig = {
   minLength: 8,
   requireSpecialChar: true,
@@ -16,8 +17,8 @@ let maintenanceConfig = {
 };
 
 /**
- * 🏥 SANTÉ DU SYSTÈME (INDISPENSABLE POUR AdminMaintenanceScreen)
- * Permet d'afficher "Connected" au lieu de "Unknown"
+ * 🏥 SANTÉ DU SYSTÈME (Health Check)
+ * Utilisé par l'écran "Maintenance" pour les voyants d'état.
  */
 export const getSystemHealth = async (req: Request, res: Response) => {
   const start = Date.now();
@@ -25,11 +26,11 @@ export const getSystemHealth = async (req: Request, res: Response) => {
   let serverStatus = 'OK';
 
   try {
-    // Test simple de connexion BDD
+    // Test réel de connexion à la base de données
     await sequelize.authenticate(); 
     dbStatus = 'Connected';
   } catch (error) {
-    console.error("❌ Erreur connexion DB:", error);
+    console.error("❌ Erreur Health Check DB:", error);
     dbStatus = 'Disconnected';
     serverStatus = 'Warning';
   }
@@ -50,16 +51,17 @@ export const getSystemHealth = async (req: Request, res: Response) => {
 
 /**
  * 📜 RÉCUPÉRER LES LOGS SYSTÈME
+ * Utilisé par l'écran "Flux Système".
  */
 export const getSystemLogs = async (req: Request, res: Response) => {
   try {
     const logs = await AuditLog.findAll({
-      order: [['createdAt', 'DESC']], // ✅ Correct
-      limit: 100,
+      order: [['createdAt', 'DESC']],
+      limit: 100, // On limite aux 100 derniers logs pour la performance
       include: [
         {
           model: User,
-          as: 'actor', // ✅ Correct (alias défini dans le modèle)
+          as: 'actor', // Alias défini dans le modèle AuditLog
           attributes: ['id', 'firstname', 'lastname', 'role']
         }
       ]
@@ -71,7 +73,7 @@ export const getSystemLogs = async (req: Request, res: Response) => {
       action: log.action,
       method: log.method,
       endpoint: log.endpoint,
-      ip: log.ipAddress, // Mapping BDD -> Front
+      ip: log.ipAddress,
       details: log.details,
       status: parseInt(log.status) || 200,
       timestamp: log.createdAt,
@@ -85,16 +87,17 @@ export const getSystemLogs = async (req: Request, res: Response) => {
     res.status(200).json(formattedLogs);
   } catch (error) {
     console.error("❌ Erreur logs:", error);
-    res.status(500).json({ message: "Erreur récupération logs" });
+    res.status(500).json({ message: "Erreur lors de la récupération des logs." });
   }
 };
 
 /**
  * 📊 RÉCUPÉRER LES STATISTIQUES DU DASHBOARD
+ * Utilisé par l'écran d'accueil Admin.
  */
 export const getDashboardStats = async (req: Request, res: Response) => {
   try {
-    // 1. 🟢 RÉPARTITION PAR STATUT
+    // 1. 🟢 RÉPARTITION PAR STATUT (Pour le PieChart)
     let statusStats: any[] = [];
     try {
       const statusStatsRaw = await Complaint.findAll({
@@ -114,11 +117,12 @@ export const getDashboardStats = async (req: Request, res: Response) => {
       console.warn("⚠️ Erreur stats statuts", e);
     }
 
-    // 2. 🔵 RÉPARTITION GÉOGRAPHIQUE
+    // 2. 🔵 RÉPARTITION GÉOGRAPHIQUE (Pour le BarChart)
     let regionalStats: any[] = [];
     try {
       const countStations = await PoliceStation.count();
       if (countStations > 0) {
+        // Adaptez 'city' selon votre modèle (peut être 'district' ou 'region')
         const groupByCol = 'city'; 
         
         const regionalStatsRaw = await PoliceStation.findAll({
@@ -139,16 +143,17 @@ export const getDashboardStats = async (req: Request, res: Response) => {
       console.warn("⚠️ Erreur stats régionales", e);
     }
 
-    // 3. 📈 COMPTEURS GLOBAUX
+    // 3. 📈 COMPTEURS GLOBAUX (KPIs)
     let complaints_total = 0;
     let users_total = 0;
     let logs_total = 0;
 
+    // Utilisation de try/catch individuels pour ne pas tout bloquer si une table échoue
     try { complaints_total = await Complaint.count(); } catch (e) {}
-    try { users_total = await User.count(); } catch (e) {}
+    try { users_total = await User.count(); } catch (e) {} // ✅ C'est ici qu'on compte les utilisateurs
     try { logs_total = await AuditLog.count(); } catch (e) {}
 
-    // Calculs dérivés
+    // Calculs dérivés pour l'activité
     const closedStatuses = ['classée_sans_suite', 'jugée', 'archivée', 'cloture'];
     let complaints_closed = 0;
     try {
@@ -164,15 +169,15 @@ export const getDashboardStats = async (req: Request, res: Response) => {
         });
     } catch(e) {}
 
-    // 4. ACTIVITÉ RÉCENTE
+    // 4. ACTIVITÉ RÉCENTE (Optionnel)
     let recentActivity: any[] = [];
     try {
         recentActivity = await AuditLog.findAll({
             limit: 5,
-            order: [['createdAt', 'DESC']], // ✅ Correct
+            order: [['createdAt', 'DESC']],
             include: [{ 
                 model: User, 
-                as: 'actor', // ✅ Correct
+                as: 'actor', 
                 attributes: ['firstname', 'lastname', 'role'],
                 required: false 
             }]
@@ -181,20 +186,21 @@ export const getDashboardStats = async (req: Request, res: Response) => {
         console.warn("⚠️ Impossible de récupérer les logs récents", e);
     }
 
+    // ✅ RÉPONSE FINALE
     res.status(200).json({
       success: true,
       data: {
         statusStats,
         regionalStats,
-        timingStats: { avg_days: 14 },
+        timingStats: { avg_days: 14 }, // Donnée simulée (ou à calculer)
         summary: {
           complaints_total,
           complaints_open,
           complaints_closed,
-          users_total,
+          users_total, // ✅ Envoyé au frontend (sera mappé vers usersCount)
           police_users,
           logs_total,
-          systemHealth: '100%'
+          systemHealth: maintenanceConfig.isActive ? 'Maintenance' : '100%'
         },
         recentActivity
       }
@@ -202,6 +208,7 @@ export const getDashboardStats = async (req: Request, res: Response) => {
 
   } catch (error: any) {
     console.error('❌ Erreur CRITIQUE stats admin:', error);
+    // Retour de secours pour ne pas crasher l'appli mobile
     res.json({ 
       success: true,
       data: {
@@ -231,14 +238,14 @@ export const updateSecuritySettings = async (req: Request, res: Response) => {
 };
 
 /**
- * 🚧 STATUT MAINTENANCE
+ * 🚧 STATUT MAINTENANCE (GET)
  */
 export const getMaintenanceStatus = async (req: Request, res: Response) => {
   res.json({ success: true, data: maintenanceConfig });
 };
 
 /**
- * 🚨 MAJ MAINTENANCE
+ * 🚨 MAJ MAINTENANCE (POST)
  */
 export const setMaintenanceStatus = async (req: Request, res: Response) => {
   const { isActive } = req.body;

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { 
   View, 
   FlatList, 
@@ -12,20 +12,34 @@ import {
   StatusBar
 } from "react-native";
 import { useQuery } from "@tanstack/react-query";
+import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 
 // ✅ 1. Architecture & Thème
-import { useAppTheme } from "../../theme/AppThemeProvider"; // ✅ Hook dynamique
+import { useAppTheme } from "../../theme/AppThemeProvider";
 import { AdminScreenProps } from "../../types/navigation";
 
-// Services & Types
-import { getAllUsers, UserData } from "../../services/user.service"; 
+// ✅ 2. Services (Correction de l'import pour pointer vers admin.service)
+import { getAllUsers } from "../../services/admin.service"; 
 import ScreenContainer from "../../components/layout/ScreenContainer";
 import AppHeader from "../../components/layout/AppHeader";
 import SmartFooter from "../../components/layout/SmartFooter";
 
+// ✅ Définition du type Utilisateur (Basé sur votre BDD)
+export interface UserData {
+  id: number;
+  firstname: string;
+  lastname: string;
+  email: string;
+  role: string;
+  matricule?: string;
+  registrationNumber?: string;
+  organization?: string;
+  telephone?: string;
+  is_active?: boolean;
+}
+
 export default function AdminUsersScreen({ navigation }: AdminScreenProps<'AdminUsers'>) {
-  // ✅ 2. Thème Dynamique
   const { theme, isDark } = useAppTheme();
   const primaryColor = theme.colors.primary;
   
@@ -49,6 +63,13 @@ export default function AdminUsersScreen({ navigation }: AdminScreenProps<'Admin
     queryFn: getAllUsers,
   });
 
+  // Rafraîchissement automatique quand on revient sur l'écran
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
+
   // 🛡️ EXTRACTION SÉCURISÉE
   const users: UserData[] = useMemo(() => {
     if (!rawData) return [];
@@ -62,6 +83,7 @@ export default function AdminUsersScreen({ navigation }: AdminScreenProps<'Admin
     refetch().finally(() => setRefreshing(false));
   };
 
+  // 🔍 FILTRAGE TEMPS RÉEL
   const filteredUsers = useMemo(() => {
     const term = search.toLowerCase().trim();
     if (!term) return users;
@@ -73,13 +95,16 @@ export default function AdminUsersScreen({ navigation }: AdminScreenProps<'Admin
     );
   }, [users, search]);
 
+  // 🎨 CONFIGURATION DES BADGES DE RÔLES
   const getRoleConfig = (role: string) => {
     switch(role?.toLowerCase()) {
       case 'admin': return { color: "#EF4444", label: "ADMIN" };
       case 'police': return { color: "#3B82F6", label: "POLICE" };
       case 'commissaire': return { color: "#1D4ED8", label: "COMMISSAIRE" };
-      case 'judge': return { color: "#8B5CF6", label: "JUGE" };
+      case 'magistrat':
+      case 'judge': return { color: "#8B5CF6", label: "MAGISTRAT" };
       case 'prosecutor': return { color: "#10B981", label: "PROCUREUR" };
+      case 'greffier':
       case 'clerk': return { color: "#F59E0B", label: "GREFFIER" };
       default: return { color: colors.textSub, label: role?.toUpperCase() || "AGENT" };
     }
@@ -87,11 +112,18 @@ export default function AdminUsersScreen({ navigation }: AdminScreenProps<'Admin
 
   const renderItem = ({ item }: { item: UserData }) => {
     const roleConfig = getRoleConfig(item.role);
+    const isSuspended = item.is_active === false;
+
     return (
       <TouchableOpacity 
         activeOpacity={0.7}
-        style={[styles.card, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
-        onPress={() => navigation.navigate("AdminEditUser", { userId: item.id })}
+        style={[
+            styles.card, 
+            { backgroundColor: colors.bgCard, borderColor: colors.border },
+            isSuspended && { opacity: 0.6 } // Griser si suspendu
+        ]}
+        // Navigation vers l'édition (À créer plus tard si besoin)
+        onPress={() => console.log("Edit user", item.id)}
       >
         <View style={[styles.avatar, { backgroundColor: roleConfig.color + "15" }]}>
           <Text style={[styles.initials, { color: roleConfig.color }]}>
@@ -110,6 +142,11 @@ export default function AdminUsersScreen({ navigation }: AdminScreenProps<'Admin
             <Text style={[styles.matricule, { color: colors.textSub }]}>
               {item.matricule || item.registrationNumber || "SANS MATRICULE"}
             </Text>
+            {isSuspended && (
+                <View style={[styles.badge, { backgroundColor: '#EF4444' }]}>
+                    <Text style={styles.badgeText}>BLOQUÉ</Text>
+                </View>
+            )}
           </View>
         </View>
         
@@ -120,7 +157,7 @@ export default function AdminUsersScreen({ navigation }: AdminScreenProps<'Admin
 
   return (
     <ScreenContainer withPadding={false}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
       <AppHeader title="Répertoire Agents" showBack={true} />
       
       {/* 🔍 BARRE DE RECHERCHE */}
@@ -128,7 +165,7 @@ export default function AdminUsersScreen({ navigation }: AdminScreenProps<'Admin
         <View style={[styles.searchBar, { backgroundColor: isDark ? colors.bgMain : "#FFFFFF" }]}>
           <Ionicons name="search-outline" size={20} color={colors.textSub} />
           <TextInput 
-            style={[styles.searchInput, { color: colors.textMain }]}
+            style={[styles.searchInput, { color: isDark ? "#FFFFFF" : "#1E293B" }]}
             placeholder="Nom, matricule, fonction..."
             placeholderTextColor={colors.textSub}
             value={search}
@@ -175,7 +212,7 @@ export default function AdminUsersScreen({ navigation }: AdminScreenProps<'Admin
               <View style={styles.center}>
                 <Ionicons name="people-outline" size={80} color={colors.border} />
                 <Text style={{ textAlign: 'center', marginTop: 15, color: colors.textSub, fontWeight: '700' }}>
-                  Aucun enrôlement trouvé
+                  Aucun agent trouvé
                 </Text>
               </View>
             }
@@ -243,7 +280,7 @@ const styles = StyleSheet.create({
   initials: { fontSize: 18, fontWeight: "900" },
   info: { flex: 1 },
   name: { fontWeight: '900', fontSize: 16, marginBottom: 5, letterSpacing: -0.5 },
-  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
   badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   badgeText: { color: "#fff", fontSize: 9, fontWeight: "900", letterSpacing: 0.5 },
   matricule: { fontSize: 11, fontWeight: "700" },
