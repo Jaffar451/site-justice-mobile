@@ -5,7 +5,7 @@ import {
   StyleSheet, 
   ScrollView, 
   Dimensions, 
-  Platform, // ✅ Indispensable pour la compatibilité Web
+  Platform,
   RefreshControl
 } from "react-native";
 import { PieChart, BarChart } from "react-native-gifted-charts";
@@ -15,13 +15,14 @@ import { Ionicons } from "@expo/vector-icons";
 // ✅ Architecture
 import ScreenContainer from "../../components/layout/ScreenContainer";
 import AppHeader from "../../components/layout/AppHeader";
+// 👇 AJOUT DE L'IMPORT DU FOOTER
+import SmartFooter from "../../components/layout/SmartFooter"; 
 import { useAppTheme } from "../../theme/AppThemeProvider";
 import { getAdminStats } from "../../services/admin.service";
 
 const { width } = Dimensions.get('window');
 
 // 🛠️ COMPOSANT ALTERNATIF POUR LE WEB 
-// (Remplace les graphiques SVG complexes qui font planter Expo Web)
 const WebProgressBar = ({ label, value, total, color }: any) => {
   const percentage = total > 0 ? (value / total) * 100 : 0;
   return (
@@ -42,7 +43,7 @@ export default function AdminStatsScreen({ navigation }: any) {
   const primaryColor = theme.colors.primary;
   const [refreshing, setRefreshing] = useState(false);
 
-  // 1. 📡 Récupération Réelle des Données (API)
+  // 1. 📡 Récupération Réelle des Données
   const { data: stats, isLoading, refetch } = useQuery({
     queryKey: ['admin-global-stats'],
     queryFn: getAdminStats,
@@ -62,12 +63,11 @@ export default function AdminStatsScreen({ navigation }: any) {
     border: isDark ? "#334155" : "#E2E8F0",
   };
 
-  // 2. Préparation des Données pour les Graphiques
-  
-  // 🥧 Données Pie Chart (Statuts des dossiers)
+  // 2. Préparation des Données
   const pieData = useMemo(() => {
-    if (!stats?.statusStats) return [{ value: 1, color: '#E5E7EB', label: 'Aucune donnée' }];
-    
+    if (!stats?.statusStats || stats.statusStats.length === 0) {
+        return [{ value: 1, color: '#E2E8F0', text: '', label: 'Aucune donnée' }];
+    }
     const palette = ["#10B981", "#3B82F6", "#F59E0B", "#EF4444", "#8B5CF6"];
     return stats.statusStats.map((item: any, index: number) => ({
       value: parseInt(item.count) || 0,
@@ -77,12 +77,13 @@ export default function AdminStatsScreen({ navigation }: any) {
     }));
   }, [stats]);
 
-  // 📊 Données Bar Chart (Répartition géographique)
   const barData = useMemo(() => {
-    if (!stats?.regionalStats) return [];
+    if (!stats?.regionalStats || stats.regionalStats.length === 0) {
+        return [{ value: 0, label: 'N/A', frontColor: '#E2E8F0' }];
+    }
     return stats.regionalStats.map((item: any) => ({
       value: parseInt(item.total) || 0,
-      label: item.district?.substring(0, 3).toUpperCase(), 
+      label: item.district?.substring(0, 3).toUpperCase() || 'UNK', 
       frontColor: primaryColor,
       topLabelComponent: () => (
         <Text style={{ color: colors.textSub, fontSize: 10, marginBottom: 4 }}>
@@ -92,13 +93,11 @@ export default function AdminStatsScreen({ navigation }: any) {
     }));
   }, [stats, primaryColor]);
 
-  // Totaux globaux sécurisés
   const totalComplaints = stats?.summary?.complaints_total || 0;
   const totalUsers = stats?.summary?.users_total || 0;
   const totalLogs = stats?.summary?.logs_total || 0;
 
   // --- COMPOSANTS INTERNES ---
-
   const LegendItem = ({ color, label, value }: any) => (
     <View style={styles.legendRow}>
       <View style={[styles.legendDot, { backgroundColor: color }]} />
@@ -107,9 +106,7 @@ export default function AdminStatsScreen({ navigation }: any) {
     </View>
   );
 
-  // 🛡️ RENDU CONDITIONNEL : Pie Chart (Cercle)
   const renderPieChartSection = () => {
-    // Cas WEB : Version simplifiée
     if (Platform.OS === 'web') {
         return (
             <View style={{ paddingVertical: 10 }}>
@@ -118,15 +115,13 @@ export default function AdminStatsScreen({ navigation }: any) {
                         key={i} 
                         label={item.label || 'Autre'} 
                         value={item.value} 
-                        total={totalComplaints} 
+                        total={totalComplaints || 1}
                         color={item.color} 
                     />
                 ))}
             </View>
         );
     }
-
-    // Cas MOBILE : Vrai graphique interactif
     return (
         <View style={styles.pieContainer}>
             <View style={{ alignItems: 'center', justifyContent: 'center' }}>
@@ -154,9 +149,7 @@ export default function AdminStatsScreen({ navigation }: any) {
     );
   };
 
-  // 🛡️ RENDU CONDITIONNEL : Bar Chart (Bâtons)
   const renderBarChartSection = () => {
-    // Cas WEB : Version simplifiée
     if (Platform.OS === 'web') {
         return (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 10 }}>
@@ -169,8 +162,6 @@ export default function AdminStatsScreen({ navigation }: any) {
             </View>
         );
     }
-
-    // Cas MOBILE : Vrai graphique interactif
     return (
         <View style={[styles.chartWrapper, { marginTop: 20 }]}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -203,7 +194,7 @@ export default function AdminStatsScreen({ navigation }: any) {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={primaryColor} />}
         showsVerticalScrollIndicator={false}
       >
-        {/* 1. ÉTAT DES DOSSIERS (Pie Chart) */}
+        {/* 1. ÉTAT DES DOSSIERS */}
         <View style={[styles.card, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
           <View style={styles.cardHeader}>
             <Ionicons name="pie-chart-outline" size={20} color={primaryColor} />
@@ -212,7 +203,7 @@ export default function AdminStatsScreen({ navigation }: any) {
           {renderPieChartSection()}
         </View>
 
-        {/* 2. UNITÉS PAR RÉGION (Bar Chart) */}
+        {/* 2. UNITÉS PAR RÉGION */}
         <View style={[styles.card, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
           <View style={styles.cardHeader}>
             <Ionicons name="map-outline" size={20} color={primaryColor} />
@@ -233,8 +224,12 @@ export default function AdminStatsScreen({ navigation }: any) {
             </View>
         </View>
 
-        <View style={{height: 40}} />
+        {/* Espace pour éviter que le footer ne cache le contenu */}
+        <View style={styles.footerSpacing} />
       </ScrollView>
+
+      {/* 👇 LE FOOTER EST ICI */}
+      <SmartFooter />
     </ScreenContainer>
   );
 }
@@ -242,10 +237,7 @@ export default function AdminStatsScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   scrollContent: { padding: 16 },
   card: {
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 16,
-    borderWidth: 1,
+    borderRadius: 20, padding: 20, marginBottom: 16, borderWidth: 1,
     ...Platform.select({
         ios: { shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 10 },
         android: { elevation: 3 }
@@ -267,4 +259,7 @@ const styles = StyleSheet.create({
   kpiCard: { flex: 1, padding: 16, borderRadius: 16, borderWidth: 1, alignItems: 'center' },
   kpiLabel: { fontSize: 12, fontWeight: "700", textTransform: 'uppercase', marginBottom: 5 },
   kpiValue: { fontSize: 24, fontWeight: "900" },
+
+  // 👇 Espace vital pour le footer
+  footerSpacing: { height: 100 },
 });
