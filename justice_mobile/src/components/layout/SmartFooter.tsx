@@ -18,17 +18,20 @@ export default function SmartFooter() {
 
   const userRole = (user?.role || "citizen").toLowerCase();
 
-  // Définition exhaustive des menus par rôle
+  // 🛠️ DÉFINITION DYNAMIQUE DES MENUS PAR RÔLE
   const menuItems = useMemo(() => {
     switch (userRole) {
+      // 👮 ADMINISTRATEUR
       case 'admin':
         return [
-          { icon: 'home', label: 'Accueil', target: 'AdminHome' },
-          { icon: 'people', label: 'Agents', target: 'AdminUsers' }, 
-          { icon: 'business', label: 'Unités', target: 'ManageStations' }, 
-          { icon: 'stats-chart', label: 'Stats', target: 'AdminStats' },
+          { icon: 'grid', label: 'Dashboard', target: 'AdminHome' },
+          { icon: 'people', label: 'Agents', target: 'AdminUsers' },
+          { icon: 'stats-chart', label: 'Stats', target: 'AdminStats', highlight: true }, // Bouton central
+          { icon: 'pulse', label: 'Audit', target: 'AdminAudit' },
+          { icon: 'person', label: 'Profil', target: 'Profile' },
         ];
 
+      // 👮 POLICE / GENDARMERIE
       case 'officier_police':
       case 'commissaire':
       case 'inspecteur':
@@ -37,77 +40,72 @@ export default function SmartFooter() {
         return [
           { icon: 'home', label: 'Accueil', target: 'PoliceHome' },
           { icon: 'folder-open', label: 'Dossiers', target: 'PoliceComplaints' },
-          { icon: 'add-circle', label: 'Nouveau PV', target: 'PolicePVScreen', highlight: true },
+          { icon: 'add', label: 'Nouveau PV', target: 'PolicePVScreen', highlight: true },
           { icon: 'map', label: 'Carte', target: 'NationalMap' },
+          { icon: 'person', label: 'Profil', target: 'Profile' },
         ];
 
+      // ⚖️ MAGISTRATS (Juges & Procureurs)
       case 'prosecutor':
-        return [
-          // ✅ CORRECTION : Cible 'ProsecutorDashboard' au lieu de 'ProsecutorHome'
-          { icon: 'home', label: 'Accueil', target: 'ProsecutorDashboard' },
-          { icon: 'list', label: 'Parquet', target: 'ProsecutorCaseList' },
-          // Remplacement de 'Analyse' par 'Mandats' (plus utile au quotidien et route existante)
-          { icon: 'search', label: 'Mandats', target: 'WarrantSearch' },
-        ];
-
       case 'judge':
         return [
-          { icon: 'home', label: 'Accueil', target: 'JudgeHome' },
-          { icon: 'calendar', label: 'Audiences', target: 'JudgeCalendar' }, // Vérifié dans JudgeStack
-          { icon: 'folder', label: 'Dossiers', target: 'JudgeCaseList' },
-          { icon: 'search', label: 'Recherche', target: 'WarrantSearch' }, // Via shared routes
+          { icon: 'home', label: 'Accueil', target: userRole === 'prosecutor' ? 'ProsecutorDashboard' : 'JudgeHome' },
+          { icon: 'file-tray-full', label: 'Dossiers', target: userRole === 'prosecutor' ? 'ProsecutorCaseList' : 'JudgeCaseList' },
+          { icon: 'search', label: 'Mandats', target: 'WarrantSearch', highlight: true },
+          { icon: 'calendar', label: 'Audiences', target: userRole === 'prosecutor' ? 'ProsecutorCalendar' : 'JudgeCalendar' },
+          { icon: 'person', label: 'Profil', target: 'Profile' },
         ];
 
+      // 📝 GREFFIERS
       case 'greffier':
         return [
           { icon: 'home', label: 'Accueil', target: 'ClerkHome' },
-          { icon: 'calendar', label: 'Calendrier', target: 'ClerkCalendar' },
-          { icon: 'layers', label: 'Rôles', target: 'ClerkComplaints' },
-          { icon: 'add-circle', label: 'Enrôler', target: 'ClerkRegisterCase', highlight: true },
+          { icon: 'calendar', label: 'Rôles', target: 'ClerkCalendar' },
+          { icon: 'add', label: 'Enrôler', target: 'ClerkRegisterCase', highlight: true },
+          { icon: 'layers', label: 'Registres', target: 'ClerkComplaints' },
+          { icon: 'person', label: 'Profil', target: 'Profile' },
         ];
 
-      case 'lawyer':
-        return [
-          { icon: 'home', label: 'Accueil', target: 'LawyerTracking' },
-          { icon: 'briefcase', label: 'Dossiers', target: 'LawyerCaseList' },
-          { icon: 'calendar', label: 'Audiences', target: 'LawyerCalendar' },
-        ];
-
-      case 'bailiff':
-        return [
-          { icon: 'home', label: 'Accueil', target: 'BailiffMissions' }, // Vérifié dans BailiffStack
-          { icon: 'map', label: 'Carte', target: 'NationalMap' },
-        ];
-
-      default: // Citoyen
+      // 👨‍👩‍👧‍👦 CITOYEN (Par défaut)
+      default:
         return [
           { icon: 'home', label: 'Accueil', target: 'CitizenHome' },
-          { icon: 'add-circle', label: 'Plainte', target: 'CitizenCreateComplaint', highlight: true },
-          { icon: 'list', label: 'Suivis', target: 'CitizenMyComplaints' },
-          { icon: 'map', label: 'Carte', target: 'StationMapScreen' }, // Mis à jour pour pointer vers la carte
+          { icon: 'folder-open', label: 'Suivis', target: 'CitizenMyComplaints' },
+          { icon: 'add', label: 'Plainte', target: 'CitizenCreateComplaint', highlight: true }, // Bouton central mis en avant
+          { icon: 'library', label: 'Droits', target: 'CitizenLegalGuide' },
+          { icon: 'person', label: 'Profil', target: 'Profile' },
         ];
     }
   }, [userRole]);
 
-  // Détermination de la couleur d'accentuation selon le rôle
+  // 🎨 COULEURS DYNAMIQUES SELON LE RÔLE
   const getActiveColor = () => {
-    if (userRole === 'admin') return '#1E293B';
-    if (['officier_police', 'commissaire', 'inspecteur'].includes(userRole)) return '#1E3A8A';
-    if (userRole.includes('gendarme')) return '#065F46';
-    if (['judge', 'prosecutor', 'greffier'].includes(userRole)) return '#7C2D12';
-    if (['lawyer', 'bailiff'].includes(userRole)) return '#4338CA';
-    return '#0891B2'; // Couleur Citoyen par défaut
+    if (userRole === 'admin') return '#1E293B'; // Gris foncé
+    if (['officier_police', 'commissaire', 'inspecteur'].includes(userRole)) return '#2563EB'; // Bleu Police
+    if (userRole.includes('gendarme')) return '#059669'; // Vert Gendarme
+    if (['judge', 'prosecutor', 'greffier'].includes(userRole)) return '#7C3AED'; // Violet Justice
+    return '#0891B2'; // Cyan Citoyen
   };
 
   const activeColor = getActiveColor();
   const inactiveColor = isDark ? "#64748B" : "#94A3B8";
+  const bgColor = isDark ? "#1E293B" : "#FFFFFF"; // Fond du footer
+
+  const handleNavigation = (target: string) => {
+      // Protection contre les erreurs de navigation
+      try {
+          navigation.navigate(target);
+      } catch (error) {
+          console.warn(`Route introuvable : ${target}`);
+      }
+  };
 
   return (
     <View style={[
       styles.container, 
       { 
-        backgroundColor: isDark ? "#1A1A1A" : "#FFFFFF",
-        borderTopColor: isDark ? "#333" : "#E2E8F0",
+        backgroundColor: bgColor,
+        borderTopColor: isDark ? "#334155" : "#F1F5F9",
         paddingBottom: Platform.OS === 'ios' ? insets.bottom : 10,
         height: Platform.OS === 'ios' ? 65 + insets.bottom : 70
       }
@@ -115,25 +113,50 @@ export default function SmartFooter() {
       {menuItems.map((item, index) => {
         const isActive = route.name === item.target;
         
+        // Bouton Central (Highlight)
+        if (item.highlight) {
+            return (
+                <TouchableOpacity 
+                    key={index} 
+                    activeOpacity={0.9}
+                    style={[styles.highlightContainer]} // Positionnement relatif
+                    onPress={() => handleNavigation(item.target)}
+                >
+                    <View style={[
+                        styles.highlightCircle, 
+                        { 
+                            backgroundColor: activeColor,
+                            borderColor: bgColor // Contour couleur du fond pour effet de "découpe"
+                        }
+                    ]}>
+                        <Ionicons name={item.icon as any} size={30} color="#FFFFFF" />
+                    </View>
+                    <Text style={[styles.label, { color: activeColor, fontWeight: '800', marginTop: 35 }]}>
+                        {item.label}
+                    </Text>
+                </TouchableOpacity>
+            );
+        }
+
+        // Bouton Normal
         return (
           <TouchableOpacity 
             key={index} 
             activeOpacity={0.7}
             style={styles.tab} 
-            onPress={() => navigation.navigate(item.target)}
+            onPress={() => handleNavigation(item.target)}
           >
-            <View style={item.highlight ? [styles.highlightCircle, { backgroundColor: activeColor }] : null}>
-              <Ionicons 
-                name={isActive ? (item.icon as any) : `${item.icon}-outline` as any} 
-                size={item.highlight ? 28 : 24} 
-                color={item.highlight ? "#FFFFFF" : (isActive ? activeColor : inactiveColor)} 
-              />
-            </View>
-            {!item.highlight && (
-              <Text style={[styles.label, { color: isActive ? activeColor : inactiveColor }]}>
-                {item.label}
-              </Text>
-            )}
+            <Ionicons 
+              name={isActive ? (item.icon as any) : `${item.icon}-outline` as any} 
+              size={24} 
+              color={isActive ? activeColor : inactiveColor} 
+            />
+            <Text style={[
+                styles.label, 
+                { color: isActive ? activeColor : inactiveColor, fontWeight: isActive ? '700' : '500' }
+            ]}>
+              {item.label}
+            </Text>
           </TouchableOpacity>
         );
       })}
@@ -150,12 +173,12 @@ const styles = StyleSheet.create({
     right: 0,
     justifyContent: 'space-around',
     alignItems: 'center',
-    elevation: 20,
+    elevation: 20, // Ombre Android
     borderTopWidth: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
+    shadowColor: '#000', // Ombre iOS
+    shadowOpacity: 0.05,
     shadowRadius: 10,
-    shadowOffset: { width: 0, height: -3 },
+    shadowOffset: { width: 0, height: -5 },
     zIndex: 1000,
   },
   tab: {
@@ -164,24 +187,30 @@ const styles = StyleSheet.create({
     flex: 1,
     height: '100%',
   },
+  highlightContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      flex: 1,
+      height: '100%',
+      marginBottom: 20 // Pour remonter le cercle
+  },
   highlightCircle: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: -25, 
-    elevation: 5,
+    position: 'absolute',
+    top: -20, // Le fait dépasser du footer
+    elevation: 8,
     shadowColor: '#000',
     shadowOpacity: 0.3,
-    shadowRadius: 5,
-    shadowOffset: { width: 0, height: 2 },
-    borderWidth: 4,
-    borderColor: 'transparent' // Astuce pour l'espacement visuel
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    borderWidth: 4, // Bordure épaisse pour masquer le footer derrière
   },
   label: {
     fontSize: 10,
     marginTop: 4,
-    fontWeight: '700',
   }
 });

@@ -15,11 +15,12 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Toast from "react-native-toast-message";
+// ✅ IMPORT NAVIGATION STANDARD
+import { useNavigation, CommonActions } from "@react-navigation/native";
 
-// ✅ 1. Imports Architecture
+// ✅ Architecture
 import { useAuthStore } from "../../stores/useAuthStore";
 import { getAppTheme } from "../../theme";
-// AJOUT : Import du hook pour gérer le mode sombre
 import { useAppTheme as useVisualTheme } from "../../theme/AppThemeProvider"; 
 
 import ScreenContainer from "../../components/layout/ScreenContainer";
@@ -30,7 +31,7 @@ import SmartFooter from "../../components/layout/SmartFooter";
 import { updateMe } from "../../services/user.service";
 
 export default function SettingsScreen() {
-  // ✅ 2. Thème Visuel (Sombre/Clair) vs Thème de Rôle (Couleur)
+  const navigation = useNavigation<any>();
   const { isDark, toggleTheme } = useVisualTheme(); 
   const institutionalTheme = getAppTheme();
   const primaryColor = institutionalTheme.color;
@@ -50,12 +51,10 @@ export default function SettingsScreen() {
     }
   }, [user]);
 
-  /**
-   * 💾 ENREGISTREMENT DES MODIFICATIONS
-   */
+  // 💾 SAUVEGARDE DU PROFIL
   const handleSave = async () => {
     if (!firstname.trim() || !lastname.trim()) {
-      return Alert.alert("Champs requis", "L'identité complète est obligatoire pour la validité des actes judiciaires.");
+      return Alert.alert("Champs requis", "L'identité complète est obligatoire.");
     }
 
     setLoading(true);
@@ -70,23 +69,54 @@ export default function SettingsScreen() {
       
       Toast.show({
         type: 'success',
-        text1: 'Profil synchronisé',
-        text2: 'Vos informations ont été mises à jour avec succès.'
+        text1: 'Profil mis à jour',
+        text2: 'Vos informations ont été enregistrées.'
       });
     } catch (error) {
-      Alert.alert("Erreur", "Impossible de joindre le serveur central. Vérifiez votre connexion.");
+      Alert.alert("Erreur", "Impossible de mettre à jour le profil.");
     } finally {
       setLoading(false);
     }
   };
 
+  // 🛑 LOGIQUE DE DÉCONNEXION (SOLUTION FINALE)
+  const handleLogout = async () => {
+    console.log("🚪 Déconnexion lancée...");
+
+    try {
+        // 1. On vide le store (Cela devrait suffire si votre AppNavigator utilise une condition user ? App : Auth)
+        await logout();
+        console.log("✅ Store vidé");
+
+        // 2. On force la navigation vers 'Login' (au cas où la nav automatique ne se fait pas)
+        // Note: On utilise 'Login' car vos logs disaient que 'Auth' n'existe pas.
+        try {
+            navigation.dispatch(
+                CommonActions.reset({
+                    index: 0,
+                    routes: [{ name: 'Login' }], 
+                })
+            );
+        } catch (navError) {
+            // Si le reset échoue, on tente une navigation simple
+            console.log("⚠️ Reset échoué, tentative navigate simple...");
+            navigation.navigate('Login');
+        }
+
+    } catch (error) {
+        console.error("❌ Erreur Logout :", error);
+        Alert.alert("Erreur", "Déconnexion impossible. Redémarrez l'application.");
+    }
+  };
+
   const confirmLogout = () => {
+    console.log("🖱️ Clic bouton déconnexion");
     Alert.alert(
       "Déconnexion",
-      "Voulez-vous fermer votre session sécurisée ?",
+      "Voulez-vous vraiment quitter l'application ?",
       [
         { text: "Annuler", style: "cancel" },
-        { text: "Quitter", style: "destructive", onPress: logout }
+        { text: "Se déconnecter", style: "destructive", onPress: handleLogout }
       ]
     );
   };
@@ -108,7 +138,7 @@ export default function SettingsScreen() {
           showsVerticalScrollIndicator={false}
         >
           
-          {/* 🌓 APPARENCE ET SYSTÈME */}
+          {/* 🌓 APPARENCE (COMPLET) */}
           <Text style={[styles.sectionTitle, { color: primaryColor }]}>Configuration Appareil</Text>
           <View style={[styles.card, { backgroundColor: isDark ? "#1E1E1E" : "#FFF", borderColor: isDark ? "#333" : "#F1F5F9" }]}>
             <View style={styles.row}>
@@ -129,29 +159,12 @@ export default function SettingsScreen() {
             </View>
           </View>
 
-          {/* 👤 IDENTITÉ DE L'AGENT / CITOYEN */}
+          {/* 👤 PROFIL (COMPLET) */}
           <Text style={[styles.sectionTitle, { color: primaryColor, marginTop: 35 }]}>Informations de Compte</Text>
           <View style={[styles.card, { backgroundColor: isDark ? "#1E1E1E" : "#FFF", borderColor: isDark ? "#333" : "#F1F5F9" }]}>
-            <SettingInput 
-                label="Prénom" 
-                value={firstname} 
-                onChange={setFirstname} 
-                isDark={isDark} 
-            />
-            <SettingInput 
-                label="Nom" 
-                value={lastname} 
-                onChange={setLastname} 
-                isDark={isDark} 
-            />
-            <SettingInput 
-                label="Numéro de Contact" 
-                value={telephone} 
-                onChange={setTelephone} 
-                isDark={isDark}
-                keyboard="phone-pad" 
-                placeholder="+227 00 00 00 00" 
-            />
+            <SettingInput label="Prénom" value={firstname} onChange={setFirstname} isDark={isDark} />
+            <SettingInput label="Nom" value={lastname} onChange={setLastname} isDark={isDark} />
+            <SettingInput label="Téléphone" value={telephone} onChange={setTelephone} isDark={isDark} keyboard="phone-pad" placeholder="+227..." />
             
             <TouchableOpacity 
               activeOpacity={0.8}
@@ -170,16 +183,17 @@ export default function SettingsScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* 🛑 DECONNEXION */}
+          {/* 🛑 BOUTON DÉCONNEXION (ACTIF) */}
           <TouchableOpacity 
-            style={[styles.logoutBtn, { backgroundColor: isDark ? "#2D1B1B" : "#FEF2F2" }]} 
+            style={[styles.logoutBtn, { backgroundColor: isDark ? "#2D1B1B" : "#FEF2F2", borderColor: isDark ? "#450a0a" : "#FEE2E2" }]} 
             onPress={confirmLogout}
+            activeOpacity={0.7}
           >
             <Ionicons name="log-out-outline" size={22} color="#EF4444" />
             <Text style={styles.logoutText}>Fermer la session sécurisée</Text>
           </TouchableOpacity>
 
-          {/* 🏛️ MENTIONS LÉGALES */}
+          {/* 🏛️ VERSION (COMPLET) */}
           <View style={styles.footerBranding}>
               <Text style={[styles.versionText, { color: isDark ? "#FFF" : "#1E293B" }]}>e-Justice République du Niger</Text>
               <Text style={styles.legalText}>Plateforme sécurisée du Ministère de la Justice</Text>
@@ -194,6 +208,7 @@ export default function SettingsScreen() {
   );
 }
 
+// 🛠️ Composant Interne pour les champs
 const SettingInput = ({ label, value, onChange, isDark, keyboard = "default", placeholder = "" }: any) => (
   <View style={styles.inputGroup}>
     <Text style={styles.fieldLabel}>{label.toUpperCase()}</Text>
@@ -229,7 +244,7 @@ const styles = StyleSheet.create({
   input: { borderRadius: 16, padding: 16, borderWidth: 1.5, fontSize: 16, fontWeight: '700' },
   saveBtn: { height: 58, borderRadius: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 10, elevation: 6 },
   saveText: { color: "#fff", fontWeight: "900", fontSize: 13, letterSpacing: 1 },
-  logoutBtn: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: 60, borderRadius: 20, marginTop: 40, gap: 12, borderWidth: 1, borderColor: "#FEE2E2" },
+  logoutBtn: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: 60, borderRadius: 20, marginTop: 40, gap: 12, borderWidth: 1 },
   logoutText: { color: "#EF4444", fontWeight: "900", fontSize: 14, letterSpacing: 0.5 },
   footerBranding: { marginTop: 45, alignItems: 'center' },
   versionText: { fontSize: 13, fontWeight: '900', letterSpacing: -0.2 },

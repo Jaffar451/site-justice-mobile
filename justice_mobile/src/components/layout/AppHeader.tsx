@@ -80,39 +80,40 @@ const AppHeader = ({
   const headerBg = white ? (isDark ? "#121212" : "#FFFFFF") : roleStyles.main;
   const iconAndTextColor = white ? (isDark ? "#FFFFFF" : theme.colors.text) : roleStyles.content;
 
-  // ✅ SÉCURITÉ MENU LATÉRAL (Le correctif est ici)
+  // ✅ SÉCURITÉ MENU LATÉRAL
   const handleMenuAction = () => {
     if (onMenuPress) return onMenuPress();
     try {
-      // Tente d'ouvrir le menu, si pas de Drawer, ne fait rien (évite le crash)
       navigation.dispatch(DrawerActions.toggleDrawer());
     } catch (error) {
       console.log("⚠️ Menu latéral non disponible sur cet écran");
     }
   };
 
+  // 🚀 NAVIGATION ACCUEIL (CORRECTION ICI)
   const handleHomeAction = () => {
     if (onHomePress) return onHomePress();
     
-    // Mappage des rôles vers les écrans d'accueil
+    // 👇 C'est ici que l'erreur se trouvait. J'ai corrigé "CitizenHomeScreen" en "CitizenHome"
     const roleRoutes: Record<string, string> = {
       admin: "AdminHome", 
       officier_police: "PoliceHome",
       inspecteur: "PoliceHome",
       commissaire: "CommissaireDashboard", 
-      prosecutor: "ProsecutorHomeScreen", 
-      judge: "JudgeHomeScreen", 
-      greffier: "ClerkHomeScreen",
-      bailiff: "BailiffHomeScreen",
-      lawyer: "LawyerHomeScreen",
-      citizen: "CitizenHomeScreen",
+      opj_gendarme: "PoliceHome",
+      gendarme: "PoliceHome",
+      prosecutor: "ProsecutorDashboard",
+      judge: "JudgeHome", 
+      greffier: "ClerkHome",
+      bailiff: "BailiffMissions",
+      lawyer: "LawyerTracking",
+      citizen: "CitizenHome", // ✅ C'est le nom correct de la route dans CitizenStack
     };
     
-    // Détermine la route cible ou fallback vers Profile si introuvable
-    const target = roleRoutes[userRole] || "CitizenHomeScreen";
+    const target = roleRoutes[userRole] || "CitizenHome";
     
     try {
-        // Tente de naviguer vers la racine du stack si possible
+        if (route.name === target) return;
         navigation.navigate(target);
     } catch (e) {
         console.warn(`Route ${target} introuvable, redirection Profile.`);
@@ -128,7 +129,7 @@ const AppHeader = ({
   const handleSos = () => {
     const msg = "URGENCE SOS\n\nVoulez-vous envoyer une alerte d'urgence immédiate ?";
     if (Platform.OS === 'web') {
-      if (window.confirm(msg)) window.alert("🚨 ALERTE ENVOYÉE");
+      if (window.confirm(msg)) window.alert("🚨 ALERTE ENVOYÉE AU 17");
     } else {
       Alert.alert("URGENCE SOS", msg, [
           { text: "Annuler", style: "cancel" },
@@ -147,7 +148,6 @@ const AppHeader = ({
         borderBottomWidth: white ? 1 : 0,
         borderBottomColor: isDark ? "#222" : "#E2E8F0",
       },
-      // Fix pour le web sticky header
       Platform.OS === 'web' && { top: 0, position: 'sticky' as any, zIndex: 999 } 
     ]}>
       <StatusBar 
@@ -164,7 +164,6 @@ const AppHeader = ({
               <Ionicons name="arrow-back" size={24} color={iconAndTextColor} />
             </TouchableOpacity>
           ) : (
-            // Affiche le menu uniquement si showMenu est true
             showMenu && (
                 <TouchableOpacity 
                 onPress={handleMenuAction} 
@@ -180,7 +179,7 @@ const AppHeader = ({
           </Text>
         </View>
 
-        {/* DROITE : Actions contextuelles */}
+        {/* DROITE : Actions */}
         <View style={styles.rightContainer}>
           
           {showSos && (
@@ -206,7 +205,6 @@ const AppHeader = ({
             <Ionicons name="home" size={22} color={iconAndTextColor} />
           </TouchableOpacity>
 
-          {/* Settings Admin ou User */}
           <TouchableOpacity 
             onPress={() => navigation.navigate(userRole === 'admin' ? "AdminSettings" : "Settings")} 
             style={styles.iconButton} 
@@ -215,7 +213,6 @@ const AppHeader = ({
             <Ionicons name="settings-outline" size={22} color={iconAndTextColor} />
           </TouchableOpacity>
 
-          {/* Notifs (caché si déjà sur l'écran notif) */}
           {route.name !== "Notifications" && route.name !== "AdminNotifications" && (
               <TouchableOpacity 
                 onPress={() => navigation.navigate(userRole === 'admin' ? "AdminNotifications" : "Notifications")} 
