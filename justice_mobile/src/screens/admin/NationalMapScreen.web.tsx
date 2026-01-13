@@ -1,5 +1,16 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { View, StyleSheet, Text, ActivityIndicator, TouchableOpacity, ScrollView, Platform, Dimensions, StatusBar } from "react-native";
+import { 
+  View, 
+  StyleSheet, 
+  Text, 
+  ActivityIndicator, 
+  TouchableOpacity, 
+  ScrollView, 
+  Platform, 
+  Dimensions, 
+  StatusBar,
+  Linking // ✅ Import Linking
+} from "react-native";
 import { Map, Marker, ZoomControl } from "pigeon-maps"; 
 
 // ✅ Architecture & Thème
@@ -61,6 +72,24 @@ export default function NationalMapScreen() {
     setZoom(16);
   }, []);
 
+  // 🚀 Fonction pour ouvrir l'itinéraire
+  const openDirections = () => {
+    if (!selected) return;
+    
+    const scheme = Platform.select({ ios: 'maps:0,0?q=', android: 'geo:0,0?q=' });
+    const latLng = `${selected.latitude},${selected.longitude}`;
+    const label = selected.name;
+    const url = Platform.select({
+      ios: `${scheme}${label}@${latLng}`,
+      android: `${scheme}${latLng}(${label})`,
+      web: `https://www.google.com/maps/dir/?api=1&destination=${latLng}` // ✅ Support Web
+    });
+
+    if (url) {
+        Linking.openURL(url).catch(err => console.error("Erreur ouverture map:", err));
+    }
+  };
+
   const getIconConfig = (type: string) => {
     switch(type) {
       case 'court': return { color: '#7C3AED', icon: 'business-outline' };
@@ -77,7 +106,7 @@ export default function NationalMapScreen() {
       
       <View style={[styles.layout, { flexDirection: Platform.OS === 'web' && Dimensions.get('window').width > 768 ? 'row' : 'column', backgroundColor: colors.bgMain }]}>
         
-        {/* 🗺️ ZONE CARTE (SIG INTERACTIF) */}
+        {/* 🗺️ ZONE CARTE */}
         <View style={styles.mapWrapper}>
           {loading ? (
             <View style={[styles.center, { backgroundColor: colors.bgMain }]}>
@@ -90,7 +119,6 @@ export default function NationalMapScreen() {
               center={center} 
               zoom={zoom}
               onBoundsChanged={({ center, zoom }) => { setCenter(center); setZoom(zoom); }}
-              // Filtre gris pour le mode sombre sur les tuiles OSM
               boxClassname={isDark ? "dark-map" : ""}
             >
               <ZoomControl />
@@ -110,7 +138,7 @@ export default function NationalMapScreen() {
           )}
         </View>
 
-        {/* 📋 BARRE LATÉRALE / INFOS UNITÉS */}
+        {/* 📋 BARRE LATÉRALE */}
         <View style={[styles.sidebar, { 
           backgroundColor: colors.bgSidebar,
           borderLeftWidth: Platform.OS === 'web' ? 1 : 0,
@@ -152,13 +180,26 @@ export default function NationalMapScreen() {
                   <Text style={[styles.cityText, { color: colors.textSub }]}>{selected.city}, Niger</Text>
                 </View>
 
-                <TouchableOpacity 
-                  style={[styles.actionBtn, { backgroundColor: theme.colors.primary }]}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.actionBtnText}>AUDITER L'UNITÉ</Text>
-                  <Ionicons name="shield-checkmark" size={16} color="#FFF" />
-                </TouchableOpacity>
+                {/* BOUTONS D'ACTION */}
+                <View style={{ gap: 10 }}>
+                    <TouchableOpacity 
+                      style={[styles.actionBtn, { backgroundColor: theme.colors.primary }]}
+                      activeOpacity={0.8}
+                      onPress={openDirections} // ✅ Action Itinéraire
+                    >
+                      <Text style={styles.actionBtnText}>ITINÉRAIRE GPS</Text>
+                      <Ionicons name="navigate-outline" size={18} color="#FFF" />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                      style={[styles.actionBtn, { backgroundColor: isDark ? '#334155' : '#E2E8F0' }]}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.actionBtnText, { color: colors.textMain }]}>AUDITER L'UNITÉ</Text>
+                      <Ionicons name="shield-checkmark-outline" size={18} color={colors.textMain} />
+                    </TouchableOpacity>
+                </View>
+
               </View>
             ) : (
               <View style={styles.emptyState}>
@@ -166,7 +207,7 @@ export default function NationalMapScreen() {
                   <Ionicons name="layers-outline" size={32} color={colors.textSub} />
                 </View>
                 <Text style={[styles.emptyText, { color: colors.textSub }]}>
-                  Sélectionnez une entité pour visualiser ses statistiques de traitement et son état de connexion.
+                  Sélectionnez une entité pour visualiser ses détails et lancer la navigation.
                 </Text>
                 
                 <Text style={[styles.listSectionTitle, { color: colors.textSub }]}>ENTITÉS À PROXIMITÉ</Text>

@@ -29,59 +29,62 @@ export interface DashboardData {
   courtsCount?: number;
   activityRate?: string;
   systemStatus?: string;
+  summary?: {
+    complaints_total: number;
+    complaints_open: number;
+    complaints_closed: number;
+    users_total: number;
+    police_users: number;
+    logs_total: number;
+    systemHealth: string;
+  };
 }
 
 /**
  * 📊 GESTION DU DASHBOARD (Analytique)
- * Cette fonction transforme les données du Backend pour l'UI
  */
 export const getAdminStats = async () => {
   try {
     const response = await api.get("/admin/dashboard-stats");
     const data = response.data.data;
 
-    // 🛡️ MAPPING INTELLIGENT (Backend -> Frontend)
-    // On transforme les données brutes pour que l'écran AdminHomeScreen les comprenne
     return {
-        // Mapping du compteur utilisateurs (users_total -> usersCount)
+        // Objet summary complet pour les graphiques détaillés
+        summary: data.summary || {},
+
+        // Mappings pour le Dashboard Accueil
         usersCount: data.summary?.users_total || 0, 
-        
-        // Mapping du compteur juridictions
         courtsCount: data.regionalStats?.length || 0,
-        
-        // Calcul du taux d'activité (Dossiers ouverts / Total)
         activityRate: (data.summary?.complaints_total > 0)
             ? Math.round((data.summary.complaints_open / data.summary.complaints_total) * 100) + "%" 
             : "0%",
-            
-        // État du système
         systemStatus: data.summary?.systemHealth === '100%' ? "Stable" : "Maintenance",
         
-        // Données brutes pour les graphiques
         statusStats: data.statusStats || [],
         regionalStats: data.regionalStats || [],
         timingStats: data.timingStats || { avg_days: 0 }
     };
   } catch (error) {
     console.error("[ADMIN SERVICE] Erreur Stats:", error);
-    // Valeurs par défaut pour ne pas crasher l'UI
     return { 
+        summary: {},
         usersCount: 0, 
         courtsCount: 0, 
         activityRate: "0%", 
-        systemStatus: "Inconnu",
-        statusStats: [],
-        regionalStats: []
+        systemStatus: "Inconnu", 
+        statusStats: [], 
+        regionalStats: [] 
     };
   }
 };
 
-// Alias pour compatibilité
 export const getDashboardData = getAdminStats;
 
 /**
- * 👥 GESTION DES UTILISATEURS
+ * 👥 GESTION DES UTILISATEURS (CRUD)
  */
+
+// 1. Liste complète
 export const getAllUsers = async () => {
   try {
     const response = await api.get("/users");
@@ -92,9 +95,7 @@ export const getAllUsers = async () => {
   }
 };
 
-/**
- * 👤 CRÉATION D'UTILISATEUR (Normalisée)
- */
+// 2. Création
 export const createUser = async (userData: CreateUserPayload) => {
   try {
     const finalPayload = {
@@ -116,9 +117,43 @@ export const createUser = async (userData: CreateUserPayload) => {
 
     const response = await api.post('/users', finalPayload);
     return response.data;
-
   } catch (error: any) {
     console.error("[ADMIN SERVICE] Erreur création utilisateur:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
+// 3. ✅ Détails (Pour l'écran d'édition)
+export const getUserDetails = async (id: number) => {
+  try {
+    const response = await api.get(`/users/${id}`);
+    return response.data.success ? response.data.data : response.data;
+  } catch (error) {
+    console.error("Erreur récupération user:", error);
+    throw error;
+  }
+};
+
+// 4. ✅ Mise à jour (Pour modifier/bloquer)
+export const updateUser = async (id: number, data: any) => {
+  try {
+    const payload = {
+        firstname: data.firstname,
+        lastname: data.lastname,
+        email: data.email,
+        telephone: data.telephone,
+        role: data.role,
+        is_active: data.is_active,
+        organization: data.organization,
+        matricule: data.matricule,
+        poste: data.poste,
+        ...(data.password ? { password: data.password } : {})
+    };
+
+    const response = await api.put(`/users/${id}`, payload);
+    return response.data;
+  } catch (error: any) {
+    console.error("Erreur update user:", error.response?.data || error.message);
     throw error;
   }
 };
@@ -136,9 +171,6 @@ export const getAllCourts = async () => {
   }
 };
 
-/**
- * 👮 GESTION DES COMMISSARIATS
- */
 export const getAllPoliceStations = async () => {
   try {
     const response = await api.get("/police-stations");
@@ -149,14 +181,12 @@ export const getAllPoliceStations = async () => {
   }
 };
 
-// --- 🔧 MAINTENANCE & SYSTÈME ---
-
-// 📡 Récupère l'état de santé
+/**
+ * 🔧 MAINTENANCE & SYSTÈME
+ */
 export const getSystemHealth = async () => {
   try {
-    // ✅ Utilise la route dédiée créée dans le backend
     const response = await api.get('/admin/system-health');
-    
     if (response.data && response.data.success) {
         return response.data.data;
     }
@@ -167,28 +197,32 @@ export const getSystemHealth = async () => {
   }
 };
 
-// 📡 Récupère les logs techniques
 export const getSystemLogs = async () => {
   const response = await api.get('/admin/logs');
   return response.data; 
 };
 
-// 📡 Récupère la sécurité
+// Récupérer les logs d'audit (Format tableau pour l'écran Audit)
+export const getAuditLogs = async () => {
+  try {
+    const response = await api.get('/admin/logs');
+    if (Array.isArray(response.data)) return response.data;
+    return response.data.success ? response.data.data : [];
+  } catch (error) {
+    console.error("[ADMIN SERVICE] Erreur Logs:", error);
+    return [];
+  }
+};
+
 export const getSecurityOverview = async () => {
   try {
     const response = await api.get('/admin/security/settings');
-    return {
-        score: 95, 
-        threats: 0, 
-        alerts: [], 
-        config: response.data.data 
-    };
+    return { score: 95, threats: 0, alerts: [], config: response.data.data };
   } catch (e) {
     return { score: 0, threats: 0, alerts: [] };
   }
 };
 
-// ⚡ Lance un scan de sécurité
 export const triggerSecurityScan = async () => {
   return new Promise((resolve) => {
     setTimeout(() => {
@@ -197,19 +231,16 @@ export const triggerSecurityScan = async () => {
   });
 };
 
-// 🧹 Vide le cache
 export const clearServerCache = async () => {
   const response = await api.post('/admin/maintenance/clear-cache');
   return response.data;
 };
 
-// 🚧 Statut Maintenance
 export const getMaintenanceStatus = async () => {
   const response = await api.get('/admin/maintenance/status');
   return response.data;
 };
 
-// 🚨 Activer/Désactiver Maintenance
 export const setMaintenanceStatus = async (data: { isActive: boolean }) => {
   const response = await api.post('/admin/maintenance/status', data);
   return response.data;

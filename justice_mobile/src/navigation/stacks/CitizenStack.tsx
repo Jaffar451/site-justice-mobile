@@ -4,19 +4,20 @@ import { CitizenStackParamList } from '../../types/navigation';
 
 // --- 👨‍👩‍👧‍👦 Écrans Métier Citoyen ---
 import CitizenHomeScreen from '../../screens/citizen/CitizenHomeScreen';
-import CitizenCreateComplaintScreen from '../../screens/citizen/CitizenCreateComplaintScreen';
+import CitizenCreateComplaintScreen from '../../screens/citizen/CitizenCreateComplaintScreen'; // Note: Vérifiez si vous l'avez renommé ou non
 import CitizenMyComplaintsScreen from '../../screens/citizen/CitizenMyComplaintsScreen';
-import CitizenComplaintDetailsScreen from '../../screens/citizen/CitizenComplaintDetailsScreen';
+import CitizenComplaintDetailsScreen from '../../screens/shared/ComplaintDetailScreen'; // Souvent partagé
 import CitizenTrackingScreen from '../../screens/citizen/CitizenTrackingScreen';
-import CitizenCasesScreen from '../../screens/citizen/CitizenCasesScreen';
+import CitizenCasesScreen from '../../screens/citizen/CitizenCasesScreen'; // Assurez-vous que ce fichier existe
 import CitizenEditComplaintScreen from '../../screens/citizen/CitizenEditComplaintScreen';
 import CitizenCriminalRecordScreen from '../../screens/citizen/CitizenCriminalRecordScreen';
 import CitizenDirectoryScreen from '../../screens/citizen/CitizenDirectoryScreen';
 import StationMapScreen from '../../screens/citizen/StationMapScreen';
 import MyDownloadsScreen from '../../screens/citizen/MyDownloadsScreen';
 
-// --- ✅ NOUVEL ÉCRAN PARTAGÉ (Scanner uniquement) ---
-import VerificationScannerScreen from '../../screens/shared/VerificationScannerScreen';
+// --- ✅ NOUVEAUX MODULES (Guide & Scanner) ---
+import CitizenLegalGuideScreen from '../../screens/citizen/CitizenLegalGuideScreen'; // 📖 Guide Juridique
+import VerificationScannerScreen from '../../screens/shared/VerificationScannerScreen'; // 🔍 Scanner (Chemin corrigé)
 
 // --- 🌍 Écrans PARTAGÉS (Système & Support) ---
 import ProfileScreen from '../../screens/Profile/ProfileScreen';
@@ -47,24 +48,29 @@ export default function CitizenStack() {
       <Stack.Screen name="StationMapScreen" component={StationMapScreen} />
 
       {/* ==========================================
+          📖 GUIDE JURIDIQUE & DROITS (Nouveau)
+      ========================================== */}
+      <Stack.Screen name="CitizenLegalGuide" component={CitizenLegalGuideScreen} />
+
+      {/* ==========================================
           ✅ OUTILS (Vérification Document)
       ========================================== */}
-      {/* Utile pour vérifier l'authenticité d'une convocation ou d'un casier judiciaire */}
-      <Stack.Screen name="VerificationScanner" component={VerificationScannerScreen as any} />
+      <Stack.Screen name="VerificationScanner" component={VerificationScannerScreen} />
 
       {/* ==========================================
           📝 GESTION DES PLAINTES
       ========================================== */}
       <Stack.Screen name="CitizenCreateComplaint" component={CitizenCreateComplaintScreen} />
       <Stack.Screen name="CitizenMyComplaints" component={CitizenMyComplaintsScreen} />
-      <Stack.Screen name="CitizenComplaintDetails" component={CitizenComplaintDetailsScreen} />
-      <Stack.Screen name="CitizenEditComplaint" component={CitizenEditComplaintScreen} />
+      {/* Utilisation de 'as any' pour compatibilité des types partagés */}
+      <Stack.Screen name="CitizenComplaintDetails" component={CitizenComplaintDetailsScreen as any} />
+      <Stack.Screen name="CitizenEditComplaint" component={CitizenEditComplaintScreen as any} />
 
       {/* ==========================================
           ⚖️ SUIVI JUDICIAIRE & ADMINISTRATIF
       ========================================== */}
       <Stack.Screen name="CitizenTracking" component={CitizenTrackingScreen} />
-      <Stack.Screen name="CitizenCases" component={CitizenCasesScreen} />
+      <Stack.Screen name="CitizenCases" component={CitizenCasesScreen as any} />
       <Stack.Screen name="CitizenCriminalRecord" component={CitizenCriminalRecordScreen} />
       <Stack.Screen name="MyDownloads" component={MyDownloadsScreen} />
 
@@ -81,7 +87,7 @@ export default function CitizenStack() {
           ℹ️ AIDE & RESSOURCES
       ========================================== */}
       <Stack.Screen name="UserGuide" component={UserGuideScreen} />
-      <Stack.Screen name="HelpCenter" component={UserGuideScreen} /> {/* Alias */}
+      <Stack.Screen name="HelpCenter" component={UserGuideScreen} />
       <Stack.Screen name="Support" component={SupportScreen} />
       <Stack.Screen name="About" component={AboutScreen} />
 

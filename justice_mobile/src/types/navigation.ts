@@ -16,7 +16,8 @@ export type SharedStackParamList = {
   UserGuide: undefined;
   Support: undefined;
   MyDownloads: undefined;
-  NationalMap: undefined; // La carte est utile pour tout le monde (Admin, Police, Juge...)
+  NationalMap: undefined;
+  VerificationScanner: undefined; // La carte est utile pour tout le monde (Admin, Police, Juge...)
 };
 
 /**
@@ -161,6 +162,8 @@ export type CitizenStackParamList = {
   CitizenCriminalRecord: undefined;
   CitizenDirectory: undefined;
   StationMapScreen: undefined;
+  CitizenLegalGuide: undefined;
+  CitizenNotifications: undefined;
 } & SharedStackParamList;
 
 /**

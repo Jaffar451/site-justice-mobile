@@ -1,18 +1,17 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   StyleSheet, 
   View, 
-  Dimensions, 
   ActivityIndicator, 
   TouchableOpacity, 
   Text,
   Platform,
   Linking,
   ScrollView,
-  StatusBar
+  StatusBar,
+  Dimensions // ✅ Import nécessaire
 } from 'react-native';
-import MapView, { Marker, Callout, PROVIDER_GOOGLE } from 'react-native-maps';
-import { useNavigation } from '@react-navigation/native';
+import { Map, Marker, ZoomControl } from "pigeon-maps"; 
 import { Ionicons } from '@expo/vector-icons';
 
 // ✅ Imports Architecture & Thème
@@ -20,7 +19,7 @@ import ScreenContainer from '../../components/layout/ScreenContainer';
 import AppHeader from '../../components/layout/AppHeader';
 import { useAppTheme } from '../../theme/AppThemeProvider';
 
-// Données fictives géolocalisées sur Niamey
+// Données géolocalisées sur Niamey
 const MOCK_STATIONS = [
   { id: 1, name: "Commissariat Central", type: "POLICE", city: "Niamey", latitude: 13.5160, longitude: 2.1120, address: "Avenue de la République" },
   { id: 2, name: "Brigade Fluviale", type: "GENDARMERIE", city: "Niamey", latitude: 13.5060, longitude: 2.1020, address: "Rive Droite" },
@@ -28,40 +27,30 @@ const MOCK_STATIONS = [
   { id: 4, name: "Commissariat 4ème Arr", type: "POLICE", city: "Niamey", latitude: 13.5250, longitude: 2.1400, address: "Nouveau Marché" },
 ];
 
-const DARK_MAP_STYLE = [
-  { "elementType": "geometry", "stylers": [{ "color": "#242f3e" }] },
-  { "elementType": "labels.text.fill", "stylers": [{ "color": "#746855" }] },
-  { "elementType": "labels.text.stroke", "stylers": [{ "color": "#242f3e" }] },
-  { "featureType": "administrative.locality", "elementType": "labels.text.fill", "stylers": [{ "color": "#d59563" }] },
-  { "featureType": "road", "elementType": "geometry", "stylers": [{ "color": "#38414e" }] },
-  { "featureType": "road", "elementType": "geometry.stroke", "stylers": [{ "color": "#212a37" }] },
-  { "featureType": "water", "elementType": "geometry", "stylers": [{ "color": "#17263c" }] }
-];
+const NIAMEY_CENTER: [number, number] = [13.51366, 2.1098];
+const { height: screenHeight } = Dimensions.get('window'); // ✅ Calcul hauteur écran
 
 export default function NationalMapScreen() {
   const { theme, isDark } = useAppTheme();
-  const navigation = useNavigation<any>();
-  const mapRef = useRef<MapView>(null);
   
   const [stations, setStations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"TOUT" | "POLICE" | "GENDARMERIE" | "TRIBUNAL">("TOUT");
+  
+  const [center, setCenter] = useState<[number, number]>(NIAMEY_CENTER);
+  const [zoom, setZoom] = useState(13);
+  const [selectedStation, setSelectedStation] = useState<any>(null);
 
   const primaryColor = theme.colors.primary;
 
-  const INITIAL_REGION = {
-    latitude: 13.51366,
-    longitude: 2.1098,
-    latitudeDelta: 0.12,
-    longitudeDelta: 0.12,
-  };
+  // Hauteur dynamique de la carte (Ecran total - Header - Marges)
+  const mapHeight = screenHeight - 120; 
 
   useEffect(() => { loadMarkers(); }, []);
 
   const loadMarkers = async () => {
     try {
-      // Simulation appel API e-Justice
-      setTimeout(() => setStations(MOCK_STATIONS), 1000);
+      setTimeout(() => setStations(MOCK_STATIONS), 800);
     } catch (e) {
       console.error("Erreur cartographie:", e);
     } finally {
@@ -71,21 +60,28 @@ export default function NationalMapScreen() {
 
   const filteredStations = stations.filter(s => filter === "TOUT" || s.type === filter);
 
-  const getPinColor = (type: string) => {
+  const getPinConfig = (type: string) => {
     switch (type) {
-      case 'POLICE': return '#3B82F6'; // Bleu
-      case 'GENDARMERIE': return '#10B981'; // Vert
-      case 'TRIBUNAL': return '#8B5CF6'; // Violet
-      default: return '#EF4444';
+      case 'POLICE': return { color: '#3B82F6', icon: 'shield' };
+      case 'GENDARMERIE': return { color: '#10B981', icon: 'star' };
+      case 'TRIBUNAL': return { color: '#8B5CF6', icon: 'business' };
+      default: return { color: '#EF4444', icon: 'location' };
     }
   };
 
-  const handleItinerary = (lat: number, lng: number, label: string) => {
+  const handleItinerary = () => {
+    if (!selectedStation) return;
+    
+    const lat = selectedStation.latitude;
+    const lng = selectedStation.longitude;
+    const label = selectedStation.name;
+
     const url = Platform.select({
       ios: `maps:0,0?q=${label}@${lat},${lng}`,
       android: `geo:0,0?q=${lat},${lng}(${label})`,
-      web: `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
+      web: `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`
     });
+
     if (url) Linking.openURL(url);
   };
 
@@ -102,39 +98,35 @@ export default function NationalMapScreen() {
           </View>
         ) : (
           <View style={styles.mapContainer}>
-            <MapView
-              ref={mapRef}
-              provider={PROVIDER_GOOGLE}
-              style={styles.map}
-              initialRegion={INITIAL_REGION}
-              customMapStyle={isDark ? DARK_MAP_STYLE : []}
-              showsUserLocation={true}
-              showsCompass={true}
-              rotateEnabled={false}
-              toolbarEnabled={false}
+            
+            {/* 🗺️ LA CARTE */}
+            <Map 
+              height={mapHeight} // ✅ Correction ici : on passe un nombre, pas une string
+              center={center} 
+              zoom={zoom}
+              onBoundsChanged={({ center, zoom }) => { setCenter(center); setZoom(zoom); }}
             >
-              {filteredStations.map((station) => (
-                <Marker
-                  key={station.id}
-                  coordinate={{ latitude: station.latitude, longitude: station.longitude }}
-                  pinColor={getPinColor(station.type)}
-                >
-                  <Callout tooltip onPress={() => handleItinerary(station.latitude, station.longitude, station.name)}>
-                    <View style={[styles.calloutCard, { backgroundColor: isDark ? "#1E293B" : "#FFF", borderColor: isDark ? "#334155" : "#E2E8F0" }]}>
-                      <Text style={[styles.calloutTitle, { color: isDark ? "#FFF" : "#1E293B" }]}>{station.name}</Text>
-                      <View style={[styles.typeBadge, { backgroundColor: getPinColor(station.type) + '20' }]}>
-                        <Text style={[styles.typeBadgeText, { color: getPinColor(station.type) }]}>{station.type}</Text>
-                      </View>
-                      <Text style={[styles.calloutSub, { color: isDark ? "#94A3B8" : "#64748B" }]}>{station.city}</Text>
-                      <View style={[styles.calloutBtn, { backgroundColor: primaryColor }]}>
-                          <Ionicons name="navigate-outline" size={14} color="#FFF" />
-                          <Text style={styles.calloutBtnText}>ITINÉRAIRE</Text>
-                      </View>
+              <ZoomControl />
+              {filteredStations.map((station) => {
+                const config = getPinConfig(station.type);
+                return (
+                  <Marker 
+                    key={station.id} 
+                    width={40} 
+                    anchor={[station.latitude, station.longitude]} 
+                    onClick={() => {
+                        setSelectedStation(station);
+                        setCenter([station.latitude, station.longitude]);
+                        setZoom(15);
+                    }}
+                  >
+                    <View style={[styles.markerBadge, { backgroundColor: config.color, borderColor: isDark ? "#0F172A" : "#FFF" }]}>
+                        <Ionicons name={config.icon as any} size={18} color="#FFF" />
                     </View>
-                  </Callout>
-                </Marker>
-              ))}
-            </MapView>
+                  </Marker>
+                );
+              })}
+            </Map>
 
             {/* 🏷️ FILTRES FLOTTANTS */}
             <View style={styles.filterOverlay}>
@@ -149,7 +141,10 @@ export default function NationalMapScreen() {
                         ? { backgroundColor: primaryColor, borderColor: primaryColor }
                         : { backgroundColor: isDark ? "#1E293B" : "#FFF", borderColor: isDark ? "#334155" : "#E2E8F0" }
                     ]}
-                    onPress={() => setFilter(cat)}
+                    onPress={() => {
+                        setFilter(cat);
+                        setSelectedStation(null);
+                    }}
                   >
                     <Text style={[styles.filterText, { color: filter === cat ? "#FFF" : (isDark ? "#CBD5E1" : "#64748B") }]}>
                       {cat === "TOUT" ? "Tous" : cat.charAt(0) + cat.slice(1).toLowerCase()}
@@ -163,10 +158,43 @@ export default function NationalMapScreen() {
             <TouchableOpacity 
               activeOpacity={0.8}
               style={[styles.recentreFab, { backgroundColor: isDark ? "#1E293B" : "#FFF", borderColor: isDark ? "#334155" : "#E2E8F0" }]}
-              onPress={() => mapRef.current?.animateToRegion(INITIAL_REGION, 1000)}
+              onPress={() => {
+                  setCenter(NIAMEY_CENTER);
+                  setZoom(13);
+              }}
             >
                 <Ionicons name="locate-outline" size={26} color={primaryColor} />
             </TouchableOpacity>
+
+            {/* ℹ️ CARTE D'INFO */}
+            {selectedStation && (
+                <View style={[styles.infoCard, { backgroundColor: isDark ? "#1E293B" : "#FFF", borderColor: isDark ? "#334155" : "#E2E8F0" }]}>
+                    <View style={styles.infoHeader}>
+                        <View>
+                            <Text style={[styles.infoTitle, { color: isDark ? "#FFF" : "#1E293B" }]}>{selectedStation.name}</Text>
+                            <Text style={{ color: getPinConfig(selectedStation.type).color, fontSize: 10, fontWeight: '800' }}>
+                                {selectedStation.type}
+                            </Text>
+                        </View>
+                        <TouchableOpacity onPress={() => setSelectedStation(null)} style={{ padding: 5 }}>
+                            <Ionicons name="close-circle" size={24} color={isDark ? "#94A3B8" : "#CBD5E1"} />
+                        </TouchableOpacity>
+                    </View>
+                    
+                    <Text style={[styles.infoAddress, { color: isDark ? "#94A3B8" : "#64748B" }]}>
+                        {selectedStation.address}, {selectedStation.city}
+                    </Text>
+
+                    <TouchableOpacity 
+                        style={[styles.itineraryBtn, { backgroundColor: primaryColor }]}
+                        onPress={handleItinerary}
+                    >
+                        <Ionicons name="navigate" size={16} color="#FFF" style={{ marginRight: 8 }} />
+                        <Text style={styles.itineraryText}>LANCER L'ITINÉRAIRE</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
+
           </View>
         )}
       </View>
@@ -177,65 +205,54 @@ export default function NationalMapScreen() {
 const styles = StyleSheet.create({
   mainWrapper: { flex: 1 },
   mapContainer: { flex: 1, position: 'relative' },
-  map: { width: '100%', height: '100%' },
   loaderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 15 },
   loadingText: { fontSize: 13, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase' },
   
-  // Callout Styles
-  calloutCard: { 
-    padding: 16, 
-    borderRadius: 24, 
-    width: 200, 
-    alignItems: 'center',
-    borderWidth: 1.5,
+  markerBadge: {
+    width: 36, height: 36, borderRadius: 12,
+    justifyContent: 'center', alignItems: 'center',
+    borderWidth: 2,
     ...Platform.select({
-        ios: { shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 10 },
-        android: { elevation: 5 }
+       android: { elevation: 4 },
+       web: { boxShadow: '0px 4px 10px rgba(0,0,0,0.2)', cursor: 'pointer' }
     })
   },
-  calloutTitle: { fontWeight: '900', fontSize: 14, marginBottom: 6, textAlign: 'center' },
-  typeBadge: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 8, marginBottom: 8 },
-  typeBadgeText: { fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
-  calloutSub: { fontSize: 12, marginBottom: 12, fontWeight: '600' },
-  calloutBtn: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    paddingHorizontal: 18, 
-    paddingVertical: 10, 
-    borderRadius: 14, 
-    gap: 8 
-  },
-  calloutBtnText: { color: '#FFF', fontSize: 11, fontWeight: '900' },
 
-  // Overlays
   filterOverlay: { position: 'absolute', top: 20, left: 0, right: 0, zIndex: 10 },
   filterScroll: { paddingHorizontal: 16 },
   filterChip: { 
-    paddingHorizontal: 20, 
-    paddingVertical: 12, 
-    borderRadius: 16, 
-    borderWidth: 1.5, 
-    marginRight: 10,
+    paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20, borderWidth: 1, marginRight: 10,
     ...Platform.select({
-        android: { elevation: 4 },
-        ios: { shadowColor: "#000", shadowOpacity: 0.15, shadowRadius: 6, shadowOffset: { width: 0, height: 3 } }
+        android: { elevation: 3 },
+        ios: { shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 4 },
+        web: { boxShadow: '0px 2px 5px rgba(0,0,0,0.1)' }
     })
   },
-  filterText: { fontWeight: '900', fontSize: 12 },
+  filterText: { fontWeight: '700', fontSize: 12 },
 
   recentreFab: { 
-    position: 'absolute', 
-    bottom: 30, 
-    right: 20, 
-    width: 60, 
-    height: 60, 
-    borderRadius: 20, 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    borderWidth: 1.5,
+    position: 'absolute', bottom: 180, right: 20, 
+    width: 50, height: 50, borderRadius: 16, 
+    justifyContent: 'center', alignItems: 'center', borderWidth: 1,
     ...Platform.select({
-        android: { elevation: 8 },
-        ios: { shadowColor: "#000", shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: {width: 0, height: 5} }
+        android: { elevation: 5 },
+        ios: { shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 5 },
+        web: { boxShadow: '0px 4px 10px rgba(0,0,0,0.15)' }
     })
-  }
+  },
+
+  infoCard: {
+      position: 'absolute', bottom: 30, left: 20, right: 20,
+      padding: 20, borderRadius: 24, borderWidth: 1,
+      ...Platform.select({
+        android: { elevation: 10 },
+        ios: { shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 15, shadowOffset: { width: 0, height: 5 } },
+        web: { boxShadow: '0px 10px 25px rgba(0,0,0,0.15)' }
+      })
+  },
+  infoHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  infoTitle: { fontSize: 16, fontWeight: '900', marginBottom: 2 },
+  infoAddress: { fontSize: 13, marginTop: 8, marginBottom: 20, lineHeight: 18 },
+  itineraryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 14 },
+  itineraryText: { color: '#FFF', fontWeight: '900', fontSize: 12, letterSpacing: 1 }
 });

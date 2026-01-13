@@ -1,200 +1,270 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useCallback } from "react";
 import { 
-  ScrollView, 
   View, 
   Text, 
   StyleSheet, 
+  ScrollView, 
   Dimensions, 
-  ActivityIndicator, 
-  RefreshControl,
-  StatusBar,
-  Platform
+  Platform, // ✅ Indispensable pour la compatibilité Web
+  RefreshControl
 } from "react-native";
-import { PieChart, BarChart } from "react-native-chart-kit"; // ⚠️ Assure-toi d'avoir fait: npx expo install react-native-svg
+import { PieChart, BarChart } from "react-native-gifted-charts";
 import { useQuery } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 
-// ✅ Architecture & Layout
-import { useAppTheme } from "../../theme/AppThemeProvider";
+// ✅ Architecture
 import ScreenContainer from "../../components/layout/ScreenContainer";
 import AppHeader from "../../components/layout/AppHeader";
-import SmartFooter from "../../components/layout/SmartFooter";
+import { useAppTheme } from "../../theme/AppThemeProvider";
+import { getAdminStats } from "../../services/admin.service";
 
-// ✅ Services
-import { getDashboardData } from "../../services/admin.service";
+const { width } = Dimensions.get('window');
 
-const screenWidth = Dimensions.get("window").width;
+// 🛠️ COMPOSANT ALTERNATIF POUR LE WEB 
+// (Remplace les graphiques SVG complexes qui font planter Expo Web)
+const WebProgressBar = ({ label, value, total, color }: any) => {
+  const percentage = total > 0 ? (value / total) * 100 : 0;
+  return (
+    <View style={{ marginBottom: 12 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+        <Text style={{ fontSize: 12, fontWeight: '600', color: '#64748B' }}>{label}</Text>
+        <Text style={{ fontSize: 12, fontWeight: '800', color: '#1E293B' }}>{value}</Text>
+      </View>
+      <View style={{ height: 8, backgroundColor: '#E2E8F0', borderRadius: 4, overflow: 'hidden' }}>
+        <View style={{ height: '100%', width: `${percentage}%`, backgroundColor: color }} />
+      </View>
+    </View>
+  );
+};
 
 export default function AdminStatsScreen({ navigation }: any) {
   const { theme, isDark } = useAppTheme();
   const primaryColor = theme.colors.primary;
-  
-  // 🎨 PALETTE DYNAMIQUE
+  const [refreshing, setRefreshing] = useState(false);
+
+  // 1. 📡 Récupération Réelle des Données (API)
+  const { data: stats, isLoading, refetch } = useQuery({
+    queryKey: ['admin-global-stats'],
+    queryFn: getAdminStats,
+  });
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    refetch().finally(() => setRefreshing(false));
+  }, [refetch]);
+
+  // 🎨 Palette
   const colors = {
     bgMain: isDark ? "#0F172A" : "#F8FAFC",
     bgCard: isDark ? "#1E293B" : "#FFFFFF",
     textMain: isDark ? "#FFFFFF" : "#1E293B",
     textSub: isDark ? "#94A3B8" : "#64748B",
-    border: isDark ? "#334155" : "#F1F5F9",
+    border: isDark ? "#334155" : "#E2E8F0",
   };
 
-  // ✅ 1. CHARGEMENT DONNÉES
-  const { data: rawData, isLoading, refetch } = useQuery({
-    queryKey: ["judicial-stats"],
-    queryFn: getDashboardData,
-    refetchInterval: 60000, 
-  });
-
-  // ✅ 2. EXTRACTION SÉCURISÉE
-  const stats = useMemo(() => {
-    if (!rawData) return null;
-    const data = (rawData as any).data || rawData;
+  // 2. Préparation des Données pour les Graphiques
+  
+  // 🥧 Données Pie Chart (Statuts des dossiers)
+  const pieData = useMemo(() => {
+    if (!stats?.statusStats) return [{ value: 1, color: '#E5E7EB', label: 'Aucune donnée' }];
     
-    return {
-        statusStats: data.statusStats || [],
-        regionalStats: data.regionalStats || [],
-        timingStats: data.timingStats || { avg_days: 0 }
-    };
-  }, [rawData]);
-
-  const chartColors = ['#6366F1', '#E67E22', '#10B981', '#EF4444', '#8B5CF6'];
-
-  // Calcul KPI Total
-  const totalDossiers = useMemo(() => {
-    if (!stats?.statusStats) return 0;
-    return stats.statusStats.reduce((acc: number, s: any) => acc + (parseInt(s.count) || 0), 0);
+    const palette = ["#10B981", "#3B82F6", "#F59E0B", "#EF4444", "#8B5CF6"];
+    return stats.statusStats.map((item: any, index: number) => ({
+      value: parseInt(item.count) || 0,
+      color: palette[index % palette.length],
+      text: `${item.count}`,
+      label: item.status
+    }));
   }, [stats]);
 
-  if (isLoading) return (
-    <ScreenContainer withPadding={false}>
-      <AppHeader title="Analytique" showBack />
-      <View style={[styles.center, { backgroundColor: colors.bgMain }]}>
-        <ActivityIndicator size="large" color={primaryColor} />
-      </View>
-    </ScreenContainer>
+  // 📊 Données Bar Chart (Répartition géographique)
+  const barData = useMemo(() => {
+    if (!stats?.regionalStats) return [];
+    return stats.regionalStats.map((item: any) => ({
+      value: parseInt(item.total) || 0,
+      label: item.district?.substring(0, 3).toUpperCase(), 
+      frontColor: primaryColor,
+      topLabelComponent: () => (
+        <Text style={{ color: colors.textSub, fontSize: 10, marginBottom: 4 }}>
+          {item.total}
+        </Text>
+      )
+    }));
+  }, [stats, primaryColor]);
+
+  // Totaux globaux sécurisés
+  const totalComplaints = stats?.summary?.complaints_total || 0;
+  const totalUsers = stats?.summary?.users_total || 0;
+  const totalLogs = stats?.summary?.logs_total || 0;
+
+  // --- COMPOSANTS INTERNES ---
+
+  const LegendItem = ({ color, label, value }: any) => (
+    <View style={styles.legendRow}>
+      <View style={[styles.legendDot, { backgroundColor: color }]} />
+      <Text style={[styles.legendText, { color: colors.textSub }]}>{label}</Text>
+      <Text style={[styles.legendValue, { color: colors.textMain }]}>{value}</Text>
+    </View>
   );
+
+  // 🛡️ RENDU CONDITIONNEL : Pie Chart (Cercle)
+  const renderPieChartSection = () => {
+    // Cas WEB : Version simplifiée
+    if (Platform.OS === 'web') {
+        return (
+            <View style={{ paddingVertical: 10 }}>
+                {pieData.map((item: any, i: number) => (
+                    <WebProgressBar 
+                        key={i} 
+                        label={item.label || 'Autre'} 
+                        value={item.value} 
+                        total={totalComplaints} 
+                        color={item.color} 
+                    />
+                ))}
+            </View>
+        );
+    }
+
+    // Cas MOBILE : Vrai graphique interactif
+    return (
+        <View style={styles.pieContainer}>
+            <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+                <PieChart
+                    data={pieData}
+                    donut
+                    radius={80}
+                    innerRadius={60}
+                    centerLabelComponent={() => (
+                        <View style={{ alignItems: 'center' }}>
+                            <Text style={{ fontSize: 24, fontWeight: 'bold', color: colors.textMain }}>
+                                {totalComplaints}
+                            </Text>
+                            <Text style={{ fontSize: 10, color: colors.textSub }}>Total</Text>
+                        </View>
+                    )}
+                />
+            </View>
+            <View style={styles.legendContainer}>
+                {pieData.map((item: any, i: number) => (
+                    item.label ? <LegendItem key={i} color={item.color} label={item.label} value={item.value} /> : null
+                ))}
+            </View>
+        </View>
+    );
+  };
+
+  // 🛡️ RENDU CONDITIONNEL : Bar Chart (Bâtons)
+  const renderBarChartSection = () => {
+    // Cas WEB : Version simplifiée
+    if (Platform.OS === 'web') {
+        return (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 10 }}>
+               {barData.map((item: any, i: number) => (
+                 <View key={i} style={{ padding: 10, backgroundColor: colors.bgMain, borderRadius: 8, minWidth: '45%', flex: 1 }}>
+                    <Text style={{ color: primaryColor, fontWeight: '900', fontSize: 16 }}>{item.value}</Text>
+                    <Text style={{ color: colors.textSub, fontSize: 12 }}>{item.label}</Text>
+                 </View>
+               ))}
+            </View>
+        );
+    }
+
+    // Cas MOBILE : Vrai graphique interactif
+    return (
+        <View style={[styles.chartWrapper, { marginTop: 20 }]}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <BarChart
+                data={barData}
+                barWidth={30}
+                spacing={20}
+                roundedTop
+                xAxisThickness={0}
+                yAxisThickness={0}
+                yAxisTextStyle={{ color: colors.textSub, fontSize: 10 }}
+                xAxisLabelTextStyle={{ color: colors.textSub, fontSize: 10 }}
+                hideRules
+                noOfSections={4}
+                maxValue={Math.max(...barData.map((d:any) => d.value), 10) + 5}
+                width={width - 80}
+            />
+            </ScrollView>
+        </View>
+    );
+  };
 
   return (
     <ScreenContainer withPadding={false}>
-      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-      <AppHeader title="Supervision Nationale" showBack={true} />
+      <AppHeader title="Analyses & Statistiques" showBack />
       
-      <View style={[styles.mainWrapper, { backgroundColor: colors.bgMain }]}>
-        <ScrollView 
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={primaryColor} />}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* 🏆 INDICATEURS CLÉS (KPI) */}
-          <View style={styles.kpiRow}>
-              <View style={[styles.kpiCard, { backgroundColor: colors.bgCard, borderLeftColor: primaryColor }]}>
-                  <Ionicons name="documents-outline" size={22} color={primaryColor} />
-                  <Text style={[styles.kpiValue, { color: colors.textMain }]}>{totalDossiers}</Text>
-                  <Text style={[styles.kpiLabel, { color: colors.textSub }]}>Dossiers Actifs</Text>
-              </View>
-              <View style={[styles.kpiCard, { backgroundColor: colors.bgCard, borderLeftColor: "#E67E22" }]}>
-                  <Ionicons name="speedometer-outline" size={22} color="#E67E22" />
-                  <Text style={[styles.kpiValue, { color: colors.textMain }]}>{Math.round(stats?.timingStats?.avg_days || 0)}j</Text>
-                  <Text style={[styles.kpiLabel, { color: colors.textSub }]}>Délai Moyen</Text>
-              </View>
+      <ScrollView 
+        style={{ backgroundColor: colors.bgMain }}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={primaryColor} />}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* 1. ÉTAT DES DOSSIERS (Pie Chart) */}
+        <View style={[styles.card, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="pie-chart-outline" size={20} color={primaryColor} />
+            <Text style={[styles.cardTitle, { color: colors.textMain }]}>État des Dossiers</Text>
           </View>
+          {renderPieChartSection()}
+        </View>
 
-          {/* 📊 GRAPHIQUES (Visibles partout maintenant) */}
-          <View>
-              {/* CAMEMBERT STATUTS */}
-              <Text style={[styles.chartTitle, { color: colors.textSub }]}>Distribution des Procédures</Text>
-              <View style={[styles.chartContainer, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-                {(stats?.statusStats || []).length > 0 ? (
-                    <PieChart
-                        data={(stats?.statusStats || []).map((s: any, i: number) => ({
-                            name: (s.status || "").replace(/_/g, ' '),
-                            population: parseInt(s.count) || 0,
-                            color: chartColors[i % chartColors.length],
-                            legendFontColor: colors.textSub,
-                            legendFontSize: 11
-                        }))}
-                        width={screenWidth - 40} // Largeur adaptée
-                        height={220}
-                        chartConfig={{ 
-                            color: (opacity = 1) => primaryColor,
-                            labelColor: () => colors.textMain,
-                        }}
-                        accessor={"population"}
-                        backgroundColor={"transparent"}
-                        paddingLeft={"15"}
-                        absolute
-                    />
-                ) : (
-                    <Text style={[styles.emptyText, { color: colors.textSub }]}>Pas assez de données pour le graphique</Text>
-                )}
-              </View>
-
-              {/* BAR CHART REGIONS */}
-              <Text style={[styles.chartTitle, { marginTop: 25, color: colors.textSub }]}>Activité des Districts (Top 5)</Text>
-              <View style={[styles.chartContainer, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-                {(stats?.regionalStats || []).length > 0 ? (
-                    <BarChart
-                        data={{
-                            labels: (stats?.regionalStats || []).slice(0, 5).map((r: any) => (r.district || "N/A").substring(0, 8)),
-                            datasets: [{ data: (stats?.regionalStats || []).slice(0, 5).map((r: any) => parseInt(r.total) || 0) }]
-                        }}
-                        width={screenWidth - 40}
-                        height={260}
-                        yAxisLabel=""
-                        yAxisSuffix=""
-                        fromZero
-                        showValuesOnTopOfBars // Affiche les chiffres au dessus des barres
-                        chartConfig={{
-                            backgroundColor: colors.bgCard,
-                            backgroundGradientFrom: colors.bgCard,
-                            backgroundGradientTo: colors.bgCard,
-                            fillShadowGradient: primaryColor,
-                            fillShadowGradientOpacity: 1,
-                            color: (opacity = 1) => primaryColor, // Couleur des barres
-                            labelColor: (opacity = 1) => colors.textSub,
-                            barPercentage: 0.7,
-                            decimalPlaces: 0,
-                        }}
-                        style={{ borderRadius: 16, marginTop: 10 }}
-                        // Fix pour éviter les labels coupés
-                        verticalLabelRotation={30} 
-                    />
-                ) : (
-                    <Text style={[styles.emptyText, { color: colors.textSub }]}>Aucune donnée régionale</Text>
-                )}
-              </View>
+        {/* 2. UNITÉS PAR RÉGION (Bar Chart) */}
+        <View style={[styles.card, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="map-outline" size={20} color={primaryColor} />
+            <Text style={[styles.cardTitle, { color: colors.textMain }]}>Unités par Région</Text>
           </View>
+          {renderBarChartSection()}
+        </View>
 
-          <View style={styles.footerSpacing} />
-        </ScrollView>
-      </View>
-      
-      <SmartFooter />
+        {/* 3. KPI SECONDAIRES */}
+        <View style={styles.kpiRow}>
+            <View style={[styles.kpiCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+                <Text style={[styles.kpiLabel, { color: colors.textSub }]}>Utilisateurs</Text>
+                <Text style={[styles.kpiValue, { color: primaryColor }]}>{totalUsers}</Text>
+            </View>
+            <View style={[styles.kpiCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+                <Text style={[styles.kpiLabel, { color: colors.textSub }]}>Logs (Global)</Text>
+                <Text style={[styles.kpiValue, { color: "#F59E0B" }]}>{totalLogs}</Text>
+            </View>
+        </View>
+
+        <View style={{height: 40}} />
+      </ScrollView>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  mainWrapper: { flex: 1 },
-  scrollView: { flex: 1 },
-  scrollContent: { padding: 16, paddingTop: 10 },
-  kpiRow: { flexDirection: 'row', gap: 12, marginBottom: 25 },
-  kpiCard: { 
-    flex: 1, padding: 20, borderRadius: 24, borderLeftWidth: 6,
+  scrollContent: { padding: 16 },
+  card: {
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
     ...Platform.select({
-      ios: { shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 10 },
-      android: { elevation: 3 }
+        ios: { shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 10 },
+        android: { elevation: 3 }
     })
   },
-  kpiValue: { fontSize: 24, fontWeight: '900', marginTop: 10 },
-  kpiLabel: { fontSize: 10, fontWeight: '800', marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
-  chartTitle: { fontSize: 11, fontWeight: "900", marginBottom: 15, textTransform: 'uppercase', letterSpacing: 1.5, marginLeft: 5 },
-  chartContainer: { 
-    borderRadius: 32, paddingVertical: 20, alignItems: 'center', marginBottom: 15,
-    borderWidth: 1, overflow: 'hidden' // Important pour que le graphique ne dépasse pas
-  },
-  emptyText: { margin: 30, fontStyle: "italic", fontWeight: "600" },
-  footerSpacing: { height: 140 }
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
+  cardTitle: { fontSize: 16, fontWeight: "800", letterSpacing: 0.5 },
+  
+  pieContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
+  legendContainer: { flex: 1, marginLeft: 20, gap: 8 },
+  legendRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  legendDot: { width: 10, height: 10, borderRadius: 5, marginRight: 8 },
+  legendText: { fontSize: 12, fontWeight: "600", flex: 1 },
+  legendValue: { fontSize: 12, fontWeight: "800" },
+
+  chartWrapper: { alignItems: 'center', justifyContent: 'center' },
+
+  kpiRow: { flexDirection: 'row', gap: 12 },
+  kpiCard: { flex: 1, padding: 16, borderRadius: 16, borderWidth: 1, alignItems: 'center' },
+  kpiLabel: { fontSize: 12, fontWeight: "700", textTransform: 'uppercase', marginBottom: 5 },
+  kpiValue: { fontSize: 24, fontWeight: "900" },
 });
