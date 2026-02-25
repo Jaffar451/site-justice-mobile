@@ -15,7 +15,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Toast from "react-native-toast-message";
-// ✅ IMPORT NAVIGATION STANDARD
+// ✅ IMPORT NAVIGATION
 import { useNavigation, CommonActions } from "@react-navigation/native";
 
 // ✅ Architecture
@@ -51,7 +51,10 @@ export default function SettingsScreen() {
     }
   }, [user]);
 
-  // 💾 SAUVEGARDE DU PROFIL
+  const initials = firstname && lastname 
+    ? `${firstname.charAt(0)}${lastname.charAt(0)}`.toUpperCase() 
+    : "U";
+
   const handleSave = async () => {
     if (!firstname.trim() || !lastname.trim()) {
       return Alert.alert("Champs requis", "L'identité complète est obligatoire.");
@@ -79,46 +82,50 @@ export default function SettingsScreen() {
     }
   };
 
-  // 🛑 LOGIQUE DE DÉCONNEXION (SOLUTION FINALE)
+  // ✅ LOGIQUE DE DÉCONNEXION (VERSION FINALE & SÉCURISÉE)
   const handleLogout = async () => {
-    console.log("🚪 Déconnexion lancée...");
+    console.log("🚪 Clic Déconnexion reçu");
 
+    // 1. Nettoyage des données (avec protection erreur)
     try {
-        // 1. On vide le store (Cela devrait suffire si votre AppNavigator utilise une condition user ? App : Auth)
-        await logout();
+        await logout(); 
         console.log("✅ Store vidé");
+    } catch (e) {
+        console.log("⚠️ Erreur nettoyage store (ignorée):", e);
+    }
 
-        // 2. On force la navigation vers 'Login' (au cas où la nav automatique ne se fait pas)
-        // Note: On utilise 'Login' car vos logs disaient que 'Auth' n'existe pas.
-        try {
-            navigation.dispatch(
-                CommonActions.reset({
-                    index: 0,
-                    routes: [{ name: 'Login' }], 
-                })
-            );
-        } catch (navError) {
-            // Si le reset échoue, on tente une navigation simple
-            console.log("⚠️ Reset échoué, tentative navigate simple...");
-            navigation.navigate('Login');
-        }
-
-    } catch (error) {
-        console.error("❌ Erreur Logout :", error);
-        Alert.alert("Erreur", "Déconnexion impossible. Redémarrez l'application.");
+    // 2. Navigation forcée
+    // On essaie de reset vers 'Login'. Si ça échoue, on fait un simple navigate.
+    try {
+        navigation.dispatch(
+            CommonActions.reset({
+                index: 0,
+                routes: [{ name: 'Login' }], 
+            })
+        );
+    } catch (err) {
+        console.log("⚠️ Reset impossible, tentative navigation simple vers Login");
+        // Fallback : Navigation simple si le reset est bloqué par la structure
+        navigation.navigate('Login');
     }
   };
 
   const confirmLogout = () => {
-    console.log("🖱️ Clic bouton déconnexion");
-    Alert.alert(
-      "Déconnexion",
-      "Voulez-vous vraiment quitter l'application ?",
-      [
-        { text: "Annuler", style: "cancel" },
-        { text: "Se déconnecter", style: "destructive", onPress: handleLogout }
-      ]
-    );
+    // Sur Web, on exécute directement car Alert est parfois bloquant
+    if (Platform.OS === 'web') {
+        if (confirm("Voulez-vous vraiment vous déconnecter ?")) {
+            handleLogout();
+        }
+    } else {
+        Alert.alert(
+          "Déconnexion",
+          "Voulez-vous vraiment quitter l'application ?",
+          [
+            { text: "Annuler", style: "cancel" },
+            { text: "Se déconnecter", style: "destructive", onPress: handleLogout }
+          ]
+        );
+    }
   };
 
   return (
@@ -138,29 +145,27 @@ export default function SettingsScreen() {
           showsVerticalScrollIndicator={false}
         >
           
-          {/* 🌓 APPARENCE (COMPLET) */}
-          <Text style={[styles.sectionTitle, { color: primaryColor }]}>Configuration Appareil</Text>
-          <View style={[styles.card, { backgroundColor: isDark ? "#1E1E1E" : "#FFF", borderColor: isDark ? "#333" : "#F1F5F9" }]}>
-            <View style={styles.row}>
-              <View style={styles.rowLabel}>
-                <View style={[styles.iconCircle, { backgroundColor: primaryColor + "15" }]}>
-                    <Ionicons name={isDark ? "moon" : "sunny"} size={20} color={primaryColor} />
+          {/* 📸 SECTION AVATAR */}
+          <View style={styles.avatarSection}>
+            <View style={styles.avatarWrapper}>
+                <View style={[styles.avatarPlaceholder, { backgroundColor: primaryColor }]}>
+                    <Text style={styles.avatarInitials}>{initials}</Text>
                 </View>
-                <View style={{ flex: 1 }}>
-                    <Text style={[styles.label, { color: isDark ? "#FFF" : "#1E293B" }]}>Mode Sombre</Text>
-                    <Text style={[styles.subLabel, { color: isDark ? "#94A3B8" : "#64748B" }]}>Confort visuel pour usage nocturne</Text>
-                </View>
-              </View>
-              <Switch 
-                value={isDark} 
-                onValueChange={toggleTheme} 
-                trackColor={{ false: "#CBD5E1", true: primaryColor }}
-              />
+                <TouchableOpacity style={styles.editBadge} activeOpacity={0.8}>
+                    <Ionicons name="camera" size={14} color="#FFF" />
+                </TouchableOpacity>
             </View>
+            
+            <Text style={[styles.userName, { color: isDark ? "#FFF" : "#1E293B" }]}>
+                {firstname} {lastname}
+            </Text>
+            <Text style={[styles.userRole, { color: isDark ? "#94A3B8" : "#64748B" }]}>
+                {user?.role?.toUpperCase() || "UTILISATEUR"}
+            </Text>
           </View>
 
-          {/* 👤 PROFIL (COMPLET) */}
-          <Text style={[styles.sectionTitle, { color: primaryColor, marginTop: 35 }]}>Informations de Compte</Text>
+          {/* 👤 INFORMATIONS MODIFIABLES */}
+          <Text style={[styles.sectionTitle, { color: primaryColor }]}>Mes Informations</Text>
           <View style={[styles.card, { backgroundColor: isDark ? "#1E1E1E" : "#FFF", borderColor: isDark ? "#333" : "#F1F5F9" }]}>
             <SettingInput label="Prénom" value={firstname} onChange={setFirstname} isDark={isDark} />
             <SettingInput label="Nom" value={lastname} onChange={setLastname} isDark={isDark} />
@@ -176,28 +181,47 @@ export default function SettingsScreen() {
                 <ActivityIndicator color="#fff" />
               ) : (
                 <>
-                  <Ionicons name="cloud-upload-outline" size={18} color="#fff" style={{ marginRight: 10 }} />
-                  <Text style={styles.saveText}>ENREGISTRER LES MODIFICATIONS</Text>
+                  <Ionicons name="checkmark-circle" size={20} color="#fff" style={{ marginRight: 8 }} />
+                  <Text style={styles.saveText}>ENREGISTRER</Text>
                 </>
               )}
             </TouchableOpacity>
           </View>
 
-          {/* 🛑 BOUTON DÉCONNEXION (ACTIF) */}
+          {/* 🌓 PRÉFÉRENCES */}
+          <Text style={[styles.sectionTitle, { color: primaryColor, marginTop: 30 }]}>Préférences</Text>
+          <View style={[styles.card, { backgroundColor: isDark ? "#1E1E1E" : "#FFF", borderColor: isDark ? "#333" : "#F1F5F9" }]}>
+            <View style={styles.row}>
+              <View style={styles.rowLabel}>
+                <View style={[styles.iconCircle, { backgroundColor: primaryColor + "15" }]}>
+                    <Ionicons name={isDark ? "moon" : "sunny"} size={20} color={primaryColor} />
+                </View>
+                <View style={{ flex: 1 }}>
+                    <Text style={[styles.label, { color: isDark ? "#FFF" : "#1E293B" }]}>Mode Sombre</Text>
+                </View>
+              </View>
+              <Switch 
+                value={isDark} 
+                onValueChange={toggleTheme} 
+                trackColor={{ false: "#CBD5E1", true: primaryColor }}
+              />
+            </View>
+          </View>
+
+          {/* 🛑 BOUTON DÉCONNEXION */}
           <TouchableOpacity 
             style={[styles.logoutBtn, { backgroundColor: isDark ? "#2D1B1B" : "#FEF2F2", borderColor: isDark ? "#450a0a" : "#FEE2E2" }]} 
             onPress={confirmLogout}
             activeOpacity={0.7}
           >
             <Ionicons name="log-out-outline" size={22} color="#EF4444" />
-            <Text style={styles.logoutText}>Fermer la session sécurisée</Text>
+            <Text style={styles.logoutText}>Se déconnecter</Text>
           </TouchableOpacity>
 
-          {/* 🏛️ VERSION (COMPLET) */}
+          {/* 🏛️ MENTIONS LÉGALES */}
           <View style={styles.footerBranding}>
-              <Text style={[styles.versionText, { color: isDark ? "#FFF" : "#1E293B" }]}>e-Justice République du Niger</Text>
-              <Text style={styles.legalText}>Plateforme sécurisée du Ministère de la Justice</Text>
-              <Text style={styles.legalText}>Version 1.5.0 • DIM/MJ</Text>
+              <Text style={[styles.versionText, { color: isDark ? "#FFF" : "#1E293B" }]}>e-Justice Niger</Text>
+              <Text style={styles.legalText}>v1.5.0 • Ministère de la Justice</Text>
           </View>
 
         </ScrollView>
@@ -208,7 +232,7 @@ export default function SettingsScreen() {
   );
 }
 
-// 🛠️ Composant Interne pour les champs
+// 🛠️ Composant Input
 const SettingInput = ({ label, value, onChange, isDark, keyboard = "default", placeholder = "" }: any) => (
   <View style={styles.inputGroup}>
     <Text style={styles.fieldLabel}>{label.toUpperCase()}</Text>
@@ -231,21 +255,45 @@ const SettingInput = ({ label, value, onChange, isDark, keyboard = "default", pl
 );
 
 const styles = StyleSheet.create({
-  scrollPadding: { paddingHorizontal: 20, paddingBottom: 140 },
+  scrollPadding: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 200 }, // ✅ Espace suffisant pour le footer
+  
+  // 📸 Styles Avatar
+  avatarSection: { alignItems: 'center', marginBottom: 30, marginTop: 10 },
+  avatarWrapper: { position: 'relative', marginBottom: 15 },
+  avatarPlaceholder: {
+    width: 100, height: 100, borderRadius: 50,
+    justifyContent: 'center', alignItems: 'center',
+    borderWidth: 4, borderColor: '#FFF',
+    elevation: 5, shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 5
+  },
+  avatarInitials: { fontSize: 36, fontWeight: 'bold', color: '#FFF' },
+  editBadge: {
+    position: 'absolute', bottom: 0, right: 0,
+    backgroundColor: '#10B981', 
+    width: 32, height: 32, borderRadius: 16,
+    justifyContent: 'center', alignItems: 'center',
+    borderWidth: 3, borderColor: '#FFF'
+  },
+  userName: { fontSize: 22, fontWeight: '900', textAlign: 'center' },
+  userRole: { fontSize: 12, fontWeight: '700', letterSpacing: 1, marginTop: 4 },
+
   sectionTitle: { fontSize: 11, fontWeight: "900", marginBottom: 12, letterSpacing: 1.5, textTransform: 'uppercase' },
   card: { padding: 22, borderRadius: 24, borderWidth: 1, elevation: 4, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 10 },
   row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   rowLabel: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 15 },
   label: { fontSize: 16, fontWeight: "800", letterSpacing: -0.5 },
-  subLabel: { fontSize: 12, marginTop: 2, fontWeight: '500' },
   iconCircle: { width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+  
   inputGroup: { marginBottom: 20 },
   fieldLabel: { fontSize: 10, fontWeight: "900", marginBottom: 8, marginLeft: 4, letterSpacing: 1, color: "#94A3B8" },
   input: { borderRadius: 16, padding: 16, borderWidth: 1.5, fontSize: 16, fontWeight: '700' },
-  saveBtn: { height: 58, borderRadius: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 10, elevation: 6 },
+  
+  saveBtn: { height: 56, borderRadius: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 10, elevation: 6 },
   saveText: { color: "#fff", fontWeight: "900", fontSize: 13, letterSpacing: 1 },
+  
   logoutBtn: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: 60, borderRadius: 20, marginTop: 40, gap: 12, borderWidth: 1 },
   logoutText: { color: "#EF4444", fontWeight: "900", fontSize: 14, letterSpacing: 0.5 },
+  
   footerBranding: { marginTop: 45, alignItems: 'center' },
   versionText: { fontSize: 13, fontWeight: '900', letterSpacing: -0.2 },
   legalText: { fontSize: 10, color: '#94A3B8', marginTop: 4, fontWeight: '600' }

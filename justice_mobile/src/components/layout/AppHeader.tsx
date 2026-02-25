@@ -90,11 +90,11 @@ const AppHeader = ({
     }
   };
 
-  // 🚀 NAVIGATION ACCUEIL (CORRECTION ICI)
+  // 🚀 NAVIGATION ACCUEIL (CORRIGÉE & HARMONISÉE)
   const handleHomeAction = () => {
     if (onHomePress) return onHomePress();
     
-    // 👇 C'est ici que l'erreur se trouvait. J'ai corrigé "CitizenHomeScreen" en "CitizenHome"
+    // Mappage précis des rôles vers les routes principales
     const roleRoutes: Record<string, string> = {
       admin: "AdminHome", 
       officier_police: "PoliceHome",
@@ -107,9 +107,11 @@ const AppHeader = ({
       greffier: "ClerkHome",
       bailiff: "BailiffMissions",
       lawyer: "LawyerTracking",
-      citizen: "CitizenHome", // ✅ C'est le nom correct de la route dans CitizenStack
+      // ✅ CORRECTION ICI : "CitizenHome" (et non CitizenHomeScreen)
+      citizen: "CitizenHome", 
     };
     
+    // Fallback sécurité
     const target = roleRoutes[userRole] || "CitizenHome";
     
     try {
@@ -144,7 +146,7 @@ const AppHeader = ({
       styles.container, 
       { 
         backgroundColor: headerBg,
-        paddingTop: insets.top, // Gère la StatusBar transparente
+        paddingTop: insets.top,
         borderBottomWidth: white ? 1 : 0,
         borderBottomColor: isDark ? "#222" : "#E2E8F0",
       },
