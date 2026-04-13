@@ -15,7 +15,9 @@ import { useQuery } from "@tanstack/react-query";
 
 // ✅ Architecture & API
 import { useAppTheme } from "../../theme/AppThemeProvider";
+import { useAuthStore } from "../../stores/useAuthStore";
 import api from "../../services/api";
+import { getMyUnitStaff } from "../../services/user.service";
 import ScreenContainer from "../../components/layout/ScreenContainer";
 import AppHeader from "../../components/layout/AppHeader";
 import SmartFooter from "../../components/layout/SmartFooter";
@@ -26,32 +28,19 @@ const { width } = Dimensions.get("window");
 interface ApiComplaint {
   id: number;
   category: string;
-  createdAt: string; // ISO Date
+  createdAt: string;
   status: string;
 }
 
 interface ApiUser {
   id: number;
   role: string;
-  isAvailable?: boolean; // Champ hypothétique pour le statut
+  isAvailable?: boolean;
 }
-
-// --- SERVICES ---
-const fetchDashboardData = async () => {
-  // On utilise Promise.all pour charger les deux sources en parallèle
-  const [complaintsRes, usersRes] = await Promise.all([
-    api.get("/complaints"),
-    api.get("/users")
-  ]);
-  
-  return {
-    complaints: complaintsRes.data as ApiComplaint[],
-    users: usersRes.data as ApiUser[]
-  };
-};
 
 export default function CommissaireCommandCenter() {
   const { theme, isDark } = useAppTheme();
+  const { user } = useAuthStore();
   const primaryColor = theme.colors.primary;
 
   // 🎨 PALETTE DYNAMIQUE
@@ -63,35 +52,89 @@ export default function CommissaireCommandCenter() {
     border: isDark ? "#334155" : "#E2E8F0",
   };
 
-  // ✅ 1. Récupération des données
+  // ✅ 1. Récupération des données (avec gestion du 403 pour les users)
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ['command-center-data'],
-    queryFn: fetchDashboardData,
-    refetchInterval: 30000, // Mise à jour toutes les 30 sec
+    queryKey: ['command-center-data', user?.policeStationId],
+    queryFn: async () => {
+      console.log('[CommandCenter] Fetching data...');
+      
+      // Récupération parallèle des plaintes et des effectifs
+      const [complaintsRes, usersRes] = await Promise.all([
+        api.get("/complaints"),
+        user?.policeStationId ? getMyUnitStaff(user.policeStationId) : Promise.resolve([])
+      ]);
+
+      // 🔍 LOG : Structure brute de la réponse /complaints
+      console.log('[CommandCenter] Raw /complaints response:', complaintsRes.data);
+      console.log('[CommandCenter] Type of complaintsRes.data:', typeof complaintsRes.data);
+      console.log('[CommandCenter] Is array?', Array.isArray(complaintsRes.data));
+      if (typeof complaintsRes.data === 'object') {
+        console.log('[CommandCenter] Object keys:', Object.keys(complaintsRes.data));
+      }
+
+      // 🔧 Extraction défensive du tableau des plaintes
+      const rawData = complaintsRes.data;
+      let complaintsArray: ApiComplaint[] = [];
+
+      if (Array.isArray(rawData)) {
+        // Cas 1 : la réponse est directement un tableau
+        complaintsArray = rawData;
+      } else if (rawData && typeof rawData === 'object') {
+        // Cas 2 : la réponse est un objet, chercher les clés possibles
+        if (Array.isArray(rawData.complaints)) {
+          complaintsArray = rawData.complaints;
+        } else if (Array.isArray(rawData.data)) {
+          complaintsArray = rawData.data;
+        } else if (Array.isArray(rawData.items)) {
+          complaintsArray = rawData.items;
+        } else {
+          // Dernier recours : si l'objet contient des propriétés numériques (comme un tableau)
+          const values = Object.values(rawData);
+          if (values.length > 0 && values.every(v => v && typeof v === 'object' && 'id' in v)) {
+            complaintsArray = values as ApiComplaint[];
+          }
+        }
+      }
+
+      console.log('[CommandCenter] Extracted complaints array length:', complaintsArray.length);
+      console.log('[CommandCenter] First 2 complaints:', complaintsArray.slice(0, 2));
+
+      // Gestion des utilisateurs
+      const usersArray = Array.isArray(usersRes) ? usersRes : [];
+
+      return {
+        complaints: complaintsArray,
+        users: usersArray as ApiUser[]
+      };
+    },
+    refetchInterval: 30000,
+    enabled: !!user,
   });
 
   // ✅ 2. Calcul des Statistiques Criminelles (Temps Réel)
   const stats = useMemo(() => {
-    if (!data?.complaints) return [];
+    const complaints = data?.complaints;
+    
+    // Protection supplémentaire contre les données invalides
+    if (!Array.isArray(complaints) || complaints.length === 0) {
+      console.warn('[CommandCenter] stats: complaints is not an array or empty', complaints);
+      return [];
+    }
 
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
 
-    // Initialisation des compteurs
     let vols = 0, stups = 0, violences = 0, cyber = 0;
-    
-    // Pour calculer la tendance (mois précédent)
     let prevVols = 0, prevStups = 0, prevViolences = 0, prevCyber = 0;
 
-    data.complaints.forEach(c => {
+    complaints.forEach(c => {
       const d = new Date(c.createdAt);
       const isCurrentMonth = d.getMonth() === currentMonth && d.getFullYear() === currentYear;
       const isPrevMonth = d.getMonth() === (currentMonth - 1) && d.getFullYear() === currentYear;
 
       const cat = c.category ? c.category.toLowerCase() : "";
 
-      // Logique de catégorisation (adapter selon vos vrais tags backend)
       if (cat.includes("vol") || cat.includes("cambriolage")) {
         if (isCurrentMonth) vols++;
         if (isPrevMonth) prevVols++;
@@ -107,7 +150,6 @@ export default function CommissaireCommandCenter() {
       }
     });
 
-    // Fonction utilitaire pour le % d'évolution
     const calcTrend = (curr: number, prev: number) => {
         if (prev === 0) return curr > 0 ? "+100%" : "0%";
         const diff = ((curr - prev) / prev) * 100;
@@ -124,15 +166,13 @@ export default function CommissaireCommandCenter() {
 
   // ✅ 3. Calcul des Effectifs (Basé sur les utilisateurs inscrits)
   const staffStats = useMemo(() => {
-    if (!data?.users) return { total: 0, patrol: 0, rest: 0 };
+    const users = data?.users;
+    if (!Array.isArray(users)) return { total: 0, patrol: 0, rest: 0 };
 
-    // Filtre pour ne garder que les forces de l'ordre
-    const officers = data.users.filter(u => 
+    const officers = users.filter(u => 
         ['officier_police', 'inspecteur', 'gendarme', 'opj_gendarme'].includes(u.role)
     );
 
-    // Simulation de l'état (À remplacer par un vrai champ `status` si dispo en base)
-    // Ici on simule : 60% en service, 30% patrouille, 10% repos
     const total = officers.length;
     const patrol = Math.floor(total * 0.3); 
     const rest = Math.floor(total * 0.1); 
@@ -140,8 +180,6 @@ export default function CommissaireCommandCenter() {
 
     return { total: service, patrol, rest };
   }, [data?.users]);
-
-  // --- RENDU ---
 
   if (isLoading) {
     return (
@@ -165,7 +203,6 @@ export default function CommissaireCommandCenter() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* 🗺️ RÉSUMÉ GÉOGRAPHIQUE */}
         <Text style={[styles.sectionTitle, { color: colors.textSub }]}>Cartographie Opérationnelle</Text>
         <View style={[styles.mapPlaceholder, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
             <LinearGradient 
@@ -175,7 +212,6 @@ export default function CommissaireCommandCenter() {
                 <Ionicons name="map-outline" size={50} color={colors.textSub} style={{ opacity: 0.3 }} />
                 <Text style={[styles.mapText, { color: colors.textSub }]}>Vue Satellite Niamey Sectorielle</Text>
                 
-                {/* Points chauds Dynamiques (Simulation visuelle basée sur le volume) */}
                 {stats[0]?.count > 5 && (
                     <View style={[styles.hotspot, { top: '30%', left: '40%', backgroundColor: '#EF4444' }]} />
                 )}
@@ -185,7 +221,6 @@ export default function CommissaireCommandCenter() {
             </LinearGradient>
         </View>
 
-        {/* 📊 GRILLE STATISTIQUE (Données Réelles) */}
         <Text style={[styles.sectionTitle, { color: colors.textSub }]}>
             Infractions du Mois ({new Date().toLocaleDateString('fr-FR', {month:'long', year:'numeric'})})
         </Text>
@@ -210,7 +245,6 @@ export default function CommissaireCommandCenter() {
           ))}
         </View>
 
-        {/* 👮 EFFECTIFS OPÉRATIONNELS (Données Réelles) */}
         <View style={[styles.staffCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
             <View style={styles.staffHeader}>
                 <Ionicons name="people-circle-outline" size={24} color={primaryColor} />
@@ -251,7 +285,26 @@ const styles = StyleSheet.create({
   hotspot: { position: 'absolute', width: 20, height: 20, borderRadius: 10, opacity: 0.6, borderWidth: 4, borderColor: 'rgba(255,255,255,0.4)' },
 
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 12, marginBottom: 25 },
-  statCard: { width: (width - 44) / 2, padding: 20, borderRadius: 24, borderWidth: 1, ...Platform.select({ ios: { shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 10 }, android: { elevation: 2 } }) },
+  statCard: {
+    width: (width - 44) / 2,
+    padding: 20,
+    borderRadius: 24,
+    borderWidth: 1,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+      },
+      android: {
+        elevation: 2,
+      },
+      default: {
+        // ✅ Web : remplace les propriétés shadow* dépréciées
+        boxShadow: "0px 4px 10px rgba(0,0,0,0.05)",
+      },
+    }),
+  },
   statIconBox: { width: 50, height: 50, borderRadius: 15, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
   statCount: { fontSize: 24, fontWeight: '900' },
   statLabel: { fontSize: 13, fontWeight: '800', marginBottom: 4 },
@@ -265,5 +318,5 @@ const styles = StyleSheet.create({
   staffRow: { flexDirection: 'row', justifyContent: 'space-between' },
   staffItem: { alignItems: 'center', flex: 1 },
   staffNum: { fontSize: 22, fontWeight: '900' },
-  staffLabel: { fontSize: 10, fontWeight: '700', marginTop: 4, textTransform: 'uppercase' }
+  staffLabel: { fontSize: 10, fontWeight: '700', marginTop: 4, textTransform: 'uppercase' },
 });

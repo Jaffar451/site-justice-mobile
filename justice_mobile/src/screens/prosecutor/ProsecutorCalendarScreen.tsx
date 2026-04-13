@@ -1,3 +1,4 @@
+import StatusBadge from '../../components/ui/StatusBadge';
 // PATH: src/screens/prosecutor/ProsecutorCalendarScreen.tsx
 import React, { useState, useEffect } from 'react';
 import { 

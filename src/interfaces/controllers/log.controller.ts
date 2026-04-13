@@ -1,49 +1,32 @@
-// @ts-nocheck
-import { Response } from "express";
-import { AuditLog, User } from "../../models"; // Import centralisé recommandé
-import { CustomRequest } from "../../types/express-request";
+import { Request, Response } from "express";
+// Assurez-vous d'importer le bon modèle selon votre structure (auditLog.model.ts)
+import Log from "../../models/auditLog.model";
 
-/**
- * 📜 RÉCUPÉRATION DES LOGS SYSTÈME
- * Utilisé par le tableau de bord Admin pour surveiller l'activité en temps réel.
- */
-export const getLogs = async (req: CustomRequest, res: Response) => {
+
+export const listLogs = async (req: Request, res: Response) => {
   try {
-    // 1. Paramètres de pagination pour la performance
-    const limit = parseInt(req.query.limit as string) || 100;
-    const page = parseInt(req.query.page as string) || 1;
-    const offset = (page - 1) * limit;
-
-    // 2. Requête avec jointure vers l'utilisateur (opérateur)
-    const logs = await AuditLog.findAll({
-      order: [["createdAt", "DESC"]], // ✅ Utilise createdAt au lieu de timestamp
-      limit: limit,
-      offset: offset,
-      include: [{ 
-        model: User, 
-        as: "operator", // ✅ Alias harmonisé avec audit.controller
-        attributes: ["firstname", "lastname", "role", "organization"] 
-      }],
+    const logs = await Log.findAll({
+      order: [["timestamp", "DESC"]],
     });
+    return res.json(logs);
+  } catch (error) {
+    console.error("Error in listLogs:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
 
-    // 3. Retourne les données
-    return res.json({
-      success: true,
-      count: logs.length,
-      data: logs
-    });
+export const getLog = async (req: Request, res: Response) => {
+  try {
+    // Correction : forcer le typage en 'string' pour satisfaire Sequelize
+    const logId = req.params.id as string;
 
-  } catch (error: any) {
-    console.error("❌ [LOG_CONTROLLER_ERROR]:", error.message);
-    
-    // Aide au débogage si une colonne manque encore en BDD
-    if (error.message.includes("column")) {
-        return res.status(500).json({ 
-            message: "Erreur de structure de base de données (colonne manquante).",
-            error: error.message 
-        });
+    const item = await Log.findByPk(logId);
+    if (!item) {
+      return res.status(404).json({ message: "Log introuvable" });
     }
-
-    return res.status(500).json({ message: "Erreur lors de la récupération des journaux." });
+    return res.json(item);
+  } catch (error) {
+    console.error("Error in getLog:", error);
+    return res.status(500).json({ message: "Internal server error" });
   }
 };

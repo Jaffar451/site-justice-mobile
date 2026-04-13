@@ -1,255 +1,239 @@
-import { Request, Response } from 'express';
-import { User, Complaint, PoliceStation, AuditLog, sequelize } from '../../models'; 
-import { Op, Sequelize } from 'sequelize';
+// src/interfaces/controllers/admin.controller.ts
+import { Request, Response } from "express";
+import { Op } from "sequelize"; // ✅ Import correct de Op
+import { User, AuditLog, CaseModel, Complaint, sequelize } from "../../models";
 
-// --- CONFIGURATION (SIMULATION) ---
-// À terme, ces configs pourraient être en base de données
-let systemSecurityConfig = {
-  minLength: 8,
-  requireSpecialChar: true,
-  requireNumbers: true,
-  expirationDays: 90,
-  maxLoginAttempts: 5
-};
-
-let maintenanceConfig = {
-  isActive: false
-};
-
-/**
- * 🏥 SANTÉ DU SYSTÈME (Health Check)
- * Utilisé par l'écran "Maintenance" pour les voyants d'état.
- */
-export const getSystemHealth = async (req: Request, res: Response) => {
-  const start = Date.now();
-  let dbStatus = 'Disconnected';
-  let serverStatus = 'OK';
-
+// 📊 Stats Dashboard Admin
+export const getDashboardStats = async (_req: Request, res: Response) => {
   try {
-    // Test réel de connexion à la base de données
-    await sequelize.authenticate(); 
-    dbStatus = 'Connected';
+    const [usersCount, activeCases, pendingComplaints, recentLogs] =
+      await Promise.all([
+        User.count(),
+        CaseModel.count({ where: { status: "active" } }),
+        Complaint.count({ where: { status: "pending" } }),
+        AuditLog.count({
+          where: {
+            createdAt: {
+              [Op.gte]: new Date(Date.now() - 24 * 60 * 60 * 1000),
+            },
+          },
+        }),
+      ]);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        users: usersCount,
+        activeCases,
+        pendingComplaints,
+        recentAuditLogs: recentLogs,
+        timestamp: new Date().toISOString(),
+      },
+    });
   } catch (error) {
-    console.error("❌ Erreur Health Check DB:", error);
-    dbStatus = 'Disconnected';
-    serverStatus = 'Warning';
+    console.error("Erreur getDashboardStats:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des statistiques",
+    });
   }
-
-  const latency = Date.now() - start;
-
-  res.status(200).json({
-    success: true,
-    data: {
-      serverStatus: serverStatus,
-      dbStatus: dbStatus,
-      latency: latency,
-      version: '1.0.5',
-      uptime: process.uptime()
-    }
-  });
 };
 
-/**
- * 📜 RÉCUPÉRER LES LOGS SYSTÈME
- * Utilisé par l'écran "Flux Système".
- */
+// 🏥 Santé du Système
+export const getSystemHealth = async (_req: Request, res: Response) => {
+  try {
+    await sequelize.authenticate();
+
+    const health = {
+      status: "healthy",
+      database: "connected",
+      uptime: process.uptime(),
+      memory: process.memoryUsage(),
+      timestamp: new Date().toISOString(),
+    };
+
+    return res.status(200).json({ success: true, data: health });
+  } catch (error) {
+    console.error("Erreur getSystemHealth:", error);
+    return res.status(503).json({
+      success: false,
+      status: "unhealthy",
+      database: "disconnected",
+      error: String(error),
+      timestamp: new Date().toISOString(),
+    });
+  }
+};
+
+// 📜 Logs Système
 export const getSystemLogs = async (req: Request, res: Response) => {
   try {
-    const logs = await AuditLog.findAll({
-      order: [['createdAt', 'DESC']],
-      limit: 100, // On limite aux 100 derniers logs pour la performance
-      include: [
-        {
-          model: User,
-          as: 'actor', // Alias défini dans le modèle AuditLog
-          attributes: ['id', 'firstname', 'lastname', 'role']
-        }
-      ]
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 50;
+    const level = req.query.level as string;
+
+    const where: any = {};
+    if (level) where.level = level;
+
+    const logs = await AuditLog.findAndCountAll({
+      where,
+      order: [["createdAt", "DESC"]],
+      limit,
+      offset: (page - 1) * limit,
+      attributes: [
+        "id",
+        "action",
+        ["resource_type", "entity"],
+        ["resource_id", "entityId"],
+        ["user_id", "userId"],
+        "created_at",
+      ],
     });
 
-    // Formatage pour le frontend
-    const formattedLogs = logs.map((log: any) => ({
-      id: log.id,
-      action: log.action,
-      method: log.method,
-      endpoint: log.endpoint,
-      ip: log.ipAddress,
-      details: log.details,
-      status: parseInt(log.status) || 200,
-      timestamp: log.createdAt,
-      actor: log.actor ? {
-        firstname: log.actor.firstname,
-        lastname: log.actor.lastname,
-        role: log.actor.role
-      } : null
-    }));
-
-    res.status(200).json(formattedLogs);
+    return res.status(200).json({
+      success: true,
+      data: logs.rows,
+      pagination: {
+        total: logs.count,
+        page,
+        limit,
+        pages: Math.ceil(logs.count / limit),
+      },
+    });
   } catch (error) {
-    console.error("❌ Erreur logs:", error);
-    res.status(500).json({ message: "Erreur lors de la récupération des logs." });
+    console.error("Erreur getSystemLogs:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des logs",
+    });
   }
 };
 
-/**
- * 📊 RÉCUPÉRER LES STATISTIQUES DU DASHBOARD
- * Utilisé par l'écran d'accueil Admin.
- */
-export const getDashboardStats = async (req: Request, res: Response) => {
+// 🔐 Paramètres de Sécurité (lecture)
+export const getSecuritySettings = async (_req: Request, res: Response) => {
   try {
-    // 1. 🟢 RÉPARTITION PAR STATUT (Pour le PieChart)
-    let statusStats: any[] = [];
-    try {
-      const statusStatsRaw = await Complaint.findAll({
-        attributes: [
-          'status',
-          [Sequelize.fn('COUNT', Sequelize.col('id')), 'count']
-        ],
-        group: ['status'],
-        raw: true
-      });
+    const settings = {
+      twoFactorEnabled: process.env.TWO_FACTOR_ENABLED === "true",
+      sessionTimeout: parseInt(process.env.SESSION_TIMEOUT || "3600"),
+      passwordPolicy: {
+        minLength: parseInt(process.env.PASSWORD_MIN_LENGTH || "8"),
+        requireUppercase: process.env.PASSWORD_REQUIRE_UPPER === "true",
+        requireNumbers: process.env.PASSWORD_REQUIRE_NUMBERS === "true",
+        requireSpecial: process.env.PASSWORD_REQUIRE_SPECIAL === "true",
+      },
+      ipWhitelist: (process.env.ADMIN_IP_WHITELIST || "")
+        .split(",")
+        .filter(Boolean),
+      lastUpdated: new Date().toISOString(),
+    };
 
-      statusStats = statusStatsRaw.map((s: any) => ({
-        status: (s.status || 'Inconnu').replace(/_/g, ' ').toUpperCase(),
-        count: s.count ? s.count.toString() : "0"
-      }));
-    } catch (e) {
-      console.warn("⚠️ Erreur stats statuts", e);
-    }
-
-    // 2. 🔵 RÉPARTITION GÉOGRAPHIQUE (Pour le BarChart)
-    let regionalStats: any[] = [];
-    try {
-      const countStations = await PoliceStation.count();
-      if (countStations > 0) {
-        // Adaptez 'city' selon votre modèle (peut être 'district' ou 'region')
-        const groupByCol = 'city'; 
-        
-        const regionalStatsRaw = await PoliceStation.findAll({
-          attributes: [
-            groupByCol,
-            [Sequelize.fn('COUNT', Sequelize.col('id')), 'total']
-          ],
-          group: [groupByCol],
-          raw: true
-        });
-
-        regionalStats = regionalStatsRaw.map((r: any) => ({
-          district: r[groupByCol] || 'Non défini',
-          total: r.total ? r.total.toString() : "0"
-        }));
-      }
-    } catch (e) {
-      console.warn("⚠️ Erreur stats régionales", e);
-    }
-
-    // 3. 📈 COMPTEURS GLOBAUX (KPIs)
-    let complaints_total = 0;
-    let users_total = 0;
-    let logs_total = 0;
-
-    // Utilisation de try/catch individuels pour ne pas tout bloquer si une table échoue
-    try { complaints_total = await Complaint.count(); } catch (e) {}
-    try { users_total = await User.count(); } catch (e) {} // ✅ C'est ici qu'on compte les utilisateurs
-    try { logs_total = await AuditLog.count(); } catch (e) {}
-
-    // Calculs dérivés pour l'activité
-    const closedStatuses = ['classée_sans_suite', 'jugée', 'archivée', 'cloture'];
-    let complaints_closed = 0;
-    try {
-        complaints_closed = await Complaint.count({ where: { status: { [Op.in]: closedStatuses } } });
-    } catch(e) {}
-    
-    const complaints_open = Math.max(0, complaints_total - complaints_closed);
-
-    let police_users = 0;
-    try {
-        police_users = await User.count({ 
-            where: { role: { [Op.in]: ['police', 'commissaire', 'opj', 'gendarme'] } } 
-        });
-    } catch(e) {}
-
-    // 4. ACTIVITÉ RÉCENTE (Optionnel)
-    let recentActivity: any[] = [];
-    try {
-        recentActivity = await AuditLog.findAll({
-            limit: 5,
-            order: [['createdAt', 'DESC']],
-            include: [{ 
-                model: User, 
-                as: 'actor', 
-                attributes: ['firstname', 'lastname', 'role'],
-                required: false 
-            }]
-        });
-    } catch (e) {
-        console.warn("⚠️ Impossible de récupérer les logs récents", e);
-    }
-
-    // ✅ RÉPONSE FINALE
-    res.status(200).json({
-      success: true,
-      data: {
-        statusStats,
-        regionalStats,
-        timingStats: { avg_days: 14 }, // Donnée simulée (ou à calculer)
-        summary: {
-          complaints_total,
-          complaints_open,
-          complaints_closed,
-          users_total, // ✅ Envoyé au frontend (sera mappé vers usersCount)
-          police_users,
-          logs_total,
-          systemHealth: maintenanceConfig.isActive ? 'Maintenance' : '100%'
-        },
-        recentActivity
-      }
-    });
-
-  } catch (error: any) {
-    console.error('❌ Erreur CRITIQUE stats admin:', error);
-    // Retour de secours pour ne pas crasher l'appli mobile
-    res.json({ 
-      success: true,
-      data: {
-        statusStats: [],
-        regionalStats: [],
-        summary: { complaints_total: 0, users_total: 0, police_users: 0 },
-        recentActivity: []
-      }
+    return res.status(200).json({ success: true, data: settings });
+  } catch (error) {
+    console.error("Erreur getSecuritySettings:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des paramètres de sécurité",
     });
   }
 };
 
-/**
- * 🔐 RÉCUPÉRER LA SÉCURITÉ
- */
-export const getSecuritySettings = async (req: Request, res: Response) => {
-  res.json({ success: true, data: systemSecurityConfig });
-};
-
-/**
- * 🛠️ MAJ SÉCURITÉ
- */
+// 🔐 Mise à jour des Paramètres de Sécurité
 export const updateSecuritySettings = async (req: Request, res: Response) => {
-  const updates = req.body;
-  systemSecurityConfig = { ...systemSecurityConfig, ...updates };
-  res.json({ success: true, message: "Paramètres mis à jour", data: systemSecurityConfig });
+  try {
+    const { twoFactorEnabled, sessionTimeout, passwordPolicy } = req.body;
+
+    const updated = {
+      twoFactorEnabled:
+        twoFactorEnabled ?? process.env.TWO_FACTOR_ENABLED === "true",
+      sessionTimeout:
+        sessionTimeout ?? parseInt(process.env.SESSION_TIMEOUT || "3600"),
+      passwordPolicy: passwordPolicy ?? {
+        minLength: 8,
+        requireUppercase: true,
+        requireNumbers: true,
+        requireSpecial: true,
+      },
+      updatedAt: new Date().toISOString(),
+    };
+
+    await AuditLog.create({
+      action: "SECURITY_SETTINGS_UPDATED",
+      entity: "System",
+      userId: (req as any).user?.id,
+      metadata: { changes: updated }, // ✅ "metadata" et non "meta"
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Paramètres de sécurité mis à jour",
+      data: updated,
+    });
+  } catch (error) {
+    console.error("Erreur updateSecuritySettings:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Erreur lors de la mise à jour des paramètres",
+    });
+  }
 };
 
-/**
- * 🚧 STATUT MAINTENANCE (GET)
- */
-export const getMaintenanceStatus = async (req: Request, res: Response) => {
-  res.json({ success: true, data: maintenanceConfig });
+// 🛠️ Statut de Maintenance (lecture)
+export const getMaintenanceStatus = async (_req: Request, res: Response) => {
+  try {
+    const maintenance = {
+      enabled: process.env.MAINTENANCE_MODE === "true",
+      message: process.env.MAINTENANCE_MESSAGE || "Maintenance en cours",
+      scheduledStart: process.env.MAINTENANCE_START || null,
+      scheduledEnd: process.env.MAINTENANCE_END || null,
+      affectedServices: (process.env.MAINTENANCE_SERVICES || "api,admin").split(
+        ",",
+      ),
+    };
+
+    return res.status(200).json({ success: true, data: maintenance });
+  } catch (error) {
+    console.error("Erreur getMaintenanceStatus:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération du statut de maintenance",
+    });
+  }
 };
 
-/**
- * 🚨 MAJ MAINTENANCE (POST)
- */
+// 🛠️ Mise à jour du Statut de Maintenance
 export const setMaintenanceStatus = async (req: Request, res: Response) => {
-  const { isActive } = req.body;
-  maintenanceConfig.isActive = !!isActive;
-  console.log(`🔧 Mode maintenance ${isActive ? 'ACTIVÉ' : 'DÉSACTIVÉ'}`);
-  res.json({ success: true, message: isActive ? "Maintenance activée" : "Système actif", data: maintenanceConfig });
+  try {
+    const { enabled, message, scheduledStart, scheduledEnd, affectedServices } =
+      req.body;
+
+    const status = {
+      enabled: enabled ?? false,
+      message: message || "Maintenance en cours",
+      scheduledStart: scheduledStart || null,
+      scheduledEnd: scheduledEnd || null,
+      affectedServices: affectedServices || ["api", "admin"],
+      updatedAt: new Date().toISOString(),
+      updatedBy: (req as any).user?.id,
+    };
+
+    await AuditLog.create({
+      action: "MAINTENANCE_STATUS_CHANGED",
+      entity: "System",
+      userId: (req as any).user?.id,
+      metadata: { previous: {}, current: status }, // ✅ Syntaxe objet correcte
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `Mode maintenance ${enabled ? "activé" : "désactivé"}`,
+      data: status,
+    });
+  } catch (error) {
+    console.error("Erreur setMaintenanceStatus:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Erreur lors de la mise à jour du statut de maintenance",
+    });
+  }
 };
+

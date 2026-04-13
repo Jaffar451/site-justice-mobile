@@ -9,4 +9,5 @@ router.get("/", custody_controller_1.getAllCustodies);
 router.get("/:id", custody_controller_1.getCustody);
 router.put("/:id", custody_controller_1.updateCustody);
 router.delete("/:id", custody_controller_1.deleteCustody);
+router.get("/active", custody_controller_1.getActiveCustodies);
 exports.default = router;

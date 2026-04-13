@@ -20,7 +20,7 @@ export const logActivity = async (
   action: string,
   resourceType: string,
   resourceId: string | number,
-  severity: 'info' | 'warning' | 'critical' = 'info'
+  severity: "info" | "warning" | "critical" = "info",
 ) => {
   try {
     await AuditLog.create({
@@ -29,12 +29,15 @@ export const logActivity = async (
       action: action,
 
       // 2. Métadonnées techniques (Synchronisées avec les colonnes SQL ajoutées)
-      method: req.method || 'INTERNAL',
-      endpoint: req.originalUrl || 'N/A',
-      
+      method: req.method || "INTERNAL",
+      endpoint: req.originalUrl || "N/A",
+
       // Extraction sécurisée de l'IP (gestion proxy incluse)
-      ipAddress: (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || 'unknown',
-      userAgent: req.headers['user-agent'] || 'unknown',
+      ipAddress:
+        (req.headers["x-forwarded-for"] as string) ||
+        req.socket.remoteAddress ||
+        "unknown",
+      userAgent: req.headers["user-agent"] || "unknown",
 
       // 3. Métadonnées métier
       resourceType: resourceType,
@@ -43,9 +46,9 @@ export const logActivity = async (
 
       // ✅ CORRECTION : Ajout du champ 'details' obligatoire
       // On construit une description dynamique pour faciliter la lecture côté Admin
-      details: `Action: ${action} | Ressource: ${resourceType} (#${resourceId}) | Par: ${req.user?.firstname || 'Système'}`,
+      details: `Action: ${action} | Ressource: ${resourceType} (#${resourceId}) | Par: ${req.user?.firstname || "Système"}`,
 
-      createdAt: new Date()
+      createdAt: new Date(),
     });
   } catch (error: any) {
     // On log l'erreur en console mais on ne bloque pas le flux principal de l'application

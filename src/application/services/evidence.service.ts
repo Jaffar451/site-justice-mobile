@@ -7,9 +7,9 @@ export class EvidenceService {
   async getEvidenceByCase(caseId: number) {
     // Si caseId est 0, on peut retourner tout (utile pour l'admin)
     const filter = caseId === 0 ? {} : { caseId };
-    return await Evidence.findAll({ 
+    return await Evidence.findAll({
       where: filter,
-      order: [['createdAt', 'DESC']]
+      order: [["createdAt", "DESC"]],
     });
   }
 
@@ -40,7 +40,7 @@ export class EvidenceService {
       type: data.type,
       fileUrl: data.fileUrl,
       filename: data.filename,
-      hash: data.hash
+      hash: data.hash,
     });
   }
 
@@ -51,7 +51,7 @@ export class EvidenceService {
   async updateEvidence(id: number, data: Partial<Evidence>) {
     const evidence = await Evidence.findByPk(id);
     if (!evidence) return null;
-    
+
     return await evidence.update(data);
   }
 
@@ -61,7 +61,7 @@ export class EvidenceService {
   async deleteEvidence(id: number) {
     const evidence = await Evidence.findByPk(id);
     if (!evidence) return null;
-    
+
     await evidence.destroy();
     return true;
   }

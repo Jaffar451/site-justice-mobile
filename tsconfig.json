@@ -1,29 +1,27 @@
-// @ts-nocheck
 {
   "compilerOptions": {
-    "target": "es2020",         // 👈 Plus moderne pour Node 14+ (meilleure gestion async)
-    "module": "commonjs",
+    "target": "es2020",
+    "module": "Node16",
     "rootDir": "./src",
     "outDir": "./dist",
+
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
 
-    // --- SÉCURITÉ TYPESCRIPT ---
-    // Je te conseille de passer strict à true plus tard, 
-    // mais pour l'instant, garde false si tu veux avancer vite.
-    "strict": false, 
-    
-    // --- SPÉCIFIQUE SEQUELIZE ---
-    // Si un jour tu passes en "strict: true", il faudra ABSOLUMENT mettre celle-ci à false
-    // car Sequelize initialise les propriétés "magiquement", pas dans le constructeur.
-    "strictPropertyInitialization": false, 
+    "types": ["node"],
+
+    "strict": false,
+    "strictPropertyInitialization": false,
 
     "skipLibCheck": true,
-    
-    // --- DÉCORATEURS (Obligatoire) ---
+
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
+    "emitDecoratorMetadata": true,
+
+    "moduleResolution": "node16",
+    "resolveJsonModule": true
   },
+
   "include": ["src/**/*"],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "dist"]
 }

@@ -1,3 +1,4 @@
+import StatusBadge from '../../components/ui/StatusBadge';
 import React, { useState, useMemo, useCallback } from "react";
 import { 
   View, 
@@ -81,7 +82,7 @@ export default function LawyerCaseListScreen({ navigation }: LawyerScreenProps<'
       jugée: { label: "DÉCISION RENDUE", color: "#64748B" },
       non_lieu: { label: "NON-LIEU", color: "#94A3B8" },
     };
-    return config[status] || { label: status.toUpperCase().replace('_', ' '), color: "#94A3B8" };
+    return config[status] || { label: status.replace(/_/g, ' '), color: "#94A3B8" };
   };
 
   const renderCaseItem = ({ item }: { item: Complaint }) => {

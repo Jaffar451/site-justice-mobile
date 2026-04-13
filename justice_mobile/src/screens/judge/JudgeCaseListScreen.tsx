@@ -1,5 +1,6 @@
+import StatusBadge from '../../components/ui/StatusBadge';
 // PATH: src/screens/judge/JudgeCaseList.tsx
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, memo } from 'react';
 import { 
   View, 
   Text, 
@@ -185,7 +186,7 @@ export default function JudgeCaseList({ navigation }: JudgeScreenProps<'JudgeCas
               </View>
           ) : (
             <View style={styles.footerRow}>
-               <Text style={[styles.statusText, { color: JUDGE_ACCENT }]}>{item.detentionStatus.toUpperCase()}</Text>
+               <Text style={[styles.statusText, { color: JUDGE_ACCENT }]}>{item.detentionStatus.replace(/_/g, ' ')}</Text>
                <Ionicons name="chevron-forward" size={18} color={JUDGE_ACCENT} />
             </View>
           )}
@@ -255,6 +256,10 @@ export default function JudgeCaseList({ navigation }: JudgeScreenProps<'JudgeCas
                 renderItem={renderItem}
                 contentContainerStyle={styles.listContent}
                 showsVerticalScrollIndicator={false}
+              removeClippedSubviews={true}
+              maxToRenderPerBatch={8}
+              windowSize={5}
+              initialNumToRender={10}
                 refreshControl={
                     <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={JUDGE_ACCENT} />
                 }

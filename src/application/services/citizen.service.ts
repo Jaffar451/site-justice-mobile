@@ -1,5 +1,5 @@
-import {sequelize} from '../../config/database';
-import { QueryTypes } from 'sequelize';
+import { sequelize } from "../../config/database";
+import { QueryTypes } from "sequelize";
 
 export class CitizenService {
   /**
@@ -23,7 +23,7 @@ export class CitizenService {
 
     return await sequelize.query(query, {
       replacements: { citizenId },
-      type: QueryTypes.SELECT
+      type: QueryTypes.SELECT,
     });
   }
 
@@ -40,7 +40,7 @@ export class CitizenService {
 
     return await sequelize.query(query, {
       replacements: { userId },
-      type: QueryTypes.SELECT
+      type: QueryTypes.SELECT,
     });
   }
 }

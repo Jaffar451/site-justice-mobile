@@ -16,6 +16,7 @@ export type UserRole =
   | 'prison_director'
   | 'citizen' 
   | 'lawyer';
+   'police';
 
 /**
  * 🏛️ Types d'organisations officiels du Niger

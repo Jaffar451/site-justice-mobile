@@ -1,21 +1,33 @@
-// PATH: src/interfaces/routes/user.routes.ts
 import { Router } from "express";
-import * as userController from "../controllers/user.controller";
-import { authenticate, isAdmin } from "../../middleware/auth.middleware"; 
+// Importez chaque fonction nommément pour éviter les 'undefined'
+import {
+  getMe,
+  updateMe,
+  listUsers,
+  createUser,
+  getUser,
+  updateUser,
+  deleteUser,
+  updatePushToken,
+} from "../controllers/user.controller";
+import { authenticate, isAdmin } from "../../middleware/auth.middleware";
 
 const router = Router();
 
 // 🟢 PERSONNEL
-router.get("/me", authenticate, userController.getMe);
-router.patch("/me", authenticate, userController.updateMe); // ✅ Maintenant reconnu
+router.get("/me", authenticate, getMe);
+router.patch("/me", authenticate, updateMe);
+
+// 🔔 PUSH TOKEN
+router.patch("/push-token", authenticate, updatePushToken);
 
 // 🔴 ADMIN
-router.get("/", authenticate, isAdmin, userController.listUsers);
-router.post("/", authenticate, isAdmin, userController.createUser);
+router.get("/", authenticate, isAdmin, listUsers);
+router.post("/", authenticate, isAdmin, createUser);
 
 // 🟠 INDIVIDUEL
-router.get("/:id", authenticate, isAdmin, userController.getUser); // ✅ Maintenant reconnu
-router.patch("/:id", authenticate, isAdmin, userController.updateUser);
-router.delete("/:id", authenticate, isAdmin, userController.deleteUser);
+router.get("/:id", authenticate, isAdmin, getUser);
+router.patch("/:id", authenticate, isAdmin, updateUser);
+router.delete("/:id", authenticate, isAdmin, deleteUser);
 
 export default router;

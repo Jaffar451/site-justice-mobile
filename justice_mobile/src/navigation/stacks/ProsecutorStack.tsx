@@ -29,7 +29,7 @@ const Stack = createNativeStackNavigator<ProsecutorStackParamList>();
 export default function ProsecutorStack() {
   return (
     <Stack.Navigator 
-      initialRouteName="ProsecutorHome" 
+      initialRouteName="ProsecutorDashboard" 
       screenOptions={{ 
         headerShown: false,
         animation: 'slide_from_right'
@@ -38,7 +38,6 @@ export default function ProsecutorStack() {
       {/* ==========================================
           ⚖️ PARQUET & DOSSIERS
       ========================================== */}
-      <Stack.Screen name="ProsecutorHome" component={ProsecutorHomeScreen} />
       {/* Alias Dashboard vers Home si pas d'écran distinct */}
       <Stack.Screen name="ProsecutorDashboard" component={ProsecutorHomeScreen} /> 
       

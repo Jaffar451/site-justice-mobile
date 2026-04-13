@@ -1,4 +1,6 @@
 {
-    "postman.settings.dotenv-detection-notification-visibility": false,
-    "files.autoSave": "onWindowChange"
+  "js/ts.tsserver.experimental.enableProjectDiagnostics": false,
+  "js/ts.validate.enabled": true,
+  "postman.settings.dotenv-detection-notification-visibility": false,
+  "files.autoSave": "onWindowChange"
 }

@@ -18,7 +18,7 @@ export const downloadAndSave = async (url: string, title: string, id: string) =>
   try {
     // Créer un nom de fichier unique dans le dossier DOCUMENTS (permanent)
     const filename = `${title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
-    const fileUri = FileSystem.documentDirectory + filename;
+    const fileUri = (FileSystem.Paths.document.uri ?? '') + filename;
 
     // Télécharger
     const downloadRes = await FileSystem.downloadAsync(url, fileUri);

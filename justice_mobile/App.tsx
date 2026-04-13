@@ -1,10 +1,12 @@
 import React, { useEffect, useState, useRef } from "react";
-import { View, ActivityIndicator, Text, StyleSheet } from "react-native";
+import { View, ActivityIndicator, Text, StyleSheet, Platform } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Provider as PaperProvider } from "react-native-paper";
 import { StatusBar } from "expo-status-bar";
-import * as Notifications from 'expo-notifications';
+
+// Import typé sans risque pour le Web
+import type { Notification, NotificationResponse, Subscription } from 'expo-notifications';
 
 // ✅ UI & Contextes
 import { AppThemeProvider } from "./src/theme/AppThemeProvider";
@@ -18,14 +20,18 @@ import { navigationRef } from "./src/navigation/RootNavigation";
 import { useAuthStore } from "./src/stores/useAuthStore";
 import { registerForPushNotificationsAsync } from "./src/services/notification.service";
 
-// 🔔 Configuration globale des notifications (Primordial pour le SOS)
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+// 🔔 Initialisation conditionnelle
+let Notifications: any = null;
+if (Platform.OS !== 'web') {
+  Notifications = require('expo-notifications');
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    }),
+  });
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -34,68 +40,42 @@ const queryClient = new QueryClient({
 });
 
 export default function App() {
-  const { hydrate, user } = useAuthStore();
+  const { user } = useAuthStore();
   const [isReady, setIsReady] = useState(false);
   
-  // ✅ CORRECTION : Utilisation du type spécifique à expo-notifications
-  const notificationListener = useRef<Notifications.Subscription>();
-  const responseListener = useRef<Notifications.Subscription>();
+  const notificationListener = useRef<Subscription | null>(null);
+  const responseListener = useRef<Subscription | null>(null);
 
   useEffect(() => {
-    async function initialize() {
-      try {
-        // Hydratation des données utilisateurs (Zustand)
-        await hydrate();
-      } catch (error) {
-        console.error("App - [ERROR] Hydratation:", error);
-      } finally {
-        setIsReady(true);
-      }
-    }
-    initialize();
+    // Initialisation simple
+    setIsReady(true);
 
-    // 🚨 GESTION DES NOTIFICATIONS SOS (Réception quand l'app est ouverte)
-    notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
-      console.log("App - [SOS] Alerte reçue en direct:", notification.request.content.data);
-    });
+    // 🚨 GESTION DES NOTIFICATIONS : Uniquement Mobile
+    if (Platform.OS !== 'web' && Notifications) {
+      notificationListener.current = Notifications.addNotificationReceivedListener((notification: Notification) => {
+        console.log("Alerte reçue:", notification.request.content.data);
+      });
 
-    // 🚨 GESTION DU CLIC (Ouverture de l'écran SOS depuis la bannière)
-    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
-      const data = response.notification.request.content.data as { screen?: string, sosId?: string };
-      
-      if (data?.screen && navigationRef.isReady()) {
-        // @ts-ignore - Redirection vers l'écran SOS via la navigationRef (RootNavigation)
-        navigationRef.navigate(data.screen, { sosId: data.sosId });
-      }
-    });
-
-    return () => {
-      if (notificationListener.current) {
-        Notifications.removeNotificationSubscription(notificationListener.current);
-      }
-      if (responseListener.current) {
-        Notifications.removeNotificationSubscription(responseListener.current);
-      }
-    };
-  }, [hydrate]);
-
-  // ✅ Enregistrement du Token Push (Uniquement si l'utilisateur est authentifié)
-  useEffect(() => {
-    if (isReady && user) {
-      registerForPushNotificationsAsync().then(token => {
-        if (token) {
-          console.log("App - [INFO] Token Push actif pour les SOS");
+      responseListener.current = Notifications.addNotificationResponseReceivedListener((response: NotificationResponse) => {
+        const data = response.notification.request.content.data as { screen?: string, sosId?: string };
+        if (data?.screen && navigationRef.isReady()) {
+          navigationRef.navigate(data.screen as any, { sosId: data.sosId });
         }
       });
     }
-  }, [isReady, user]);
+
+    return () => {
+      if (Platform.OS !== 'web' && Notifications) {
+        notificationListener.current?.remove();
+        responseListener.current?.remove();
+      }
+    };
+  }, []);
 
   if (!isReady) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#1A237E" />
-        <Text style={styles.loadingText}>RÉPUBLIQUE DU NIGER</Text>
-        <Text style={styles.subLoadingText}>Système e-Justice • Chargement sécurisé...</Text>
       </View>
     );
   }
@@ -107,11 +87,8 @@ export default function App() {
           <PaperProvider>
             <NetworkBanner />
             <SyncManager />
-            <StatusBar style="auto" translucent />
-            
-            {/* ✅ AppNavigator gère maintenant la navigationRef via RootNavigation */}
+            <StatusBar style="auto" />
             <AppNavigator /> 
-            
             <ToastManager />
           </PaperProvider>
         </AppThemeProvider>
@@ -121,24 +98,5 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  loadingContainer: { 
-    flex: 1, 
-    justifyContent: "center", 
-    alignItems: "center", 
-    backgroundColor: "#FFFFFF" 
-  },
-  loadingText: { 
-    marginTop: 20, 
-    fontSize: 14, 
-    color: "#1A237E", 
-    fontWeight: "900", 
-    letterSpacing: 3, 
-    textAlign: 'center' 
-  },
-  subLoadingText: { 
-    marginTop: 10, 
-    fontSize: 12, 
-    color: "#64748B", 
-    fontWeight: "500" 
-  }
+  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#FFFFFF" }
 });

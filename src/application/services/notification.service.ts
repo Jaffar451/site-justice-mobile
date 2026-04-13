@@ -1,6 +1,6 @@
 // PATH: src/application/services/notification.service.ts
-import nodemailer from 'nodemailer';
-import axios from 'axios';
+import nodemailer from "nodemailer";
+import axios from "axios";
 
 export class NotificationService {
   private transporter;
@@ -9,7 +9,7 @@ export class NotificationService {
     this.transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST || "smtp.mailtrap.io",
       port: Number(process.env.SMTP_PORT) || 2525,
-      secure: process.env.SMTP_SECURE === 'true', // true pour 465, false pour les autres
+      secure: process.env.SMTP_SECURE === "true", // true pour 465, false pour les autres
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
@@ -20,9 +20,14 @@ export class NotificationService {
   /**
    * 📧 1. ENVOI RÉCÉPISSÉ DE PLAINTE (CITOYEN)
    */
-  async sendComplaintReceiptEmail(to: string, citizenName: string, trackingCode: string, pdfBuffer: Buffer) {
+  async sendComplaintReceiptEmail(
+    to: string,
+    citizenName: string,
+    trackingCode: string,
+    pdfBuffer: Buffer,
+  ) {
     const mailOptions = {
-      from: `"e-Justice Niger" <${process.env.SMTP_FROM || 'no-reply@justice.ne'}>`,
+      from: `"e-Justice Niger" <${process.env.SMTP_FROM || "no-reply@justice.ne"}>`,
       to,
       subject: `📜 Récépissé Officiel - Dossier ${trackingCode}`,
       html: this.getHtmlTemplate(`
@@ -34,7 +39,9 @@ export class NotificationService {
         </p>
         <p>Vous trouverez votre récépissé officiel en pièce jointe de ce mail. Ce document contient un QR Code permettant de vérifier l'authenticité de votre dossier auprès de toute administration.</p>
       `),
-      attachments: [{ filename: `Recepisse_${trackingCode}.pdf`, content: pdfBuffer }],
+      attachments: [
+        { filename: `Recepisse_${trackingCode}.pdf`, content: pdfBuffer },
+      ],
     };
 
     return this.sendMail(mailOptions);
@@ -43,7 +50,13 @@ export class NotificationService {
   /**
    * 📎 2. ENVOI GÉNÉRIQUE (RAPPORTS & STATISTIQUES)
    */
-  async sendMailWithAttachment(to: string, subject: string, body: string, filename: string, content: Buffer) {
+  async sendMailWithAttachment(
+    to: string,
+    subject: string,
+    body: string,
+    filename: string,
+    content: Buffer,
+  ) {
     const mailOptions = {
       from: `"SIJ Niger - Statistiques" <stats@justice.ne>`,
       to,
@@ -51,7 +64,7 @@ export class NotificationService {
       html: this.getHtmlTemplate(`
         <h2 style="color: #2c3e50;">Rapport du Système d'Information Judiciaire</h2>
         <p>${body}</p>
-        <p style="font-size: 0.9em; color: #7f8c8d;">Document généré automatiquement le ${new Date().toLocaleDateString('fr-FR')}.</p>
+        <p style="font-size: 0.9em; color: #7f8c8d;">Document généré automatiquement le ${new Date().toLocaleDateString("fr-FR")}.</p>
       `),
       attachments: [{ filename, content }],
     };
@@ -67,7 +80,7 @@ export class NotificationService {
     console.log(`[SMS GATEWAY NIGER] To: ${phoneNumber} | Msg: ${message}`);
 
     // Exemple d'intégration réelle avec un agrégateur local
-    if (process.env.NODE_ENV === 'production') {
+    if (process.env.NODE_ENV === "production") {
       try {
         // Simulation d'appel API (Ex: Infobip, Twilio, ou Agrégateur local au Niger)
         // await axios.post(process.env.SMS_API_URL!, {

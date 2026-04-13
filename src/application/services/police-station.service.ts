@@ -1,16 +1,18 @@
-import { QueryTypes } from 'sequelize';
-import { sequelize } from '../../config/database';
-import PoliceStation from '../../models/policeStation.model';
+import { QueryTypes } from "sequelize";
+import { sequelize } from "../../config/database";
+import PoliceStation from "../../models/policeStation.model";
 
 export class PoliceStationService {
-  
   /**
    * 🏢 1. LISTE ADMINISTRATIVE COMPLÈTE
    * Utilisée par les administrateurs pour la gestion du registre (CRUD).
    */
   async getAll() {
     return await PoliceStation.findAll({
-      order: [['city', 'ASC'], ['name', 'ASC']]
+      order: [
+        ["city", "ASC"],
+        ["name", "ASC"],
+      ],
     });
   }
 
@@ -21,9 +23,22 @@ export class PoliceStationService {
   async getPublicDirectory() {
     return await PoliceStation.findAll({
       // ✅ city ajouté pour permettre aux citoyens de filtrer par localité
-      attributes: ['id', 'name', 'type', 'city', 'district', 'address', 'latitude', 'longitude', 'phone'],
-      where: { status: 'active' }, 
-      order: [['city', 'ASC'], ['district', 'ASC']]
+      attributes: [
+        "id",
+        "name",
+        "type",
+        "city",
+        "district",
+        "address",
+        "latitude",
+        "longitude",
+        "phone",
+      ],
+      where: { status: "en cours" },
+      order: [
+        ["city", "ASC"],
+        ["district", "ASC"],
+      ],
     });
   }
 
@@ -54,8 +69,8 @@ export class PoliceStationService {
       ORDER BY ps.city ASC, ps.name ASC;
     `;
 
-    return await sequelize.query(query, { 
-      type: QueryTypes.SELECT 
+    return await sequelize.query(query, {
+      type: QueryTypes.SELECT,
     });
   }
 }

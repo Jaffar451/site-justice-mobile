@@ -10,8 +10,8 @@ export const initSocket = (server: HttpServer) => {
   io = new Server(server, {
     cors: {
       origin: "*", // En production, remplacez par l'URL de votre application/API
-      methods: ["GET", "POST"]
-    }
+      methods: ["GET", "POST"],
+    },
   });
 
   // 🛡️ MIDDLEWARE DE SÉCURITÉ : Vérifie le Token avant la connexion
@@ -34,7 +34,9 @@ export const initSocket = (server: HttpServer) => {
 
   io.on("connection", (socket) => {
     const userId = (socket as any).user?.id;
-    console.log(`🔌 Utilisateur authentifié connecté : ${userId} (Socket: ${socket.id})`);
+    console.log(
+      `🔌 Utilisateur authentifié connecté : ${userId} (Socket: ${socket.id})`,
+    );
 
     /**
      * Un policier rejoint une "salle" (room) spécifique à son commissariat

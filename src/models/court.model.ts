@@ -1,10 +1,18 @@
-import { Table, Column, Model, DataType, HasMany, CreatedAt, UpdatedAt } from 'sequelize-typescript';
-import User from './user.model';
-import CaseModel from './case.model';
-import Hearing from './hearing.model';
-import Decision from './decision.model';
+import {
+  Table,
+  Column,
+  Model,
+  DataType,
+  HasMany,
+  CreatedAt,
+  UpdatedAt,
+} from "sequelize-typescript";
+import User from "./user.model";
+import CaseModel from "./case.model";
+import Hearing from "./hearing.model";
+import Decision from "./decision.model";
 
-@Table({ tableName: 'courts', timestamps: true, underscored: true })
+@Table({ tableName: "courts", timestamps: true, underscored: true })
 export default class Court extends Model {
   @Column({ type: DataType.STRING, allowNull: false })
   name!: string;
@@ -22,16 +30,16 @@ export default class Court extends Model {
   status!: string;
 
   // --- RELATIONS ---
-  @HasMany(() => User, { as: 'personnelCourt' })
+  @HasMany(() => User, { as: "personnelCourt" })
   personnelCourt!: User[];
 
-  @HasMany(() => CaseModel, { as: 'courtCases' })
+  @HasMany(() => CaseModel, { as: "courtCases" })
   courtCases!: CaseModel[];
 
-  @HasMany(() => Hearing, { as: 'hearings' })
+  @HasMany(() => Hearing, { as: "hearings" })
   hearings!: Hearing[];
 
-  @HasMany(() => Decision, { as: 'decisions' })
+  @HasMany(() => Decision, { as: "decisions" })
   decisions!: Decision[];
 
   @CreatedAt createdAt!: Date;

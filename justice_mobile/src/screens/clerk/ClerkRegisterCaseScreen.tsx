@@ -75,7 +75,7 @@ export default function ClerkRegisterCaseScreen({ navigation, route }: ClerkScre
       // 1. Immatriculation au Répertoire Général
       await updateComplaint(complaintId, {
         caseNumber: caseNumber.toUpperCase(),
-        status: "audience_programmée", 
+        status: "figée", 
         assignedJudge: judgeName,
         notes: notes
       });

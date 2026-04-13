@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated, Dimensions } from 'react-native';
+import { View, StyleSheet, Animated, Dimensions, Platform } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -7,13 +7,29 @@ const SkeletonItem = ({ width: w, height: h, style }: any) => {
   const opacity = useRef(new Animated.Value(0.3)).current;
 
   useEffect(() => {
+    // ✅ CORRECTION: Platform.OS !== 'web' pour useNativeDriver
+    const useNativeDriver = Platform.OS !== 'web';
+    
     Animated.loop(
       Animated.sequence([
-        Animated.timing(opacity, { toValue: 0.7, duration: 800, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0.3, duration: 800, useNativeDriver: true }),
+        Animated.timing(opacity, { 
+          toValue: 0.7, 
+          duration: 800, 
+          useNativeDriver,  // ✅ false sur web, true sur native
+        }),
+        Animated.timing(opacity, { 
+          toValue: 0.3, 
+          duration: 800, 
+          useNativeDriver,  // ✅ false sur web, true sur native
+        }),
       ])
     ).start();
-  }, []);
+    
+    // ✅ Cleanup au unmount
+    return () => {
+      opacity.stopAnimation();
+    };
+  }, [opacity]);
 
   return <Animated.View style={[{ opacity, backgroundColor: '#CBD5E1', borderRadius: 12 }, { width: w, height: h }, style]} />;
 };
@@ -42,4 +58,6 @@ export default function DashboardSkeleton() {
   );
 }
 
-const styles = StyleSheet.create({ container: { padding: 16 } });
+const styles = StyleSheet.create({ 
+  container: { padding: 16 } 
+});

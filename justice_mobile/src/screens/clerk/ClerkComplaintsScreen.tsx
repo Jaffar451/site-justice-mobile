@@ -1,3 +1,4 @@
+import StatusBadge from '../../components/ui/StatusBadge';
 import React, { useState, useCallback } from "react";
 import { 
   View, 
@@ -65,7 +66,7 @@ export default function ClerkComplaintsScreen({ navigation }: ClerkScreenProps<'
   /**
    * 🛡️ FILTRE GREFFE : Dossiers transmis par le parquet
    */
-  const incomingComplaints = complaints?.filter((c: Complaint) => c.status === "saisi_juge") || [];
+  const incomingComplaints = complaints?.filter((c: Complaint) => c.status === "transmise_parquet") || [];
 
   const renderItem = ({ item }: { item: Complaint }) => (
     <TouchableOpacity 

@@ -1,29 +1,22 @@
 // PATH: src/services/complaint.service.ts
+
 import api from "./api";
-import { useAuthStore } from "../stores/useAuthStore";
-import NetInfo from '@react-native-community/netinfo';
+import NetInfo from "@react-native-community/netinfo";
 import { Platform } from "react-native";
-import OfflineService from '../utils/offlineQueue'; 
+import OfflineService from "../utils/offlineQueue";
 
-// ==========================================
-// 🛡️ CONFIGURATION & TYPES
-// ==========================================
-
-const ROLES = {
-  ADMIN: "admin",
-  CLERK: "greffier",
-  JUDGE: "judge",
-  PROSECUTOR: "prosecutor",
-  COMMISSAIRE: "commissaire", 
-  POLICE: "officier_police",
-  CITIZEN: "citizen",
-} as const;
+// ======================================================
+// TYPES
+// ======================================================
 
 export type ComplaintStatus =
-  | "soumise" | "en_cours_OPJ" | "attente_validation" | "transmise_parquet" 
-  | "saisi_juge" | "instruction" | "audience_programmée" | "jugée" 
-  | "non_lieu" | "ordonnance_rendue" | "classée_sans_suite" | "archivée"
-  | "cloture"; // Ajout de clôture pour les stats
+  | "soumise"
+  | "en_cours_OPJ"
+  | "attente_validation"
+  | "transmise_parquet"
+  | "classée_sans_suite_par_OPJ"
+  | "classée_sans_suite_par_procureur"
+  | "figée";
 
 export interface Complaint {
   id: number;
@@ -33,177 +26,216 @@ export interface Complaint {
   category?: string;
   status: ComplaintStatus;
   location?: string | null;
-  filedAt: string;
+  filedAt?: string;
+  createdAt?: string;
   trackingCode?: string;
-  attachments?: { id: number; file_url: string; filename: string; type?: string }[];
-  citizen?: { firstname: string; lastname: string; telephone?: string };
+
+  attachments?: {
+    id: number;
+    file_url: string;
+    filename: string;
+    type?: string;
+  }[];
+
+  citizen?: {
+    firstname: string;
+    lastname: string;
+    telephone?: string;
+  };
+
   isOfflinePending?: boolean;
-  [key: string]: any; 
+  [key: string]: any;
 }
 
 export interface PoliceStats {
   assigned: number;
   open: number;
   closed: number;
+  total: number;
 }
 
-const allow = (...authorizedRoles: string[]) => {
-  const user = useAuthStore.getState().user;
-  if (!user?.role || !authorizedRoles.includes(user.role)) {
-    console.warn(`[Security] Accès restreint pour le rôle : ${user?.role}`);
-  }
+// ======================================================
+// HELPERS
+// ======================================================
+
+const isOnline = async () => {
+  const net = await NetInfo.fetch();
+  return net.isConnected;
 };
 
-// ==========================================
-// 📋 LECTURE
-// ==========================================
+const extractData = (res: any) => res?.data?.data ?? res?.data ?? [];
 
-export const getMyComplaints = async () => {
-  const res = await api.get<any>("/complaints/my-complaints");
-  return res.data.data || res.data || [];
+// ======================================================
+// READ
+// ======================================================
+
+export const getMyComplaints = async (): Promise<Complaint[]> => {
+  const res = await api.get("/complaints/my-complaints");
+  return extractData(res);
 };
 
-export const getAllComplaints = async () => {
-  allow(ROLES.POLICE, ROLES.COMMISSAIRE, ROLES.PROSECUTOR, ROLES.CLERK, ROLES.JUDGE, ROLES.ADMIN);
-  const res = await api.get<any>("/complaints");
-  return res.data.data || res.data || [];
+export const getAllComplaints = async (): Promise<Complaint[]> => {
+  const res = await api.get("/complaints");
+  return extractData(res);
 };
 
-export const getComplaintById = async (id: number) => {
-  const res = await api.get<any>(`/complaints/${id}`);
-  return res.data.data || res.data;
+export const getComplaintById = async (id: number): Promise<Complaint> => {
+  const res = await api.get(`/complaints/${id}`);
+  return extractData(res);
 };
 
-// ==========================================
-// ✍️ ÉCRITURE & UPLOAD
-// ==========================================
+export const getStationComplaints = async (): Promise<Complaint[]> => {
+  const res = await api.get("/complaints");
+  return extractData(res);
+};
+
+// ======================================================
+// CREATE
+// ======================================================
 
 export const createComplaint = async (data: Partial<Complaint>) => {
-  const net = await NetInfo.fetch();
-  if (!net.isConnected) {
-    await OfflineService.addToQueue('complaints', 'create', data);
-    return { ...data, id: Date.now() * -1, status: 'soumise', filedAt: new Date().toISOString(), isOfflinePending: true } as Complaint;
+  if (!(await isOnline())) {
+    await OfflineService.addToQueue("complaints", "create", data);
+
+    return {
+      ...data,
+      id: Date.now() * -1,
+      status: "soumise",
+      filedAt: new Date().toISOString(),
+      isOfflinePending: true,
+    } as Complaint;
   }
-  const res = await api.post<any>("/complaints", data);
-  return res.data.data || res.data;
+
+  const res = await api.post("/complaints", data);
+  return extractData(res);
 };
+
+// ======================================================
+// UPDATE
+// ======================================================
 
 export const updateComplaint = async (id: number, data: Partial<Complaint>) => {
-  const res = await api.patch<any>(`/complaints/${id}`, data);
-  return res.data.data || res.data;
+  const res = await api.patch(`/complaints/${id}`, data);
+  return extractData(res);
 };
 
-/**
- * ✅ UPLOAD FICHIER ROBUSTE (WEB & MOBILE)
- */
+// ======================================================
+// ATTACHMENTS
+// ======================================================
+
 export const uploadAttachment = async (complaintId: number, file: any) => {
-  const net = await NetInfo.fetch();
-  if (!net.isConnected) return { message: "Mis en attente (Upload indisponible hors-ligne)" };
+  if (!(await isOnline())) {
+    return { message: "Upload en attente (offline)" };
+  }
 
   const formData = new FormData();
 
-  if (Platform.OS === 'web') {
-    // 🌐 WEB : Conversion URI -> Blob
-    if (file.uri) {
-        try {
-            const fetchResponse = await fetch(file.uri);
-            const blob = await fetchResponse.blob();
-            formData.append("file", blob, file.fileName || file.name || "upload.jpg");
-        } catch (e) {
-            console.error("Erreur conversion Blob:", e);
-            throw new Error("Impossible de lire le fichier");
-        }
-    } else {
-        formData.append("file", file);
-    }
+  if (Platform.OS === "web") {
+    const blob =
+      file?.uri && (await fetch(file.uri).then((r) => r.blob()));
+
+    formData.append(
+      "file",
+      blob || file,
+      file.fileName || file.name || "upload.jpg"
+    );
   } else {
-    // 📱 MOBILE
-    const fileToUpload = {
-      uri: Platform.OS === 'ios' ? file.uri.replace('file://', '') : file.uri,
-      type: file.mimeType || file.type || 'image/jpeg',
-      name: file.fileName || file.name || `photo_${Date.now()}.jpg`,
-    };
-    // @ts-ignore
-    formData.append("file", fileToUpload);
+    formData.append("file", {
+      uri: Platform.OS === "ios" ? file.uri.replace("file://", "") : file.uri,
+      type: file.mimeType || file.type || "image/jpeg",
+      name: file.fileName || file.name || `file_${Date.now()}.jpg`,
+    } as any);
   }
 
-  return (await api.post(`/complaints/${complaintId}/attachments`, formData, {
-    headers: { 'Accept': 'application/json' },
-    transformRequest: (data) => data,
-  })).data;
+  const res = await api.post(`/complaints/${complaintId}/attachments`, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+
+  return extractData(res);
 };
 
 export const deleteAttachment = async (attachmentId: number) => {
   const res = await api.delete(`/attachments/${attachmentId}`);
-  return res.data;
+  return extractData(res);
 };
 
-// ==========================================
-// ⚖️ WORKFLOW & ACTIONS
-// ==========================================
+// ======================================================
+// WORKFLOW (CRITIQUE)
+// aligné backend ComplaintService.transition()
+// ======================================================
 
-export const submitToCommissaire = async (id: number) => {
-  allow(ROLES.POLICE);
-  return (await api.patch<Complaint>(`/complaints/${id}/submit-review`)).data;
+export const transitionComplaint = async (
+  id: number,
+  status: ComplaintStatus,
+  reason?: string
+) => {
+  const res = await api.post(`/complaints/${id}/transition`, {
+    status,
+    reason,
+  });
+
+  return extractData(res);
 };
 
-export const validateToParquet = async (id: number) => {
-  allow(ROLES.COMMISSAIRE);
-  return (await api.patch<Complaint>(`/complaints/${id}/to-parquet`)).data;
+// ======================================================
+// ACTIONS MÉTIER SIMPLIFIÉES
+// ======================================================
+
+export const submitToOPJ = (id: number) =>
+  transitionComplaint(id, "en_cours_OPJ");
+
+export const sendToParquet = (id: number) =>
+  transitionComplaint(id, "transmise_parquet");
+
+export const closeWithoutOPJ = (id: number, reason: string) =>
+  transitionComplaint(id, "classée_sans_suite_par_OPJ", reason);
+
+export const closeWithoutProsecutor = (id: number, reason: string) =>
+  transitionComplaint(id, "classée_sans_suite_par_procureur", reason);
+
+export const archiveCase = (id: number) =>
+  transitionComplaint(id, "figée");
+
+// ======================================================
+// AVAILABLE TRANSITIONS
+// ======================================================
+
+export const getAvailableTransitions = async (
+  id: number
+): Promise<ComplaintStatus[]> => {
+  const res = await api.get(`/complaints/${id}/transitions`);
+  return extractData(res);
 };
 
-export const assignToJudge = async (id: number, assignedJudgeId: number) => {
-  allow(ROLES.PROSECUTOR);
-  return (await api.patch<Complaint>(`/complaints/${id}/assign-judge`, { assignedJudgeId })).data;
+// ======================================================
+// STATISTICS
+// ======================================================
+
+export const getPoliceStats = async (): Promise<PoliceStats> => {
+  try {
+    const res = await api.get("/complaints");
+    const data: Complaint[] = extractData(res);
+
+    return {
+      total: data.length,
+      assigned: data.filter((c) => c.status === "en_cours_OPJ").length,
+      open: data.filter((c) =>
+        ["soumise", "attente_validation"].includes(c.status)
+      ).length,
+      closed: data.filter((c) =>
+        ["figée", "classée_sans_suite_par_OPJ", "classée_sans_suite_par_procureur"].includes(
+          c.status
+        )
+      ).length,
+    };
+  } catch {
+    return { total: 0, assigned: 0, open: 0, closed: 0 };
+  }
 };
 
-export const updateComplaintStatus = async (id: number, status: ComplaintStatus | string, extraData?: any) => {
-    const payload = typeof extraData === 'object' ? { status, ...extraData } : { status, notes: extraData };
-    const response = await api.patch(`/complaints/${id}/status`, payload);
-    return response.data;
-};
+// ======================================================
+// COMPATIBILITY ALIASES
+// ======================================================
 
-export const finalizeVerdict = async (id: number, verdictDetails: string, isGuilty: boolean) => {
-  allow(ROLES.JUDGE);
-  const status = isGuilty ? "jugée" : "non_lieu";
-  return (await api.patch(`/complaints/${id}/verdict`, { status, verdictDetails })).data;
-};
-
-export const closeWithoutProsecution = async (id: number, reason: string) => {
-  allow(ROLES.PROSECUTOR);
-  return (await api.patch(`/complaints/${id}/close`, { reason })).data;
-};
-
-// ==========================================
-// 📊 STATISTIQUES & UTILITAIRES
-// ==========================================
-
-// Alias pour compatibilité
 export const getComplaint = getComplaintById;
 export const getMyComplaintsList = getMyComplaints;
-
-export const getStationComplaints = async () => {
-    const res = await api.get<any>("/complaints/station");
-    return res.data.data || res.data || [];
-}
-
-/**
- * 👮 Stats Police Réelles (Calculées depuis l'API)
- */
-export const getPoliceStats = async (): Promise<PoliceStats> => {
-    try {
-        // On récupère les plaintes de l'unité
-        const res = await api.get<any>("/complaints"); 
-        const data = res.data.data || res.data || [];
-
-        // Calcul local pour éviter le mock
-        const assigned = data.filter((c: any) => c.status === 'en_cours_OPJ' || c.status === 'garde_a_vue').length;
-        const open = data.filter((c: any) => c.status === 'soumise' || c.status === 'attente_validation').length;
-        const closed = data.filter((c: any) => c.status === 'cloture' || c.status === 'transmise_parquet' || c.status === 'archivée').length;
-
-        return { assigned, open, closed };
-    } catch (e) {
-        console.error("Erreur stats police:", e);
-        return { assigned: 0, open: 0, closed: 0 };
-    }
-};

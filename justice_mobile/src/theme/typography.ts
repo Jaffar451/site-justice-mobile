@@ -12,3 +12,4 @@ export const typography = {
     xxl: 32,
   },
 };
+

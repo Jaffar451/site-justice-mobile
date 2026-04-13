@@ -1,5 +1,8 @@
 import { Router } from "express";
-import { createReparation, getReparations } from "../controllers/reparation.controller";
+import {
+  createReparation,
+  getReparations,
+} from "../controllers/reparation.controller";
 
 const router = Router();
 

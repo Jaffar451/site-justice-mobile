@@ -24,19 +24,20 @@ export const env = {
     // Clé pour le Token d'accès (court terme)
     secret: process.env.JWT_SECRET || "SUPER_SECRET_KEY_JUSTICE_NIGER_2025",
     expiration: process.env.JWT_EXPIRATION || "24h",
-    
+
     // Clé pour le Token de rafraîchissement (long terme) -> Celle qui manquait !
-    refreshSecret: process.env.JWT_REFRESH_SECRET || "SUPER_REFRESH_SECRET_KEY_2025", 
+    refreshSecret:
+      process.env.JWT_REFRESH_SECRET || "SUPER_REFRESH_SECRET_KEY_2025",
     refreshExpiration: process.env.JWT_REFRESH_EXPIRATION || "7d", // Valable 7 jours
   },
 
   // Sécurité & CORS
   security: {
-    corsOrigin: process.env.CORS_ORIGIN || "*", 
+    corsOrigin: process.env.CORS_ORIGIN || "*",
     // On duplique ici pour compatibilité si d'autres fichiers l'utilisent
     jwtSecret: process.env.JWT_SECRET || "SUPER_SECRET_KEY_JUSTICE_NIGER_2025",
-    rateLimitWindowMs: 15 * 60 * 1000, 
-    rateLimitMax: 100, 
+    rateLimitWindowMs: 15 * 60 * 1000,
+    rateLimitMax: 100,
   },
 
   // Gestion des fichiers (Uploads)
@@ -48,5 +49,5 @@ export const env = {
   // Configuration Socket.IO
   socket: {
     corsOrigin: process.env.CORS_ORIGIN || "*",
-  }
+  },
 };

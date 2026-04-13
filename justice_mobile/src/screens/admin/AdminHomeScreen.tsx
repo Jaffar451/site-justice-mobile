@@ -153,7 +153,7 @@ export default function AdminHomeScreen({ navigation }: AdminScreenProps<'AdminH
     { title: "Unités de Sécurité", sub: "Gendarmeries et Commissariats", icon: "shield-half-outline", route: "ManageStations", color: "#2563EB" },
     { title: "Cours et Tribunaux", sub: "Juridictions et Greffes", icon: "business-outline", route: "AdminCourts", color: "#059669" },
     { title: "Carte du Maillage", sub: "Déploiement territorial", icon: "map-outline", route: "NationalMap", color: "#0891B2" },
-    { title: "Audit & Sécurité", sub: "Traçabilité des actes", icon: "finger-print-outline", route: "AdminAudit", color: "#475569" },
+    { title: "Audit & Sécurité", sub: "Traçabilité des actes", icon: "finger-print-outline", route: "AdminAuditTrail", color: "#475569" },
     { title: "Maintenance Système", sub: "Cache, Logs & Santé", icon: "construct-outline", route: "AdminMaintenance", color: "#EF4444" },
     { title: "Scanner de Contrôle", sub: "Vérifier Badges & Actes", icon: "qr-code-outline", route: "VerificationScanner", color: "#F59E0B" },
     { title: "Rapports Hebdo", sub: "Statistiques d'activité", icon: "stats-chart-outline", route: "WeeklyReport", color: "#8B5CF6" },

@@ -1,15 +1,23 @@
-import { Table, Column, Model, DataType, ForeignKey, BelongsTo, CreatedAt, UpdatedAt } from 'sequelize-typescript';
-import CaseModel from './case.model';
-import User from './user.model';
+import {
+  Table,
+  Column,
+  Model,
+  DataType,
+  ForeignKey,
+  BelongsTo,
+  CreatedAt,
+  UpdatedAt,
+} from "sequelize-typescript";
+import CaseModel from "./case.model";
+import User from "./user.model";
 
-@Table({ tableName: 'SearchWarrants', timestamps: true, underscored: true })
+@Table({ tableName: "SearchWarrants", timestamps: true, underscored: true })
 export default class SearchWarrant extends Model {
-
   @ForeignKey(() => CaseModel)
   @Column({ type: DataType.INTEGER, allowNull: false })
   caseId!: number;
 
-  @BelongsTo(() => CaseModel, { as: 'case' })
+  @BelongsTo(() => CaseModel, { as: "case" })
   case!: CaseModel;
 
   @Column({ type: DataType.STRING, allowNull: false })
@@ -22,7 +30,7 @@ export default class SearchWarrant extends Model {
   @Column({ type: DataType.INTEGER, allowNull: false })
   issuedBy!: number;
 
-  @BelongsTo(() => User, { as: 'judge' })
+  @BelongsTo(() => User, { as: "judge" })
   judge!: User;
 
   @Column({ type: DataType.DATE, allowNull: false })

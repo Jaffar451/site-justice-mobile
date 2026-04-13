@@ -22,7 +22,7 @@ router.get(
   "/",
   authenticate,
   authorize(["judge", "clerk", "police", "admin"]),
-  listDecisions
+  listDecisions,
 );
 
 // 🔹 Liste par affaire
@@ -30,7 +30,7 @@ router.get(
   "/case/:caseId",
   authenticate,
   authorize(["judge", "clerk", "police", "admin"]),
-  listDecisionsByCase
+  listDecisionsByCase,
 );
 
 // 🔹 Création décision : juge uniquement
@@ -38,7 +38,7 @@ router.post(
   "/",
   authenticate,
   authorize(["judge", "admin"]), // J'ai ajouté admin pour tes tests
-  createDecision
+  createDecision,
 );
 
 // 🔹 Lecture décision
@@ -46,31 +46,16 @@ router.get(
   "/:id",
   authenticate,
   authorize(["judge", "clerk", "police", "admin"]),
-  getDecision
+  getDecision,
 );
 
 // 🔹 Modification décision : si non signée
-router.put(
-  "/:id",
-  authenticate,
-  authorize(["judge"]),
-  updateDecision
-);
+router.put("/:id", authenticate, authorize(["judge"]), updateDecision);
 
 // 🔹 Signature (Scellement de la décision)
-router.patch(
-  "/:id/sign", 
-  authenticate, 
-  authorize(["judge"]), 
-  signDecision
-);
+router.patch("/:id/sign", authenticate, authorize(["judge"]), signDecision);
 
 // 🔹 Suppression décision : admin uniquement
-router.delete(
-  "/:id",
-  authenticate,
-  authorize(["admin"]),
-  deleteDecision
-);
+router.delete("/:id", authenticate, authorize(["admin"]), deleteDecision);
 
 export default router;

@@ -10,7 +10,7 @@ import CommissaireVisaList from '../../screens/commissaire/CommissaireVisaList';
 import CommissaireGAVSupervisionScreen from '../../screens/commissaire/CommissaireGAVSupervisionScreen';
 import CommissaireRegistryScreen from '../../screens/commissaire/CommissaireRegistryScreen';
 import CommissaireCommandCenter from '../../screens/commissaire/CommissaireCommandCenter';
-
+import PoliceComplaintsScreen from '@/screens/police/PoliceComplaintsScreen';
 // --- ✅ NOUVEAUX ÉCRANS PARTAGÉS (Scanner & Rapport) ---
 import VerificationScannerScreen from '../../screens/shared/VerificationScannerScreen';
 import WeeklyReportScreen from '../../screens/shared/WeeklyReportScreen';
@@ -43,6 +43,7 @@ export default function CommissaireStack() {
       <Stack.Screen name="CommissaireDashboard" component={CommissaireDashboard} />
       <Stack.Screen name="CommissaireCommandCenter" component={CommissaireCommandCenter} />
       <Stack.Screen name="NationalMap" component={NationalMapScreen} />
+      
 
       {/* ==========================================
           ✅ OUTILS DE CONTRÔLE (Nouveaux)

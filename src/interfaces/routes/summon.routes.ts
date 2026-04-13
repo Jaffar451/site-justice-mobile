@@ -18,30 +18,30 @@ router.use(authenticate);
 
 // 🔹 Créer une convocation (Police, Juge, Greffier)
 router.post(
-    "/", 
-    authorize(["police", "judge", "clerk", "admin"]), 
-    createSummon
+  "/",
+  authorize(["police", "judge", "clerk", "admin"]),
+  createSummon,
 );
 
 // 🔹 Lister toutes les convocations
 router.get(
-    "/", 
-    authorize(["police", "judge", "clerk", "prosecutor", "admin"]), 
-    listSummons
+  "/",
+  authorize(["police", "judge", "clerk", "prosecutor", "admin"]),
+  listSummons,
 );
 
 // 🔹 Lister les convocations pour une plainte spécifique
 router.get(
-    "/complaint/:complaintId", 
-    authorize(["police", "judge", "clerk", "prosecutor", "admin"]), 
-    getSummonsByComplaint
+  "/complaint/:complaintId",
+  authorize(["police", "judge", "clerk", "prosecutor", "admin"]),
+  getSummonsByComplaint,
 );
 
 // 🔹 Mettre à jour le statut (ex: 'distribuée', 'signée')
 router.patch(
-    "/:id/status", 
-    authorize(["police", "judge", "clerk", "admin"]), 
-    updateSummonStatus
+  "/:id/status",
+  authorize(["police", "judge", "clerk", "admin"]),
+  updateSummonStatus,
 );
 
 export default router;

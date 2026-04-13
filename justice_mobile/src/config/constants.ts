@@ -1,8 +1,19 @@
 // src/config/constants.ts
 
-// ❌ ANCIEN (Local - à commenter ou supprimer)
-// export const API_URL = "http://192.168.1.152:4000"; 
+// ✅ Utilise ENV qui détecte l'IP automatiquement
+import { ENV } from './env';
 
-// ✅ NOUVEAU (Render - à utiliser)
-// Remplace 'ton-nom-de-projet' par le vrai nom que Render t'a donné
-export const API_URL = "https://e-justice-niger-backend.onrender.com";
+export const API_URL = ENV.API_URL;
+
+// Autres constantes globales
+export const APP_NAME = 'E-Justice Niger';
+export const APP_VERSION = ENV.VERSION;
+export const REQUEST_TIMEOUT = ENV.TIMEOUT;
+
+// Endpoints spécifiques (optionnel)
+export const ENDPOINTS = {
+  AUTH: `${API_URL}/auth`,
+  USERS: `${API_URL}/users`,
+  CASES: `${API_URL}/cases`,
+  DOCUMENTS: `${API_URL}/documents`,
+} as const;

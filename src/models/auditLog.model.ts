@@ -1,24 +1,33 @@
-import { Table, Column, Model, DataType, ForeignKey, BelongsTo, CreatedAt, UpdatedAt } from 'sequelize-typescript';
-import User from './user.model';
+import {
+  Table,
+  Column,
+  Model,
+  DataType,
+  ForeignKey,
+  BelongsTo,
+  CreatedAt,
+  UpdatedAt,
+} from "sequelize-typescript";
+import User from "./user.model";
 
 @Table({
-  tableName: 'audit_logs',
+  tableName: "audit_logs",
   underscored: true,
-  timestamps: true, // Gère automatiquement createdAt et updatedAt
+  timestamps: true,
 })
 export default class AuditLog extends Model {
-  @Column({ 
-    type: DataType.INTEGER, 
-    primaryKey: true, 
-    autoIncrement: true 
+  @Column({
+    type: DataType.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
   })
   id!: number;
 
   @ForeignKey(() => User)
-  @Column({ 
-    type: DataType.INTEGER, 
-    field: 'user_id',
-    allowNull: true // Permet de loguer des actions système sans utilisateur
+  @Column({
+    type: DataType.INTEGER,
+    field: "user_id",
+    allowNull: true,
   })
   userId!: number;
 
@@ -31,48 +40,57 @@ export default class AuditLog extends Model {
   @Column(DataType.STRING)
   endpoint!: string;
 
-  // ✅ Mapping explicite vers la colonne ip_address de PostgreSQL
-  @Column({ 
-    type: DataType.STRING, 
-    field: 'ip_address' 
+  // ✅ Mapping vers ip_address
+  @Column({
+    type: DataType.STRING,
+    field: "ip_address",
   })
   ipAddress!: string;
 
-  // ✅ Getter Virtuel pour compatibilité Frontend (item.ip)
   get ip(): string {
     return this.ipAddress;
   }
 
   @Column({
-    type: DataType.ENUM('info', 'warning', 'critical'),
-    defaultValue: 'info'
+    type: DataType.ENUM("info", "warning", "critical"),
+    defaultValue: "info",
   })
-  severity!: 'info' | 'warning' | 'critical';
+  severity!: "info" | "warning" | "critical";
 
-  @Column({ 
-    type: DataType.STRING, 
-    defaultValue: 'SUCCESS' 
+  @Column({
+    type: DataType.STRING,
+    defaultValue: "SUCCESS",
   })
   status!: string;
 
   @Column(DataType.TEXT)
   details!: string;
 
+  // ✅ Champs réels en base
   @Column({
     type: DataType.STRING,
-    field: 'resource_type'
+    field: "resource_type",
   })
   resourceType!: string;
 
   @Column({
     type: DataType.STRING,
-    field: 'resource_id'
+    field: "resource_id",
   })
   resourceId!: string;
 
+  // ✅ Getters virtuels pour satisfaire le contrôleur (évite l'erreur 500)
+  get entity(): string {
+    return this.resourceType;
+  }
+
+  get entityId(): string {
+    return this.resourceId;
+  }
+
   @Column({
     type: DataType.STRING,
-    field: 'user_agent'
+    field: "user_agent",
   })
   userAgent!: string;
 
@@ -82,12 +100,9 @@ export default class AuditLog extends Model {
   @UpdatedAt
   updatedAt!: Date;
 
-  // ✅ 1. Alias 'operator' (Existant - Ne pas supprimer)
-  @BelongsTo(() => User, { foreignKey: 'userId', as: 'operator' })
+  @BelongsTo(() => User, { foreignKey: "userId", as: "operator" })
   operator!: User;
 
-  // ✅ 2. Alias 'actor' (Ajouté pour compatibilité avec le Contrôleur Admin)
-  // Cela permet d'utiliser include: [{ model: User, as: 'actor' }]
-  @BelongsTo(() => User, { foreignKey: 'userId', as: 'actor' })
+  @BelongsTo(() => User, { foreignKey: "userId", as: "actor" })
   actor!: User;
 }

@@ -1,14 +1,20 @@
-import { Table, Column, Model, DataType, ForeignKey, BelongsTo } from 'sequelize-typescript';
-import Complaint from './complaint.model';
+import {
+  Table,
+  Column,
+  Model,
+  DataType,
+  ForeignKey,
+  BelongsTo,
+} from "sequelize-typescript";
+import Complaint from "./complaint.model";
 
-@Table({ tableName: 'ComplaintFiles', timestamps: false, underscored: true })
+@Table({ tableName: "ComplaintFiles", timestamps: false, underscored: true })
 export default class ComplaintFile extends Model {
-
   @ForeignKey(() => Complaint)
   @Column({ type: DataType.INTEGER, allowNull: false })
   complaintId!: number;
 
-  @BelongsTo(() => Complaint, { as: 'parentComplaint' })
+  @BelongsTo(() => Complaint, { as: "parentComplaint" })
   parentComplaint!: Complaint;
 
   @Column({ type: DataType.STRING, allowNull: false })

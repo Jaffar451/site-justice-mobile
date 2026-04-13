@@ -1,5 +1,8 @@
 import { Router } from "express";
-import { createProsecution, getProsecutions } from "../controllers/prosecution.controller";
+import {
+  createProsecution,
+  getProsecutions,
+} from "../controllers/prosecution.controller";
 
 const router = Router();
 

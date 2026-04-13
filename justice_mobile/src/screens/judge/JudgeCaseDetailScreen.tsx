@@ -1,3 +1,4 @@
+import StatusBadge from '../../components/ui/StatusBadge';
 // PATH: src/screens/judge/JudgeCaseDetailScreen.tsx
 import React, { useState, useEffect } from 'react';
 import { 
@@ -110,7 +111,7 @@ export default function JudgeCaseDetailScreen({ route, navigation }: JudgeScreen
           <View style={styles.headerRow}>
               <Text style={[styles.refTitle, { color: JUDGE_ACCENT }]}>CABINET D'INSTRUCTION N°1</Text>
               <View style={[styles.badge, { backgroundColor: JUDGE_ACCENT }]}>
-                <Text style={styles.badgeText}>{complaint.status?.replace(/_/g, ' ').toUpperCase()}</Text>
+                <StatusBadge status={complaint.status} />
               </View>
           </View>
           <Text style={[styles.offenceLabel, { color: colors.textSub }]}>PRÉVENTION RETENUE :</Text>

@@ -83,7 +83,7 @@ export default function RegisterScreen() {
 
   const handleRegister = async () => {
     // 1. Validation basique
-    if (!form.firstname.trim() || !form.lastname.trim() || !form.email.trim() || !form.telephone.trim() || !form.password) {
+    if (!form.firstname.trim() || !form.lastname.trim() || !form.email.trim() || !form.password) {
         const msg = "Veuillez remplir tous les champs obligatoires.";
         Platform.OS === 'web' ? window.alert(msg) : Alert.alert("Champs requis", msg);
         return;

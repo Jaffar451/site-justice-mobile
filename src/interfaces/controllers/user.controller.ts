@@ -1,122 +1,162 @@
-// @ts-nocheck
-// PATH: src/interfaces/controllers/user.controller.ts
-import { Response } from "express";
+import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import User from "../../models/user.model";
-import { CustomRequest } from "../../types/express-request";
-import { env } from "../../config/env";
 import PoliceStation from "../../models/policeStation.model";
-import Court from "../../models/court.model";
-import Prison from "../../models/prison.model";
+import { env } from "../../config/env";
 
-const USER_QUERY_OPTIONS = {
-  attributes: { exclude: ["password"] },
-  include: [
-    { model: PoliceStation, as: "station", attributes: ["id", "name", "city"] },
-    { model: Court, as: "court", attributes: ["id", "name", "city"] },
-    { model: Prison, as: "prison", attributes: ["id", "name", "city"] },
-  ],
+const PUBLIC_FIELDS = {
+  attributes: { exclude: ["password"] as string[] },
+  include: [{ model: PoliceStation, as: "station" }] 
 };
 
-// --- 📋 LISTE ---
-export const listUsers = async (_req: CustomRequest, res: Response) => {
+const BCRYPT_ROUNDS = (env as any).security?.bcryptRounds || 10;
+
+const getId = (id: string | string[]): string => (Array.isArray(id) ? id[0] : id);
+
+export const listUsers = async (req: Request, res: Response) => {
   try {
-    const users = await User.findAll(USER_QUERY_OPTIONS);
+    const users = await User.findAll({
+      attributes: PUBLIC_FIELDS.attributes,
+      include: [{ model: PoliceStation, as: "station" }]
+    });
     return res.json({ success: true, data: users });
   } catch (error) {
-    return res.status(500).json({ message: "Erreur lors de la récupération" });
+    console.error("Error in listUsers:", error);
+    return res.status(500).json({ message: "Erreur serveur lors de la récupération des utilisateurs" });
   }
 };
 
-// --- 👤 PROFIL (ME) ---
-export const getMe = async (req: CustomRequest, res: Response) => {
+export const getMe = async (req: Request, res: Response) => {
   try {
-    if (!req.user) return res.status(401).json({ message: "Non authentifié" });
-    const user = await User.findByPk(req.user.id, USER_QUERY_OPTIONS);
+    const userReq = req as any;
+    if (!userReq.user) return res.status(401).json({ message: "Non authentifié" });
+
+    const user = await User.findByPk(userReq.user.id, {
+      attributes: PUBLIC_FIELDS.attributes,
+      include: [{ model: PoliceStation, as: "station" }]
+    });
     return res.json({ success: true, data: user });
   } catch (error) {
+    console.error("Error in getMe:", error);
     return res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
-// --- 🛠️ MISE À JOUR PROFIL (UPDATE ME) ---
-// ✅ Correction : S'assurer que cette fonction est bien exportée
-export const updateMe = async (req: CustomRequest, res: Response) => {
+export const updateMe = async (req: Request, res: Response) => {
   try {
-    if (!req.user) return res.status(401).json({ message: "Non authentifié" });
-    const user = await User.findByPk(req.user.id);
+    const userReq = req as any;
+    if (!userReq.user) return res.status(401).json({ message: "Non authentifié" });
+
+    const user = await User.findByPk(userReq.user.id);
     if (!user) return res.status(404).json({ message: "Utilisateur introuvable" });
 
-    const { firstname, lastname, telephone, password } = req.body;
+    const { firstname, lastname, password } = req.body;
     const updates: any = {};
-
     if (firstname) updates.firstname = firstname;
     if (lastname) updates.lastname = lastname;
-    if (telephone) updates.telephone = telephone;
-    if (password && password.trim() !== "") {
-      updates.password = await bcrypt.hash(password, 10);
-    }
+    if (password) updates.password = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
     await user.update(updates);
-    const out = await User.findByPk(user.id, USER_QUERY_OPTIONS);
-    return res.json({ success: true, data: out });
+    const updatedUser = await User.findByPk(user.id, PUBLIC_FIELDS);
+    return res.json({ success: true, data: updatedUser });
   } catch (error) {
-    return res.status(500).json({ message: "Erreur mise à jour profil" });
-  }
-};
-
-// --- 🚀 CRÉATION (ADMIN) ---
-export const createUser = async (req: CustomRequest, res: Response) => {
-  try {
-    const { email, password, role, firstname, lastname } = req.body;
-    if (!email || !password || !role) return res.status(400).json({ message: "Champs manquants" });
-
-    const hash = await bcrypt.hash(password, 10);
-    const user = await User.create({ ...req.body, password: hash, isActive: true });
-    
-    const out = await User.findByPk(user.id, USER_QUERY_OPTIONS);
-    return res.status(201).json({ success: true, data: out });
-  } catch (error) {
-    return res.status(500).json({ message: "Erreur création" });
-  }
-};
-
-// --- 🔍 VOIR UN UTILISATEUR (GET USER) ---
-// ✅ Correction : Ajout de l'export manquant
-export const getUser = async (req: CustomRequest, res: Response) => {
-  try {
-    const user = await User.findByPk(req.params.id, USER_QUERY_OPTIONS);
-    if (!user) return res.status(404).json({ message: "Utilisateur non trouvé" });
-    return res.json({ success: true, data: user });
-  } catch (error) {
+    console.error("Error in updateMe:", error);
     return res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
-// --- 🔄 MODIFIER ---
-export const updateUser = async (req: CustomRequest, res: Response) => {
+export const createUser = async (req: Request, res: Response) => {
   try {
-    const user = await User.findByPk(req.params.id);
-    if (!user) return res.status(404).json({ message: "Utilisateur non trouvé" });
-
-    if (req.body.password) req.body.password = await bcrypt.hash(req.body.password, 10);
+    const { firstname, lastname, email, password, role, matricule, poste, policeStationId } = req.body;
     
-    await user.update(req.body);
-    const out = await User.findByPk(user.id, USER_QUERY_OPTIONS);
-    return res.json({ success: true, data: out });
+    if (!firstname || !lastname || !email || !password) {
+      return res.status(400).json({ message: "Champs requis manquants" });
+    }
+
+    const exists = await User.findOne({ where: { email } });
+    if (exists) return res.status(409).json({ message: "Email déjà utilisé" });
+
+    const hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+    const user = await User.create({
+      firstname,
+      lastname,
+      email,
+      password: hash,
+      role: role?.toLowerCase() || "citizen",
+      matricule: matricule || null,
+      organization: poste || null,
+      policeStationId: policeStationId || null
+    });
+
+    const out = await User.findByPk(user.id, PUBLIC_FIELDS);
+    return res.status(201).json({ success: true, data: out });
   } catch (error) {
-    return res.status(500).json({ message: "Erreur mise à jour" });
+    console.error("Error in createUser:", error);
+    return res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
-// --- 🗑️ SUPPRIMER ---
-export const deleteUser = async (req: CustomRequest, res: Response) => {
+export const getUser = async (req: Request, res: Response) => {
   try {
-    const user = await User.findByPk(req.params.id);
+    const user = await User.findByPk(getId(req.params.id), PUBLIC_FIELDS);
+    if (!user) return res.status(404).json({ message: "Utilisateur non trouvé" });
+    return res.json({ success: true, data: user });
+  } catch (error) {
+    console.error("Error in getUser:", error);
+    return res.status(500).json({ message: "Erreur serveur" });
+  }
+};
+
+export const updateUser = async (req: Request, res: Response) => {
+  try {
+    const user = await User.findByPk(getId(req.params.id));
+    if (!user) return res.status(404).json({ message: "Utilisateur non trouvé" });
+
+    const { firstname, lastname, role, matricule, poste, policeStationId } = req.body;
+    await user.update({
+      firstname,
+      lastname,
+      role: role?.toLowerCase(),
+      matricule,
+      organization: poste,
+      policeStationId
+    });
+
+    const out = await User.findByPk(user.id, PUBLIC_FIELDS);
+    return res.json({ success: true, data: out });
+  } catch (error) {
+    console.error("Error in updateUser:", error);
+    return res.status(500).json({ message: "Erreur serveur" });
+  }
+};
+
+export const deleteUser = async (req: Request, res: Response) => {
+  try {
+    const user = await User.findByPk(getId(req.params.id));
     if (!user) return res.status(404).json({ message: "Utilisateur non trouvé" });
     await user.destroy();
     return res.status(204).send();
   } catch (error) {
-    return res.status(500).json({ message: "Erreur suppression" });
+    console.error("Error in deleteUser:", error);
+    return res.status(500).json({ message: "Erreur serveur" });
+  }
+};
+
+export const updatePushToken = async (req: Request, res: Response) => {
+  try {
+    const userReq = req as any;
+    if (!userReq.user) return res.status(401).json({ message: "Non authentifié" });
+
+    const { token } = req.body;
+    if (!token) return res.status(400).json({ message: "Token requis" });
+
+    const user = await User.findByPk(userReq.user.id);
+    if (!user) return res.status(404).json({ message: "Utilisateur introuvable" });
+
+    await user.update({ pushToken: token });
+    return res.json({ success: true, message: "Token mis à jour" });
+  } catch (error) {
+    console.error("Error in updatePushToken:", error);
+    return res.status(500).json({ message: "Erreur serveur" });
   }
 };

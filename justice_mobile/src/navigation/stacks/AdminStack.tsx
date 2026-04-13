@@ -42,67 +42,55 @@ import EditProfileScreen from '../../screens/Profile/EditProfileScreen';
 import SettingsScreen from '../../screens/Settings/SettingsScreen';
 import AdminNotificationsScreen from '../../screens/admin/AdminNotificationsScreen';
 
-// TYPAGE
-type AdminStackParams = AdminStackParamList & {
-  VerificationScanner: undefined;
-  WeeklyReport: undefined;
-  Notifications: undefined;
-  HelpCenter: undefined;
-  AdminLogs: undefined;
-  AdminSecurity: undefined;
-  AdminMaintenance: undefined;
-  AdminEditProfile: undefined;
-  AdminHome: undefined;
-};
-
-const Stack = createNativeStackNavigator<AdminStackParams>();
+// ✅ Utilise directement AdminStackParamList (pas d'extension)
+const Stack = createNativeStackNavigator<AdminStackParamList>();
 
 export default function AdminStack() {
   return (
     <Stack.Navigator 
-      initialRouteName="AdminDashboard" 
+      initialRouteName="AdminHome" 
       screenOptions={{ 
         headerShown: false,
         animation: 'slide_from_right'
       }}
     >
-      <Stack.Screen name="AdminDashboard" component={AdminHomeScreen} />
+      {/* === ADMIN CORE === */}
       <Stack.Screen name="AdminHome" component={AdminHomeScreen} />
-      
-      <Stack.Screen name="AdminMaintenance" component={AdminMaintenanceScreen} />
-      <Stack.Screen name="AdminLogs" component={AdminLogsScreen} />
-      <Stack.Screen name="AdminSecurity" component={AdminSecurityScreen} />
-
       <Stack.Screen name="AdminUsers" component={AdminUsersScreen} />
-      <Stack.Screen name="AdminUserDetail" component={AdminUserDetailsScreen} />
+      <Stack.Screen name="AdminUserDetails" component={AdminUserDetailsScreen} />
       <Stack.Screen name="AdminCreateUser" component={AdminCreateUserScreen} />
       <Stack.Screen name="AdminEditUser" component={AdminEditUserScreen} />
       
+      {/* === ADMIN STRUCTURES === */}
       <Stack.Screen name="AdminCourts" component={AdminCourtsScreen} />
       <Stack.Screen name="AdminCreateCourt" component={AdminCreateCourtScreen} />
       <Stack.Screen name="ManageStations" component={ManageStationsScreen} />
       
+      {/* === ADMIN TOOLS & TECH === */}
       <Stack.Screen name="NationalMap" component={NationalMapScreen} />
       <Stack.Screen name="AdminStats" component={AdminStatsScreen} />
-      <Stack.Screen name="AdminAudit" component={AdminAuditTrailScreen} />
+      <Stack.Screen name="AdminAuditTrail" component={AdminAuditTrailScreen} />
       <Stack.Screen name="AdminSettings" component={AdminSettingsScreen} />
-
-      <Stack.Screen name="VerificationScanner" component={VerificationScannerScreen as any} />
-      <Stack.Screen name="WeeklyReport" component={WeeklyReportScreen as any} />
-
-      <Stack.Screen name="Profile" component={ProfileScreen} />
+      <Stack.Screen name="AdminMaintenance" component={AdminMaintenanceScreen} />
+      <Stack.Screen name="AdminLogs" component={AdminLogsScreen} />
+      <Stack.Screen name="AdminSecurity" component={AdminSecurityScreen} />
       <Stack.Screen name="AdminEditProfile" component={AdminEditProfileScreen} />
-      <Stack.Screen name="EditProfile" component={EditProfileScreen} />
-
-      <Stack.Screen name="Settings" component={SettingsScreen} />
-      <Stack.Screen name="AdminNotifications" component={AdminNotificationsScreen} />
-      <Stack.Screen name="Notifications" component={AdminNotificationsScreen} />
-
+      
+      {/* === SHARED SCREENS === */}
+      <Stack.Screen name="VerificationScanner" component={VerificationScannerScreen} />
+      <Stack.Screen name="WeeklyReport" component={WeeklyReportScreen} />
       <Stack.Screen name="UserGuide" component={UserGuideScreen} />
       <Stack.Screen name="HelpCenter" component={UserGuideScreen} />
       <Stack.Screen name="Support" component={SupportScreen} />
       <Stack.Screen name="About" component={AboutScreen} />
       <Stack.Screen name="MyDownloads" component={MyDownloadsScreen} />
+      
+      {/* === PROFILE & SETTINGS === */}
+      <Stack.Screen name="Profile" component={ProfileScreen} />
+      <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+      <Stack.Screen name="Settings" component={SettingsScreen} />
+      <Stack.Screen name="AdminNotifications" component={AdminNotificationsScreen} />
+      <Stack.Screen name="Notifications" component={AdminNotificationsScreen} />
     </Stack.Navigator>
   );
 }

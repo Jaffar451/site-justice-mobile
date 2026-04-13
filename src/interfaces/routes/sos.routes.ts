@@ -16,10 +16,10 @@ router.post("/", authenticate, sosController.createSosAlert);
  * @desc Voir les alertes d'un commissariat (Police & Admin uniquement)
  */
 router.get(
-  "/station/:stationId", 
-  authenticate, 
-  authorize(['police', 'commisaire', 'admin']), 
-  sosController.getStationAlerts
+  "/station/:stationId",
+  authenticate,
+  authorize(["police", "commisaire", "admin"]),
+  sosController.getStationAlerts,
 );
 
 export default router;

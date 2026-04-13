@@ -1,173 +1,110 @@
-// PATH: src/interfaces/controllers/auth.controller.ts
-import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import bcrypt from 'bcryptjs';
-import { User, RefreshToken } from '../../models';
-import { env } from '../../config/env';
+import { Request, Response } from "express";
+import { z } from "zod";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import { Op } from "sequelize";
+import User from "../../models/user.model";
+import RefreshToken from "../../models/refreshToken.model";
+import { registerSchema, loginSchema } from "../../schemas/auth.schema";
+import { env } from "../../config/env";
 
-// --- Helpers ---
-const signAccessToken = (userId: number, role: string) => {
-  if (!env.jwt.secret) throw new Error("JWT_SECRET manquant");
-  return jwt.sign({ id: userId, role }, env.jwt.secret, { expiresIn: env.jwt.expiration as any });
-};
+type LoginInput = z.infer<typeof loginSchema>;
 
-const signRefreshToken = (userId: number) => {
-  const secret = env.jwt.refreshSecret || "FALLBACK";
-  return jwt.sign({ id: userId }, secret, { expiresIn: '7d' as any });
-};
+const { secret: JWT_SECRET, refreshSecret: REFRESH_SECRET, expiration: JWT_EXPIRES_IN, refreshExpiration: REFRESH_EXPIRES_IN } = env.jwt;
 
-// ==========================================
-// 1. INSCRIPTION (Register)
-// ==========================================
-export const register = async (req: Request, res: Response, next: NextFunction) => {
+const signToken = (user: any) => jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN as any });
+const signRefresh = (user: any) => jwt.sign({ id: user.id }, REFRESH_SECRET, { expiresIn: REFRESH_EXPIRES_IN as any });
+const publicUser = (u: any) => ({ id: u.id, firstname: u.firstname, lastname: u.lastname, email: u.email, role: u.role.toLowerCase() });
+
+export const register = async (req: Request, res: Response) => {
   try {
-    const { firstname, lastname, email, password, matricule } = req.body;
-    
-    // Vérification existant
-    const existing = await User.findOne({ where: { email } });
-    if (existing) return res.status(400).json({ message: "Cet email est déjà utilisé." });
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    
-    const newUser = await User.create({
-      firstname, lastname, email, matricule,
-      password: hashedPassword,
-      role: 'citizen' // Par défaut
-    });
-
-    return res.status(201).json({ 
-      success: true, 
-      message: "Compte créé avec succès.",
-      data: { id: newUser.id, email: newUser.email }
-    });
+    const body = registerSchema.parse(req.body);
+    const exists = await User.findOne({ where: { email: body.email } });
+    if (exists) return res.status(409).json({ message: "Email déjà utilisé" });
+    const hashedPass = await bcrypt.hash(body.password, 10);
+    const user = await User.create({ ...body, password: hashedPass, role: "citizen" });
+    return res.status(201).json(publicUser(user));
   } catch (error) {
-    next(error);
+    return res.status(400).json({ message: "Données d'inscription invalides" });
   }
 };
 
-// ==========================================
-// 2. CONNEXION (Login)
-// ==========================================
-export const login = async (req: Request, res: Response, next: NextFunction) => {
+export const login = async (req: Request, res: Response) => {
+  const LOCK_DURATION_MIN = 15;
+  const MAX_ATTEMPTS = 5;
   try {
-    const { email, password } = req.body;
-    console.log(`[AUTH] Login: ${email}`);
+    const body: LoginInput = loginSchema.parse(req.body);
 
-    const user = await User.findOne({ where: { email } });
-    if (!user || !(await bcrypt.compare(password, user.password))) {
-      return res.status(401).json({ message: "Identifiants invalides." });
+    const user = (await User.findOne({
+      where: { [Op.or]: [{ email: body.identifier }, { matricule: body.identifier }] },
+    })) as any;
+
+    if (!user) return res.status(401).json({ message: "Identifiants invalides" });
+    if (user.lockUntil && user.lockUntil > new Date()) return res.status(403).json({ message: "Compte verrouillé." });
+
+    const ok = await bcrypt.compare(body.password, user.password);
+    if (!ok) {
+      user.failedAttempts = (user.failedAttempts || 0) + 1;
+      if (user.failedAttempts >= MAX_ATTEMPTS) user.lockUntil = new Date(Date.now() + LOCK_DURATION_MIN * 60 * 1000);
+      await user.save();
+      return res.status(401).json({ message: "Identifiants invalides" });
     }
 
-    const accessToken = signAccessToken(user.id, user.role);
-    const refreshToken = signRefreshToken(user.id);
+    user.failedAttempts = 0;
+    user.lockUntil = null;
+    await user.save();
 
-    // Gestion du Refresh Token en base
+    const token = signToken(user);
+    const refresh = signRefresh(user);
+
+    // CORRECTION : Calcul de la date d'expiration pour éviter l'erreur notNull Violation
+    const expiryDate = new Date();
+    expiryDate.setDate(expiryDate.getDate() + 7); // Expiration dans 7 jours
+
     await RefreshToken.destroy({ where: { userId: user.id } });
     await RefreshToken.create({ 
-        token: refreshToken, 
-        userId: user.id, 
-        expiryDate: new Date(Date.now() + 7 * 24 * 3600000) 
+      userId: user.id, 
+      token: refresh,
+      expiryDate: expiryDate // Ajout de la date obligatoire
     });
 
-    return res.status(200).json({
-      success: true,
-      message: "Connexion réussie",
-      data: {
-        user: { id: user.id, email: user.email, role: user.role, matricule: user.matricule },
-        tokens: { accessToken, refreshToken }
-      }
-    });
-  } catch (error) {
-    next(error);
+    return res.json({ token, refresh, user: publicUser(user) });
+  } catch (err) {
+    console.error("Erreur login:", err);
+    return res.status(400).json({ message: "Requête invalide" });
   }
 };
 
-// ==========================================
-// 3. REFRESH TOKEN
-// ==========================================
-export const refreshToken = async (req: Request, res: Response, next: NextFunction) => {
+export const logout = async (req: Request, res: Response) => {
   try {
-    const { token } = req.body;
-    if (!token) return res.status(400).json({ message: "Token requis" });
-
-    const storedToken = await RefreshToken.findOne({ where: { token } });
-    if (!storedToken) return res.status(403).json({ message: "Token invalide" });
-
-    // Vérification expiration
-    if (storedToken.expiryDate < new Date()) {
-      await RefreshToken.destroy({ where: { id: storedToken.id } });
-      return res.status(403).json({ message: "Token expiré, veuillez vous reconnecter" });
-    }
-
-    // Génération nouveau token
-    const user = await User.findByPk(storedToken.userId);
-    if (!user) return res.status(403).json({ message: "Utilisateur introuvable" });
-
-    const newAccessToken = signAccessToken(user.id, user.role);
-    
-    return res.json({ 
-      accessToken: newAccessToken, 
-      refreshToken: token 
-    });
-
-  } catch (error) {
-    next(error);
+    const { refresh } = req.body;
+    if (!refresh) return res.status(400).json({ message: "Token requis" });
+    await RefreshToken.destroy({ where: { token: refresh } });
+    return res.status(200).json({ message: "Déconnexion réussie" });
+  } catch (err) {
+    return res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
-// ==========================================
-// 4. PROFIL (Me)
-// ==========================================
-export const me = async (req: Request, res: Response, next: NextFunction) => {
+export const refreshToken = async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id;
-    const user = await User.findByPk(userId, { attributes: { exclude: ['password'] } });
-    
-    if (!user) return res.status(404).json({ message: "Utilisateur non trouvé" });
-
-    return res.json({ success: true, data: user });
-  } catch (error) {
-    next(error);
+    const { refresh } = req.body;
+    if (!refresh) return res.status(401).json({ message: "Token manquant" });
+    const decoded: any = jwt.verify(refresh, REFRESH_SECRET);
+    const user = await User.findByPk(decoded.id);
+    if (!user) return res.status(401).json({ message: "Invalid refresh" });
+    return res.json({ token: signToken(user) });
+  } catch (err) {
+    return res.status(401).json({ message: "Token invalide" });
   }
 };
 
-// ==========================================
-// 👑 5. MAGIC ADMIN (Super Admin)
-// ==========================================
+export const me = async (req: Request, res: Response) => {
+  // @ts-ignore
+  if (req.user) return res.json(publicUser(req.user));
+  return res.status(401).json({ message: "Non authentifié" });
+};
+
 export const createSuperAdmin = async (req: Request, res: Response) => {
-  try {
-    const email = "admin@justice.ne";
-    const password = "admin123"; // Mot de passe facile pour test
-
-    const existingAdmin = await User.findOne({ where: { email } });
-    if (existingAdmin) {
-      return res.status(400).json({ 
-        success: false, 
-        message: "❌ Cet administrateur existe déjà !" 
-      });
-    }
-
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    await User.create({
-      firstname: "Super",
-      lastname: "ADMIN",
-      email: email,
-      password: hashedPassword,
-      role: "admin", 
-      phone: "+22700000000",
-      city: "Niamey"
-    });
-
-    return res.json({ 
-      success: true, 
-      message: "✅ Super Admin créé avec succès !",
-      credentials: { email, password }
-    });
-
-  } catch (error: any) {
-    console.error("Erreur createSuperAdmin:", error);
-    return res.status(500).json({ success: false, error: error.message });
-  }
+  return res.status(501).json({ message: "Non implémenté" });
 };

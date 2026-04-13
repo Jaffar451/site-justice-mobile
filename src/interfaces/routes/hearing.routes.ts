@@ -16,61 +16,41 @@ const router = Router();
 const judicialStaff = ["judge", "clerk", "police", "prosecutor", "admin"];
 
 // 📌 RÔLE D'AUDIENCE DU JOUR (Placé avant /:id)
-router.get(
-  "/daily-roll",
-  authenticate,
-  authorize(judicialStaff),
-  getDailyRoll
-);
+router.get("/daily-roll", authenticate, authorize(judicialStaff), getDailyRoll);
 
 // 📌 LISTER TOUTES LES AUDIENCES (Calendrier global ou filtré par tribunal)
-router.get(
-  "/", 
-  authenticate, 
-  authorize(judicialStaff), 
-  listHearings
-);
+router.get("/", authenticate, authorize(judicialStaff), listHearings);
 
 // 📌 HISTORIQUE DES AUDIENCES D'UNE AFFAIRE SPÉCIFIQUE
 router.get(
   "/case/:caseId",
   authenticate,
   authorize(judicialStaff),
-  listHearingsByCase
+  listHearingsByCase,
 );
 
 // 📌 VOIR UNE AUDIENCE PRÉCISE
-router.get(
-  "/:id", 
-  authenticate, 
-  authorize(judicialStaff), 
-  getHearing
-);
+router.get("/:id", authenticate, authorize(judicialStaff), getHearing);
 
 // --- ACCÈS RESTREINT (Gestion) ---
 
 // 📌 PLANIFIER (Juge + Greffier)
 router.post(
-  "/", 
-  authenticate, 
-  authorize(["judge", "clerk", "admin"]), 
-  createHearing
+  "/",
+  authenticate,
+  authorize(["judge", "clerk", "admin"]),
+  createHearing,
 );
 
 // 📌 MODIFIER / AJOURNER (Juge + Greffier)
 router.patch(
-  "/:id", 
-  authenticate, 
-  authorize(["judge", "clerk", "admin"]), 
-  updateHearing
+  "/:id",
+  authenticate,
+  authorize(["judge", "clerk", "admin"]),
+  updateHearing,
 );
 
 // 📌 SUPPRIMER (Admin uniquement)
-router.delete(
-  "/:id", 
-  authenticate, 
-  authorize(["admin"]), 
-  deleteHearing
-);
+router.delete("/:id", authenticate, authorize(["admin"]), deleteHearing);
 
 export default router;

@@ -6,9 +6,9 @@ import { Router } from "express";
 // ==========================================
 import authRoutes from "./auth.routes";
 import userRoutes from "./user.routes";
-import auditRoutes from "./audit.routes"; 
+import auditRoutes from "./audit.routes";
 import adminRoutes from "./admin.routes";
-import notificationRoutes from "./notification.routes"; 
+import notificationRoutes from "./notification.routes";
 import courtRoutes from "./court.routes";
 import prisonRoutes from "./prison.routes";
 import lawyerRoutes from "./lawyer.routes";
@@ -18,7 +18,7 @@ import citizenRoutes from "./citizen.routes";
 // ==========================================
 // 2. SIG, POLICE & ALERTES
 // ==========================================
-import policeStationRoutes from "./policeStation.routes"; 
+import policeStationRoutes from "./policeStation.routes";
 import sosRoutes from "./sos.routes";
 
 // ==========================================
@@ -52,6 +52,7 @@ import preventiveDetentionRoutes from "./preventiveDetention.routes";
 import releaseRoutes from "./release.routes";
 import sentenceRoutes from "./sentence.routes";
 import confiscationRoutes from "./confiscation.routes";
+import custodyRoutes from "./custody.routes"; // ⬅️ AJOUT : Import manquant !
 
 // ==========================================
 // 6. SUITES LÉGALES, RÉPARATIONS & APPELS
@@ -66,7 +67,7 @@ import prosecutionRoutes from "./prosecution.routes";
 import dashboardRoutes from "./dashboard.routes";
 import statsRoutes from "./stats.routes";
 import publicRoutes from "./public.routes";
-import resourceRoutes from "./resource.routes"; // ✅ AJOUT ICI : Ressources (Lois, PDF, Annuaires)
+import resourceRoutes from "./resource.routes";
 
 const router = Router();
 
@@ -77,9 +78,9 @@ const router = Router();
 // --- Infrastructure ---
 router.use("/auth", authRoutes);
 router.use("/users", userRoutes);
-router.use("/audit-logs", auditRoutes); 
+router.use("/audit-logs", auditRoutes);
 router.use("/admin", adminRoutes);
-router.use("/notifications", notificationRoutes); 
+router.use("/notifications", notificationRoutes);
 router.use("/courts", courtRoutes);
 router.use("/prisons", prisonRoutes);
 router.use("/lawyers", lawyerRoutes);
@@ -88,8 +89,8 @@ router.use("/citizens", citizenRoutes);
 
 // --- SIG & Sécurité ---
 router.use("/police-stations", policeStationRoutes);
-router.use("/directory", policeStationRoutes); // Alias pour l'annuaire public
-router.use("/sos", sosRoutes); 
+router.use("/directory", policeStationRoutes);
+router.use("/sos", sosRoutes);
 
 // --- Dossiers Judiciaires ---
 router.use("/complaints", complaintRoutes);
@@ -104,7 +105,7 @@ router.use("/summons", summonRoutes);
 router.use("/arrest-warrants", arrestWarrantRoutes);
 router.use("/search-warrants", searchWarrantRoutes);
 router.use("/witnesses", witnessRoutes);
-router.use("/evidence", evidenceRoutes); 
+router.use("/evidence", evidenceRoutes);
 router.use("/attachments", attachmentRoutes);
 router.use("/notes", noteRoutes);
 
@@ -116,6 +117,7 @@ router.use("/preventive-detentions", preventiveDetentionRoutes);
 router.use("/releases", releaseRoutes);
 router.use("/sentences", sentenceRoutes);
 router.use("/confiscations", confiscationRoutes);
+router.use("/custodies", custodyRoutes); // ⬅️ AJOUT : Route manquante !
 
 // --- Voies de Recours ---
 router.use("/reparations", reparationRoutes);
@@ -123,20 +125,20 @@ router.use("/appeals", appealRoutes);
 router.use("/prosecutions", prosecutionRoutes);
 
 // --- Statistiques & Dashboards ---
-router.use("/dashboard", dashboardRoutes); 
-router.use("/stats", statsRoutes);     
+router.use("/dashboard", dashboardRoutes);
+router.use("/stats", statsRoutes);
 router.use("/public", publicRoutes);
-router.use("/resources", resourceRoutes); // ✅ AJOUT ICI : Route /api/resources
+router.use("/resources", resourceRoutes);
 
 // --- Surveillance du Système ---
 router.get("/status", (_, res) => {
-    res.json({ 
-        success: true,
-        message: "⚖️ Système National e-Justice Niger Online", 
-        version: "2.0.0",
-        node_env: process.env.NODE_ENV || "development",
-        timestamp: new Date() 
-    });
+  res.json({
+    success: true,
+    message: "⚖️ Système National e-Justice Niger Online",
+    version: "2.0.0",
+    node_env: process.env.NODE_ENV || "development",
+    timestamp: new Date(),
+  });
 });
 
 export default router;

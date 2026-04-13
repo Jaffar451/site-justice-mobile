@@ -1,17 +1,33 @@
-import { Table, Column, Model, DataType, BelongsTo, ForeignKey, HasOne, HasMany, CreatedAt, UpdatedAt } from 'sequelize-typescript';
-import User from './user.model';
-import PoliceStation from './policeStation.model';
-import CaseModel from './case.model';
-import ComplaintFile from './complaintFile.model';
+import {
+  Table,
+  Column,
+  Model,
+  DataType,
+  BelongsTo,
+  ForeignKey,
+  HasOne,
+  HasMany,
+  CreatedAt,
+  UpdatedAt,
+} from "sequelize-typescript";
+import User from "./user.model";
+import PoliceStation from "./policeStation.model";
+import CaseModel from "./case.model";
+import ComplaintFile from "./complaintFile.model";
+import OffenseCategory from "./offenseCategory.model";
+import Attachment from "./attachment.model";
 
 export type ComplaintStatus =
-  | "soumise" | "en_cours_OPJ" | "attente_validation" | "transmise_parquet"
-  | "classée_sans_suite_par_OPJ" | "classée_sans_suite_par_procureur"
-  | "saisi_juge" | "instruction" | "audience_programmée" | "jugée" | "non_lieu";
+  | "soumise"
+  | "en_cours_OPJ"
+  | "attente_validation"
+  | "transmise_parquet"
+  | "classée_sans_suite_par_OPJ"
+  | "classée_sans_suite_par_procureur"
+  | "figée";
 
-@Table({ tableName: 'Complaints', timestamps: true, underscored: true })
+@Table({ tableName: "Complaints", timestamps: true, underscored: true })
 export default class Complaint extends Model {
-
   @Column({ type: DataType.STRING, defaultValue: "Plainte sans titre" })
   title!: string;
 
@@ -21,13 +37,17 @@ export default class Complaint extends Model {
   @Column({ type: DataType.STRING, defaultValue: "general" })
   category!: string;
 
-  @Column({ 
+  @Column({
     type: DataType.ENUM(
-      "soumise", "en_cours_OPJ", "attente_validation", "transmise_parquet",
-      "classée_sans_suite_par_OPJ", "classée_sans_suite_par_procureur",
-      "saisi_juge", "instruction", "audience_programmée", "jugée", "non_lieu"
-    ), 
-    defaultValue: "soumise" 
+      "soumise",
+      "en_cours_OPJ",
+      "attente_validation",
+      "transmise_parquet",
+      "classée_sans_suite_par_OPJ",
+      "classée_sans_suite_par_procureur",
+      "figée",
+    ),
+    defaultValue: "soumise",
   })
   status!: ComplaintStatus;
 
@@ -36,13 +56,12 @@ export default class Complaint extends Model {
 
   @Column({ type: DataType.STRING, allowNull: true })
   location?: string;
+
   @Column({ type: DataType.DECIMAL(10, 8), allowNull: true })
   latitude?: number;
+
   @Column({ type: DataType.DECIMAL(11, 8), allowNull: true })
   longitude?: number;
-
-  @Column({ type: DataType.STRING, allowNull: true })
-  provisionalOffence?: string;
 
   @Column({ type: DataType.BOOLEAN, defaultValue: false })
   validatedByCommissaire!: boolean;
@@ -57,32 +76,48 @@ export default class Complaint extends Model {
   verification_token!: string;
 
   // --- RELATIONS ---
+
   @ForeignKey(() => User)
   @Column({ type: DataType.INTEGER, allowNull: false })
   citizenId!: number;
 
-  @BelongsTo(() => User, { as: 'complainant' })
+  @BelongsTo(() => User, { as: "complainant" })
   complainant!: User;
 
   @ForeignKey(() => PoliceStation)
   @Column({ type: DataType.INTEGER, allowNull: true })
   policeStationId?: number;
 
-  @BelongsTo(() => PoliceStation, { as: 'originStation' })
+  @BelongsTo(() => PoliceStation, { as: "originStation" })
   originStation?: PoliceStation;
 
+  // OPJ assigné à l'enquête — manquait dans l'original
   @ForeignKey(() => User)
   @Column({ type: DataType.INTEGER, allowNull: true })
-  assignedJudgeId?: number;
+  assignedOpjId?: number;
 
-  @BelongsTo(() => User, { as: 'assignedJudge' })
-  assignedJudge?: User;
+  @BelongsTo(() => User, { as: "assignedOPJ" })
+  assignedOPJ?: User;
 
-  @HasOne(() => CaseModel, { as: 'judicialCase' })
+  // Supprimé : assignedJudgeId — le juge appartient au Case, pas à la Complaint
+
+  // Qualification provisoire — catégorie large seulement
+  // L'article précis est qualifié par le procureur dans CaseQualification
+  @ForeignKey(() => OffenseCategory)
+  @Column({ type: DataType.INTEGER, allowNull: true })
+  offenseCategoryId?: number;
+
+  @BelongsTo(() => OffenseCategory, { as: "offenseCategory" })
+  offenseCategory?: OffenseCategory;
+
+  @HasOne(() => CaseModel, { as: "judicialCase" })
   judicialCase?: CaseModel;
 
-  @HasMany(() => ComplaintFile, { as: 'attachedFiles' })
+  @HasMany(() => ComplaintFile, { as: "attachedFiles" })
   attachedFiles!: ComplaintFile[];
+
+  @HasMany(() => Attachment, { as: "attachments" })
+  attachments!: Attachment[];
 
   @CreatedAt createdAt!: Date;
   @UpdatedAt updatedAt!: Date;

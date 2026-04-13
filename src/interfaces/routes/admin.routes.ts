@@ -1,5 +1,5 @@
 import { Router } from "express";
-import * as AdminController from "../controllers/admin.controller"; 
+import * as AdminController from "../controllers/admin.controller";
 import { authenticate, authorize } from "../../middleware/auth.middleware";
 
 const router = Router();
@@ -27,9 +27,9 @@ router.post("/maintenance/status", AdminController.setMaintenanceStatus);
 
 // Route pour vider le cache
 router.post("/maintenance/clear-cache", (req, res) => {
-    // Logique simulée de vidage de cache
-    console.log("🧹 Cache vidé par l'admin");
-    res.json({ success: true, message: "Cache serveur vidé avec succès" });
+  // Logique simulée de vidage de cache
+  console.log("🧹 Cache vidé par l'admin");
+  res.json({ success: true, message: "Cache serveur vidé avec succès" });
 });
 
 export default router;

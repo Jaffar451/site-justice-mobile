@@ -1,30 +1,38 @@
-import { Table, Column, Model, DataType, ForeignKey, BelongsTo, CreatedAt, UpdatedAt } from 'sequelize-typescript';
-import Detainee from './detainee.model';
-import Prison from './prison.model';
-import CaseModel from './case.model';
+import {
+  Table,
+  Column,
+  Model,
+  DataType,
+  ForeignKey,
+  BelongsTo,
+  CreatedAt,
+  UpdatedAt,
+} from "sequelize-typescript";
+import Detainee from "./detainee.model";
+import Prison from "./prison.model";
+import CaseModel from "./case.model";
 
-@Table({ tableName: 'incarcerations', timestamps: true, underscored: true })
+@Table({ tableName: "incarcerations", timestamps: true, underscored: true })
 export default class Incarceration extends Model {
-  
   @ForeignKey(() => Detainee)
   @Column({ type: DataType.INTEGER, allowNull: false })
   detaineeId!: number;
 
-  @BelongsTo(() => Detainee, { as: 'detaineeData' })
+  @BelongsTo(() => Detainee, { as: "detaineeData" })
   detaineeData!: Detainee;
 
   @ForeignKey(() => Prison)
   @Column({ type: DataType.INTEGER, allowNull: false })
   prisonId!: number;
 
-  @BelongsTo(() => Prison, { as: 'detentionCenter' })
+  @BelongsTo(() => Prison, { as: "detentionCenter" })
   detentionCenter!: Prison;
 
   @ForeignKey(() => CaseModel)
   @Column({ type: DataType.INTEGER, allowNull: true })
   caseId?: number;
 
-  @BelongsTo(() => CaseModel, { as: 'legalBasis' })
+  @BelongsTo(() => CaseModel, { as: "legalBasis" })
   legalBasis?: CaseModel;
 
   @Column({ type: DataType.DATE, defaultValue: DataType.NOW })
@@ -36,7 +44,10 @@ export default class Incarceration extends Model {
   @Column({ type: DataType.DATE, allowNull: true })
   actualReleaseDate?: Date;
 
-  @Column({ type: DataType.ENUM("preventive", "convicted", "released", "escaped"), defaultValue: "preventive" })
+  @Column({
+    type: DataType.ENUM("preventive", "convicted", "released", "escaped"),
+    defaultValue: "preventive",
+  })
   status!: string;
 
   @Column({ type: DataType.STRING, allowNull: true })

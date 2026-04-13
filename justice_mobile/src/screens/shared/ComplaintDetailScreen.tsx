@@ -1,3 +1,4 @@
+import StatusBadge from '../../components/ui/StatusBadge';
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, StatusBar } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
@@ -100,9 +101,7 @@ export default function ComplaintDetailScreen() {
         {/* 🏷️ BANDEAU DE STATUT */}
         <View style={[styles.statusBanner, { backgroundColor: theme.color + '15' }]}>
           <Ionicons name="shield-checkmark" size={18} color={theme.color} />
-          <Text style={[styles.statusLabel, { color: theme.color }]}>
-            {complaint.status.toUpperCase().replace(/_/g, ' ')}
-          </Text>
+          <StatusBadge status={complaint.status} />
         </View>
 
         {/* 📋 CORPS DU DOSSIER */}

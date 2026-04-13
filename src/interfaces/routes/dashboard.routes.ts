@@ -1,6 +1,9 @@
 // PATH: src/interfaces/routes/dashboard.routes.ts
 import { Router } from "express";
-import { getPrisonStats, getPoliceStats } from "../controllers/dashboard.controller";
+import {
+  getPrisonStats,
+  getPoliceStats,
+} from "../controllers/dashboard.controller";
 // import { protect, restrictTo } from "../../middlewares/auth.middleware"; // À activer plus tard pour la sécurité
 
 const router = Router();

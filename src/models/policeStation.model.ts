@@ -1,15 +1,34 @@
-import { Table, Column, Model, DataType, HasMany, CreatedAt, UpdatedAt } from 'sequelize-typescript';
-import User from './user.model';
-import Complaint from './complaint.model';
-import SosAlert from './sosAlert.model';
+import {
+  Table,
+  Column,
+  Model,
+  DataType,
+  HasMany,
+  CreatedAt,
+  UpdatedAt,
+} from "sequelize-typescript";
+import User from "./user.model";
+import Complaint from "./complaint.model";
+import SosAlert from "./sosAlert.model";
 
-@Table({ tableName: 'police_stations', timestamps: true, underscored: true })
+@Table({ 
+  tableName: "police_stations", 
+  timestamps: true, 
+  underscored: false // Désactivé pour correspondre à votre structure réelle
+})
 export default class PoliceStation extends Model {
+  @Column({ type: DataType.INTEGER, primaryKey: true, autoIncrement: true })
+  id!: number;
+
   @Column({ type: DataType.STRING, allowNull: false })
   name!: string;
 
-  @Column({ type: DataType.ENUM("POLICE", "GENDARMERIE"), defaultValue: "POLICE" })
-  type!: "POLICE" | "GENDARMERIE";
+  // Assurez-vous que l'ENUM correspond exactement à ce qui est en base
+  @Column({
+    type: DataType.STRING, // Souvent plus simple que l'ENUM natif si les noms diffèrent
+    defaultValue: "POLICE",
+  })
+  type!: string;
 
   @Column({ type: DataType.STRING, defaultValue: "Niamey" })
   city!: string;
@@ -24,15 +43,20 @@ export default class PoliceStation extends Model {
   phone?: string;
 
   // --- RELATIONS ---
-  @HasMany(() => User, { as: 'agents' })
+  @HasMany(() => User, { foreignKey: "police_station_id" })
   agents!: User[];
 
-  @HasMany(() => Complaint, { as: 'receivedComplaints' })
+  @HasMany(() => Complaint, { foreignKey: "police_station_id" })
   receivedComplaints!: Complaint[];
 
-  @HasMany(() => SosAlert, { as: 'receivedAlerts' })
+  @HasMany(() => SosAlert, { foreignKey: "police_station_id" })
   receivedAlerts!: SosAlert[];
 
-  @CreatedAt createdAt!: Date;
-  @UpdatedAt updatedAt!: Date;
+  @CreatedAt 
+  @Column({ type: DataType.DATE, field: "created_at" }) 
+  createdAt!: Date;
+
+  @UpdatedAt 
+  @Column({ type: DataType.DATE, field: "updated_at" }) 
+  updatedAt!: Date;
 }

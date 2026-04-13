@@ -1,5 +1,8 @@
 import { Router } from "express";
-import { createCustodyExtension, getCustodyExtensions } from "../controllers/custodyExtension.controller";
+import {
+  createCustodyExtension,
+  getCustodyExtensions,
+} from "../controllers/custodyExtension.controller";
 
 const router = Router();
 

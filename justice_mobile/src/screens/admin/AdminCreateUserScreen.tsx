@@ -6,22 +6,19 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { AdminStackParamList } from '../../types/navigation';
 
-// ✅ Layout Components
 import ScreenContainer from "../../components/layout/ScreenContainer";
 import AppHeader from "../../components/layout/AppHeader";
 import SmartFooter from "../../components/layout/SmartFooter";
-
-// ✅ Architecture & Thème
-import { AdminScreenProps } from '../../types/navigation';
 import { useAppTheme } from '../../theme/AppThemeProvider';
-
-// ✅ Services
 import { createUser } from '../../services/admin.service';
 import { getAllCourts } from '../../services/court.service'; 
 import { getAllStations } from '../../services/policeStation.service';
 
-// 🛠️ TYPES
+type Props = NativeStackScreenProps<AdminStackParamList, 'AdminCreateUser'>;
+
 type UserRole = "admin" | "prosecutor" | "judge" | "greffier" | "commissaire" | "officier_police" | "inspecteur" | "citizen";
 type OrganizationType = "POLICE" | "GENDARMERIE" | "JUSTICE" | "ADMIN" | "CITIZEN";
 
@@ -35,7 +32,7 @@ const ROLES_CONFIG: { value: UserRole; label: string; icon: string; color: strin
   { value: "citizen", label: "Citoyen", icon: "person-outline", color: "#64748B" },
 ];
 
-export default function AdminCreateUserScreen({ navigation }: AdminScreenProps<'AdminCreateUser'>) {
+export default function AdminCreateUserScreen({ navigation }: Props) {
   const { theme, isDark } = useAppTheme();
   const primaryColor = theme.colors.primary;
   const queryClient = useQueryClient();
@@ -52,29 +49,37 @@ export default function AdminCreateUserScreen({ navigation }: AdminScreenProps<'
     inputBg: isDark ? "#0F172A" : "#FFFFFF",
   };
 
+  // ✅ NOUVEAUX CHAMPS AJOUTÉS
   const [form, setForm] = useState({
     firstname: '',
     lastname: '',
-    email: '',
+    email: '', // Email professionnel
+    personalEmail: '', // ✅ Email personnel (NOUVEAU)
     telephone: '',
-    password: '', // ✅ Ajout du champ password
+    alternativePhone: '', // ✅ Téléphone alternatif (NOUVEAU)
+    password: '',
     role: 'officier_police' as UserRole,
     selectedStructureId: null as number | null,
-    matricule: ''
+    matricule: '',
+    station: '',
+    address: '', // ✅ Adresse complète (NOUVEAU)
+    city: '', // ✅ Ville (NOUVEAU)
+    dateOfBirth: '', // ✅ Date de naissance (NOUVEAU)
+    placeOfBirth: '', // ✅ Lieu de naissance (NOUVEAU)
+    nationality: 'Nigérienne', // ✅ Nationalité (NOUVEAU)
+    cin: '', // ✅ CIN/PIECE IDENTITÉ (NOUVEAU)
   });
 
-  // 🎲 Fonction pour générer un mot de passe sécurisé
   const generateSecurePassword = () => {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
     let password = "";
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 12; i++) {
       password += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     setForm({ ...form, password });
     setShowPassword(true);
   };
 
-  // --- 1. CHARGEMENT DES STRUCTURES ---
   const { data: courtsRaw } = useQuery({
     queryKey: ['courts'],
     queryFn: getAllCourts,
@@ -90,31 +95,61 @@ export default function AdminCreateUserScreen({ navigation }: AdminScreenProps<'
   const courts = useMemo(() => (courtsRaw as any)?.data || (Array.isArray(courtsRaw) ? courtsRaw : []), [courtsRaw]);
   const stations = useMemo(() => (stationsRaw as any)?.data || (Array.isArray(stationsRaw) ? stationsRaw : []), [stationsRaw]);
 
-  // --- 2. LOGIQUE DE CRÉATION ---
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert("Permission refusée", "L'accès à la galerie est requis pour ajouter une photo.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setImage(result.assets[0].uri);
+    }
+  };
+
   const mutation = useMutation({
     mutationFn: (data: any) => createUser(data),
-    onSuccess: () => {
+    onSuccess: (newUser) => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
-      Alert.alert("Succès", "L'agent a été correctement enrôlé.", [
-          { text: "OK", onPress: () => navigation.navigate("AdminUsers") }
-      ]);
+      navigation.replace("AdminUserDetails", { 
+        userId: newUser.id || newUser._id 
+      });
+      if (Platform.OS === 'web') {
+        window.alert("L'agent a été correctement enrôlé !");
+      } else {
+        Alert.alert("Succès", "L'agent a été correctement enrôlé !");
+      }
     },
     onError: (err: any) => {
       Alert.alert("Échec", err.response?.data?.message || "Erreur serveur.");
     }
   });
 
-  const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true, aspect: [1, 1], quality: 0.5,
-    });
-    if (!result.canceled && result.assets[0]) setImage(result.assets[0].uri);
-  };
-
-  const handleCreateUser = () => {
+  const handleCreateUser = async () => {
     if (!form.firstname.trim() || !form.lastname.trim() || !form.email.trim() || !form.password.trim()) {
-      return Alert.alert("Données manquantes", "Veuillez remplir tous les champs, y compris le mot de passe.");
+      return Alert.alert("Données manquantes", "Prénom, nom, email pro et mot de passe sont obligatoires.");
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(form.email.trim())) {
+      return Alert.alert("Email pro invalide", "Veuillez saisir une adresse email valide.");
+    }
+    if (form.personalEmail && !emailRegex.test(form.personalEmail.trim())) {
+      return Alert.alert("Email personnel invalide", "Veuillez saisir une adresse email valide.");
+    }
+    if (form.password.length < 6) {
+      return Alert.alert("Mot de passe faible", "Le mot de passe doit contenir au moins 6 caractères.");
+    }
+
+    if (['commissaire', 'officier_police', 'prosecutor', 'judge', 'greffier'].includes(form.role)) {
+      if (!form.selectedStructureId) {
+        return Alert.alert("Affectation requise", "Veuillez sélectionner une unité ou juridiction.");
+      }
     }
 
     let organization: OrganizationType = "CITIZEN";
@@ -127,16 +162,35 @@ export default function AdminCreateUserScreen({ navigation }: AdminScreenProps<'
       firstname: form.firstname.trim(),
       lastname: form.lastname.trim().toUpperCase(),
       email: form.email.trim().toLowerCase(),
+      personalEmail: form.personalEmail ? form.personalEmail.trim().toLowerCase() : null,
       matricule: form.matricule || `MAT-${Date.now().toString().slice(-6)}`,
       courtId: organization === "JUSTICE" ? Number(form.selectedStructureId) : null,
       policeStationId: organization === "POLICE" ? Number(form.selectedStructureId) : null,
       organization,
       isActive: true,
-      photo: image
+      photo: image,
     };
 
     mutation.mutate(payload);
   };
+
+  const InputField = ({ label, value, onChange, placeholder, icon, keyboardType = "default" }: any) => (
+    <View style={styles.inputGroup}>
+      <Text style={[styles.label, { color: colors.textSub }]}>{label}</Text>
+      <View style={[styles.inputWrapper, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+        <Ionicons name={icon} size={20} color={colors.textSub} style={{ marginRight: 12 }} />
+        <TextInput
+          style={[styles.input, { color: colors.textMain }]}
+          value={value}
+          onChangeText={onChange}
+          placeholder={placeholder}
+          placeholderTextColor={isDark ? "#475569" : "#94A3B8"}
+          keyboardType={keyboardType}
+          autoCapitalize="none"
+        />
+      </View>
+    </View>
+  );
 
   return (
     <ScreenContainer withPadding={false}>
@@ -156,59 +210,79 @@ export default function AdminCreateUserScreen({ navigation }: AdminScreenProps<'
                 </View>
               )}
             </TouchableOpacity>
+            <Text style={[styles.photoHint, { color: colors.textSub }]}>Photo d'identification (optionnel)</Text>
           </View>
 
-          {/* FORMULAIRE */}
+          {/* IDENTITÉ */}
           <Text style={[styles.sectionTitle, { color: colors.textSub }]}>Identité Officielle</Text>
           <View style={styles.inputRow}>
-            <TextInput
-              style={[styles.inputHalf, { backgroundColor: colors.inputBg, color: colors.textMain, borderColor: colors.border }]}
-              placeholder="Prénom" placeholderTextColor={colors.textSub}
-              value={form.firstname} onChangeText={(t) => setForm({...form, firstname: t})}
-            />
-            <TextInput
-              style={[styles.inputHalf, { backgroundColor: colors.inputBg, color: colors.textMain, borderColor: colors.border }]}
-              placeholder="Nom" placeholderTextColor={colors.textSub}
-              value={form.lastname} onChangeText={(t) => setForm({...form, lastname: t})}
-            />
+            <View style={{ flex: 1, marginRight: 10 }}>
+              <InputField label="Prénom" value={form.firstname} onChange={(t: string) => setForm({...form, firstname: t})} placeholder="Prénom" icon="person-outline" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <InputField label="Nom" value={form.lastname} onChange={(t: string) => setForm({...form, lastname: t})} placeholder="NOM" icon="person-outline" />
+            </View>
           </View>
 
-          <TextInput
-            style={[styles.inputFull, { backgroundColor: colors.inputBg, color: colors.textMain, borderColor: colors.border }]}
-            placeholder="Email (Identifiant)" placeholderTextColor={colors.textSub}
-            value={form.email} onChangeText={(t) => setForm({...form, email: t})}
-            autoCapitalize="none" keyboardType="email-address"
-          />
-
-          {/* ✅ NOUVEAU : CHAMP MOT DE PASSE AVEC GÉNÉRATEUR */}
-          <View style={styles.passwordContainer}>
-            <TextInput
-              style={[styles.inputPassword, { backgroundColor: colors.inputBg, color: colors.textMain, borderColor: colors.border }]}
-              placeholder="Mot de passe" placeholderTextColor={colors.textSub}
-              value={form.password} onChangeText={(t) => setForm({...form, password: t})}
-              secureTextEntry={!showPassword}
-            />
-            <TouchableOpacity style={[styles.actionIcon, { borderColor: colors.border }]} onPress={() => setShowPassword(!showPassword)}>
-              <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={20} color={colors.textSub} />
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.actionIcon, { borderColor: colors.border, backgroundColor: primaryColor + '10' }]} onPress={generateSecurePassword}>
-              <Ionicons name="refresh-outline" size={20} color={primaryColor} />
-            </TouchableOpacity>
+          <View style={styles.inputRow}>
+            <View style={{ flex: 1, marginRight: 10 }}>
+              <InputField label="Date de naissance" value={form.dateOfBirth} onChange={(t: string) => setForm({...form, dateOfBirth: t})} placeholder="JJ/MM/AAAA" icon="calendar-outline" keyboardType="numeric" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <InputField label="Lieu de naissance" value={form.placeOfBirth} onChange={(t: string) => setForm({...form, placeOfBirth: t})} placeholder="Ville, Pays" icon="location-outline" />
+            </View>
           </View>
-          <Text style={{ fontSize: 10, color: colors.textSub, marginBottom: 15, marginLeft: 5 }}>
-            Astuce : Cliquez sur la flèche bleue pour générer un mot de passe.
-          </Text>
+
+          <InputField label="Nationalité" value={form.nationality} onChange={(t: string) => setForm({...form, nationality: t})} placeholder="Nationalité" icon="flag-outline" />
+          <InputField label="N° Pièce d'identité (CIN)" value={form.cin} onChange={(t: string) => setForm({...form, cin: t.toUpperCase()})} placeholder="Numéro de pièce" icon="card-outline" />
+
+          {/* CONTACT */}
+          <Text style={[styles.sectionTitle, { color: colors.textSub }]}>Coordonnées</Text>
+          <InputField label="Email Professionnel *" value={form.email} onChange={(t: string) => setForm({...form, email: t})} placeholder="agent@justice.ne" icon="mail-outline" keyboardType="email-address" />
+          <InputField label="Email Personnel" value={form.personalEmail} onChange={(t: string) => setForm({...form, personalEmail: t})} placeholder="email@personnel.com" icon="mail-unread-outline" keyboardType="email-address" />
+          
+          <View style={styles.inputRow}>
+            <View style={{ flex: 1, marginRight: 10 }}>
+              <InputField label="Téléphone *" value={form.telephone} onChange={(t: string) => setForm({...form, telephone: t})} placeholder="90000000" icon="call-outline" keyboardType="phone-pad" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <InputField label="Téléphone Alt." value={form.alternativePhone} onChange={(t: string) => setForm({...form, alternativePhone: t})} placeholder="96000000" icon="call-outline" keyboardType="phone-pad" />
+            </View>
+          </View>
+
+          <InputField label="Adresse Complète" value={form.address} onChange={(t: string) => setForm({...form, address: t})} placeholder="Quartier, Rue, N°" icon="home-outline" />
+          <InputField label="Ville" value={form.city} onChange={(t: string) => setForm({...form, city: t})} placeholder="Ville de résidence" icon="location-outline" />
+
+          {/* SÉCURITÉ */}
+          <Text style={[styles.sectionTitle, { color: colors.textSub }]}>Sécurité</Text>
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: colors.textSub }]}>MOT DE PASSE *</Text>
+            <View style={[styles.inputWrapper, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+              <Ionicons name="lock-closed-outline" size={20} color={colors.textSub} style={{ marginRight: 12 }} />
+              <TextInput
+                style={[styles.input, { color: colors.textMain }]}
+                value={form.password}
+                onChangeText={(t) => setForm({...form, password: t})}
+                placeholder="Mot de passe"
+                placeholderTextColor={isDark ? "#475569" : "#94A3B8"}
+                secureTextEntry={!showPassword}
+              />
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={{ padding: 8 }}>
+                <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={20} color={colors.textSub} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={generateSecurePassword} style={{ padding: 8 }}>
+                <Ionicons name="refresh-outline" size={20} color={primaryColor} />
+              </TouchableOpacity>
+            </View>
+            <Text style={{ fontSize: 10, color: colors.textSub, marginTop: 5 }}>Cliquez sur la flèche pour générer un mot de passe sécurisé</Text>
+          </View>
 
           {form.role !== 'citizen' && (
-            <TextInput
-              style={[styles.inputFull, { backgroundColor: colors.inputBg, color: colors.textMain, borderColor: colors.border }]}
-              placeholder="Numéro de Matricule" placeholderTextColor={colors.textSub}
-              value={form.matricule} onChangeText={(t) => setForm({...form, matricule: t.toUpperCase()})}
-            />
+            <InputField label="Numéro de Matricule" value={form.matricule} onChange={(t: string) => setForm({...form, matricule: t.toUpperCase()})} placeholder="MAT-000000" icon="barcode-outline" />
           )}
 
           {/* RÔLES */}
-          <Text style={[styles.sectionTitle, { marginTop: 10, color: colors.textSub }]}>Habilitation Système</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textSub }]}>Habilitation Système</Text>
           <View style={styles.roleGrid}>
             {ROLES_CONFIG.map((r) => {
               const isSelected = form.role === r.value;
@@ -252,6 +326,7 @@ export default function AdminCreateUserScreen({ navigation }: AdminScreenProps<'
             </View>
           )}
 
+          {/* BOUTON */}
           <TouchableOpacity 
             activeOpacity={0.85}
             style={[styles.submitBtn, { backgroundColor: primaryColor }, mutation.isPending && { opacity: 0.6 }]} 
@@ -277,23 +352,20 @@ export default function AdminCreateUserScreen({ navigation }: AdminScreenProps<'
 const styles = StyleSheet.create({
   scrollContent: { padding: 20 },
   photoUploadContainer: { alignItems: 'center', marginBottom: 25 },
-  photoFrame: { width: 100, height: 100, borderRadius: 50, borderWidth: 1.5, borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+  photoFrame: { width: 120, height: 120, borderRadius: 60, borderWidth: 2, borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
   fullImage: { width: '100%', height: '100%' },
   placeholderContainer: { alignItems: 'center' },
   placeholderText: { fontSize: 10, fontWeight: '800', marginTop: 4, textTransform: 'uppercase' },
-  sectionTitle: { fontSize: 10, fontWeight: "900", marginBottom: 12, letterSpacing: 1.5, textTransform: 'uppercase' },
+  photoHint: { fontSize: 11, marginTop: 8, textAlign: 'center' },
+  sectionTitle: { fontSize: 10, fontWeight: "900", marginBottom: 12, letterSpacing: 1.5, textTransform: 'uppercase', marginTop: 10 },
   inputRow: { flexDirection: 'row', gap: 10, marginBottom: 15 },
-  inputHalf: { flex: 1, height: 56, borderRadius: 16, paddingHorizontal: 18, borderWidth: 1.5 },
-  inputFull: { width: '100%', height: 56, borderRadius: 16, paddingHorizontal: 18, marginBottom: 15, borderWidth: 1.5 },
-  
-  // PASSWORD STYLES
-  passwordContainer: { flexDirection: 'row', gap: 8, marginBottom: 5 },
-  inputPassword: { flex: 1, height: 56, borderRadius: 16, paddingHorizontal: 18, borderWidth: 1.5 },
-  actionIcon: { width: 56, height: 56, borderRadius: 16, borderWidth: 1.5, justifyContent: 'center', alignItems: 'center' },
-  
+  inputGroup: { marginBottom: 15 },
+  label: { fontSize: 10, fontWeight: "900", marginBottom: 8, letterSpacing: 1, textTransform: 'uppercase' },
+  inputWrapper: { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderRadius: 16, paddingHorizontal: 16, height: 56 },
+  input: { flex: 1, fontSize: 15, fontWeight: "700", height: '100%' },
   roleGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   roleCard: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 16, width: '48.5%', gap: 10, borderWidth: 1.5 },
-  roleLabel: { fontSize: 12, fontWeight: '800', flex: 1 },
+  roleLabel: { fontSize: 11, fontWeight: '800', flex: 1 },
   structureList: { gap: 10 },
   structureItem: { flexDirection: 'row', alignItems: 'center', padding: 18, borderRadius: 18 },
   submitBtn: { height: 64, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginTop: 35, elevation: 4 },

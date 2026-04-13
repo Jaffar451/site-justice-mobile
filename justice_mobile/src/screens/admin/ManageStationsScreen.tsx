@@ -1,3 +1,4 @@
+import StatusBadge from '../../components/ui/StatusBadge';
 import React, { useState, useMemo } from "react";
 import { View, FlatList, StyleSheet, Alert, ScrollView, Platform, StatusBar } from "react-native";
 import { 

@@ -10,6 +10,10 @@ const prosecutorAccess = [authenticate, authorize(["admin", "prosecutor"])];
 
 router.post("/prosecute", prosecutorAccess, workflowController.prosecute);
 router.post("/dismiss", prosecutorAccess, workflowController.dismiss);
-router.post("/flagrant-delict", prosecutorAccess, workflowController.handleFlagrantDelict);
+router.post(
+  "/flagrant-delict",
+  prosecutorAccess,
+  workflowController.handleFlagrantDelict,
+);
 
 export default router;

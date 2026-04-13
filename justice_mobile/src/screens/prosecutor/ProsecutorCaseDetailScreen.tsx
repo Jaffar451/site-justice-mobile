@@ -1,3 +1,4 @@
+import StatusBadge from '../../components/ui/StatusBadge';
 // PATH: src/screens/prosecutor/ProsecutorCaseDetailScreen.tsx
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, StatusBar, Platform } from 'react-native';

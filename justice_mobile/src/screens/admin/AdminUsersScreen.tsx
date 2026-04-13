@@ -9,23 +9,20 @@ import {
   RefreshControl, 
   TextInput,
   Platform,
-  StatusBar
+  StatusBar,
+  Image
 } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 
-// ✅ 1. Architecture & Thème
 import { useAppTheme } from "../../theme/AppThemeProvider";
 import { AdminScreenProps } from "../../types/navigation";
-
-// ✅ 2. Services (Correction de l'import pour pointer vers admin.service)
 import { getAllUsers } from "../../services/admin.service"; 
 import ScreenContainer from "../../components/layout/ScreenContainer";
 import AppHeader from "../../components/layout/AppHeader";
 import SmartFooter from "../../components/layout/SmartFooter";
 
-// ✅ Définition du type Utilisateur (Basé sur votre BDD)
 export interface UserData {
   id: number;
   firstname: string;
@@ -37,6 +34,8 @@ export interface UserData {
   organization?: string;
   telephone?: string;
   is_active?: boolean;
+  isActive?: boolean;
+  photo?: string | null;
 }
 
 export default function AdminUsersScreen({ navigation }: AdminScreenProps<'AdminUsers'>) {
@@ -46,7 +45,6 @@ export default function AdminUsersScreen({ navigation }: AdminScreenProps<'Admin
   const [search, setSearch] = useState("");
   const [refreshing, setRefreshing] = useState(false);
 
-  // 🎨 PALETTE DYNAMIQUE
   const colors = {
     bgMain: isDark ? "#0F172A" : "#F8FAFC",
     bgCard: isDark ? "#1E293B" : "#FFFFFF",
@@ -57,33 +55,40 @@ export default function AdminUsersScreen({ navigation }: AdminScreenProps<'Admin
     searchSection: isDark ? "#1E293B" : primaryColor,
   };
 
-  // 📡 Récupération des utilisateurs
-  const { data: rawData, isLoading, refetch, error } = useQuery({
+  const { data, isLoading, refetch, error } = useQuery({
     queryKey: ["users"],
     queryFn: getAllUsers,
   });
 
-  // Rafraîchissement automatique quand on revient sur l'écran
   useFocusEffect(
     useCallback(() => {
       refetch();
     }, [refetch])
   );
 
-  // 🛡️ EXTRACTION SÉCURISÉE
+  // ✅ EXTRACTION SÉCURISÉE DES DONNÉES
   const users: UserData[] = useMemo(() => {
-    if (!rawData) return [];
-    if (Array.isArray(rawData)) return rawData;
-    const d = rawData as any;
-    return d.data || d.users || [];
-  }, [rawData]);
+    if (!data) return [];
+    
+    // Log pour déboguer la structure reçue
+    console.log("Structure reçue de l'API :", JSON.stringify(data, null, 2));
+
+    // Si le backend renvoie { success: true, data: [...] }
+    if (typeof data === 'object' && data !== null && 'data' in data && Array.isArray((data as any).data)) {
+      return (data as any).data;
+    }
+    
+    // Fallback si data est déjà un tableau
+    if (Array.isArray(data)) return data;
+    
+    return [];
+  }, [data]);
 
   const onRefresh = () => {
     setRefreshing(true);
     refetch().finally(() => setRefreshing(false));
   };
 
-  // 🔍 FILTRAGE TEMPS RÉEL
   const filteredUsers = useMemo(() => {
     const term = search.toLowerCase().trim();
     if (!term) return users;
@@ -91,14 +96,15 @@ export default function AdminUsersScreen({ navigation }: AdminScreenProps<'Admin
       (u.lastname?.toLowerCase() || "").includes(term) ||
       (u.firstname?.toLowerCase() || "").includes(term) ||
       (u.matricule?.toLowerCase() || "").includes(term) ||
-      (u.role?.toLowerCase() || "").includes(term)
+      (u.role?.toLowerCase() || "").includes(term) ||
+      (u.email?.toLowerCase() || "").includes(term)
     );
   }, [users, search]);
 
-  // 🎨 CONFIGURATION DES BADGES DE RÔLES
   const getRoleConfig = (role: string) => {
     switch(role?.toLowerCase()) {
       case 'admin': return { color: "#EF4444", label: "ADMIN" };
+      case 'officier_police': 
       case 'police': return { color: "#3B82F6", label: "POLICE" };
       case 'commissaire': return { color: "#1D4ED8", label: "COMMISSAIRE" };
       case 'magistrat':
@@ -112,7 +118,7 @@ export default function AdminUsersScreen({ navigation }: AdminScreenProps<'Admin
 
   const renderItem = ({ item }: { item: UserData }) => {
     const roleConfig = getRoleConfig(item.role);
-    const isSuspended = item.is_active === false;
+    const isSuspended = item.is_active === false || item.isActive === false;
 
     return (
       <TouchableOpacity 
@@ -120,15 +126,18 @@ export default function AdminUsersScreen({ navigation }: AdminScreenProps<'Admin
         style={[
             styles.card, 
             { backgroundColor: colors.bgCard, borderColor: colors.border },
-            isSuspended && { opacity: 0.6 } // Griser si suspendu
+            isSuspended && { opacity: 0.6 }
         ]}
-        // Navigation vers l'édition (À créer plus tard si besoin)
-        onPress={() => console.log("Edit user", item.id)}
+        onPress={() => navigation.navigate("AdminUserDetails", { userId: item.id })}
       >
         <View style={[styles.avatar, { backgroundColor: roleConfig.color + "15" }]}>
-          <Text style={[styles.initials, { color: roleConfig.color }]}>
-            {item.lastname?.[0]?.toUpperCase()}{item.firstname?.[0]?.toUpperCase()}
-          </Text>
+          {item.photo ? (
+            <Image source={{ uri: item.photo }} style={styles.avatarImage} />
+          ) : (
+            <Text style={[styles.initials, { color: roleConfig.color }]}>
+              {item.lastname?.[0]?.toUpperCase()}{item.firstname?.[0]?.toUpperCase()}
+            </Text>
+          )}
         </View>
         
         <View style={styles.info}>
@@ -139,7 +148,7 @@ export default function AdminUsersScreen({ navigation }: AdminScreenProps<'Admin
             <View style={[styles.badge, { backgroundColor: roleConfig.color }]}>
               <Text style={styles.badgeText}>{roleConfig.label}</Text>
             </View>
-            <Text style={[styles.matricule, { color: colors.textSub }]}>
+            <Text style={[styles.matricule, { color: colors.textSub }]} numberOfLines={1}>
               {item.matricule || item.registrationNumber || "SANS MATRICULE"}
             </Text>
             {isSuspended && (
@@ -148,6 +157,9 @@ export default function AdminUsersScreen({ navigation }: AdminScreenProps<'Admin
                 </View>
             )}
           </View>
+          <Text style={[styles.email, { color: colors.textSub }]} numberOfLines={1}>
+            {item.email}
+          </Text>
         </View>
         
         <Ionicons name="chevron-forward" size={18} color={colors.textSub} />
@@ -160,13 +172,12 @@ export default function AdminUsersScreen({ navigation }: AdminScreenProps<'Admin
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
       <AppHeader title="Répertoire Agents" showBack={true} />
       
-      {/* 🔍 BARRE DE RECHERCHE */}
       <View style={[styles.searchContainer, { backgroundColor: colors.searchSection }]}>
         <View style={[styles.searchBar, { backgroundColor: isDark ? colors.bgMain : "#FFFFFF" }]}>
           <Ionicons name="search-outline" size={20} color={colors.textSub} />
           <TextInput 
             style={[styles.searchInput, { color: isDark ? "#FFFFFF" : "#1E293B" }]}
-            placeholder="Nom, matricule, fonction..."
+            placeholder="Nom, matricule, fonction, email..."
             placeholderTextColor={colors.textSub}
             value={search}
             onChangeText={setSearch}
@@ -212,7 +223,7 @@ export default function AdminUsersScreen({ navigation }: AdminScreenProps<'Admin
               <View style={styles.center}>
                 <Ionicons name="people-outline" size={80} color={colors.border} />
                 <Text style={{ textAlign: 'center', marginTop: 15, color: colors.textSub, fontWeight: '700' }}>
-                  Aucun agent trouvé
+                  {search ? "Aucun agent ne correspond à votre recherche" : "Aucun agent trouvé"}
                 </Text>
               </View>
             }
@@ -220,7 +231,6 @@ export default function AdminUsersScreen({ navigation }: AdminScreenProps<'Admin
         )}
       </View>
       
-      {/* ➕ FAB (AJOUT AGENT) */}
       <TouchableOpacity
         activeOpacity={0.9}
         style={[styles.fab, { backgroundColor: primaryColor }]}
@@ -235,66 +245,24 @@ export default function AdminUsersScreen({ navigation }: AdminScreenProps<'Admin
 }
 
 const styles = StyleSheet.create({
-  searchContainer: { 
-    paddingHorizontal: 20, 
-    paddingBottom: 25, 
-    borderBottomLeftRadius: 32, 
-    borderBottomRightRadius: 32,
-    zIndex: 10,
-    ...Platform.select({
-      ios: { shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 10 },
-      android: { elevation: 6 }
-    })
-  },
-  searchBar: { 
-    flexDirection: "row", 
-    alignItems: "center", 
-    borderRadius: 18, 
-    paddingHorizontal: 16, 
-    height: 54 
-  },
+  searchContainer: { paddingHorizontal: 20, paddingBottom: 25, borderBottomLeftRadius: 32, borderBottomRightRadius: 32, zIndex: 10 },
+  searchBar: { flexDirection: "row", alignItems: "center", borderRadius: 18, paddingHorizontal: 16, height: 54 },
   searchInput: { flex: 1, marginLeft: 12, fontSize: 15, fontWeight: '600' },
   mainWrapper: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 100 },
   loaderText: { marginTop: 15, fontWeight: '800', fontSize: 12, letterSpacing: 1 },
-  listPadding: { 
-    padding: 16, 
-    paddingTop: 25,
-    paddingBottom: 160 
-  },
-  card: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    padding: 18, 
-    borderRadius: 24, 
-    marginBottom: 14, 
-    borderWidth: 1.5,
-    ...Platform.select({
-      ios: { shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 10 },
-      android: { elevation: 3 }
-    })
-  },
-  avatar: { 
-    width: 56, height: 56, borderRadius: 18, justifyContent: 'center', alignItems: 'center', marginRight: 16 
-  },
+  listPadding: { padding: 16, paddingTop: 25, paddingBottom: 160 },
+  card: { flexDirection: 'row', alignItems: 'center', padding: 18, borderRadius: 24, marginBottom: 14, borderWidth: 1.5 },
+  avatar: { width: 56, height: 56, borderRadius: 18, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
+  avatarImage: { width: '100%', height: '100%', borderRadius: 18 },
   initials: { fontSize: 18, fontWeight: "900" },
   info: { flex: 1 },
   name: { fontWeight: '900', fontSize: 16, marginBottom: 5, letterSpacing: -0.5 },
-  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
+  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 4 },
   badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   badgeText: { color: "#fff", fontSize: 9, fontWeight: "900", letterSpacing: 0.5 },
-  matricule: { fontSize: 11, fontWeight: "700" },
+  matricule: { fontSize: 11, fontWeight: '700' },
+  email: { fontSize: 12, fontWeight: '500' },
   retryBtn: { marginTop: 25, paddingHorizontal: 30, paddingVertical: 14, borderRadius: 16, elevation: 4 },
-  fab: { 
-    position: 'absolute', 
-    bottom: 100, 
-    right: 25, 
-    width: 64, height: 64, 
-    borderRadius: 22, 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    zIndex: 99,
-    elevation: 8,
-    shadowColor: "#000", shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: {width: 0, height: 4},
-  }
+  fab: { position: 'absolute', bottom: 100, right: 25, width: 64, height: 64, borderRadius: 22, justifyContent: 'center', alignItems: 'center', zIndex: 99 }
 });

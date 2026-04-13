@@ -15,7 +15,7 @@ const allowedMimeTypes = [
   "image/webp",
   "application/pdf",
   "video/mp4",
-  "text/plain"
+  "text/plain",
 ];
 
 const storage = multer.diskStorage({
@@ -31,7 +31,7 @@ const storage = multer.diskStorage({
 const fileFilter = (
   _req: Request,
   file: Express.Multer.File,
-  cb: FileFilterCallback
+  cb: FileFilterCallback,
 ) => {
   if (!allowedMimeTypes.includes(file.mimetype)) {
     return cb(new Error("Type de fichier interdit"));

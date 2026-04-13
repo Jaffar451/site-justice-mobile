@@ -1,5 +1,4 @@
 import axios from "axios";
-// ✅ Import de ENV désormais conforme à l'export nommé du fichier config
 import { ENV } from "../config/env"; 
 import { 
   saveTokens, 
@@ -10,52 +9,54 @@ import {
 
 /**
  * 🔄 Fonction de rafraîchissement du Token
- * Interroge le serveur central e-Justice Niger pour obtenir un nouveau couple de jetons.
  */
 export async function refreshAccessToken(): Promise<string | null> {
   try {
     const refresh = await secureGet(STORAGE_KEYS.REFRESH);
     
     if (!refresh) {
-      console.warn("[AUTH] Aucun Refresh Token trouvé dans le stockage sécurisé.");
+      console.warn("[AUTH] Aucun Refresh Token trouvé.");
       return null;
     }
 
-    // ✅ Utilisation de ENV.API_URL défini dans votre config
-    // Nous utilisons une instance axios brute pour ne pas interférer avec l'intercepteur global
     const res = await axios.post(`${ENV.API_URL}/auth/refresh`, { 
       refreshToken: refresh 
     }, {
-      timeout: 10000 // Sécurité pour les connexions mobiles lentes
+      timeout: 10000 
     });
 
-    const { token: newToken, refreshToken: newRefresh } = res.data;
+    const { token: newToken, refreshToken: newRefresh, user } = res.data;
 
     if (!newToken) {
       throw new Error("Réponse serveur incomplète : token manquant.");
     }
 
-    // ✅ Sauvegarde des nouveaux jetons (supporte la rotation du refresh token)
+    // Sauvegarde des nouveaux jetons
     await saveTokens(newToken, newRefresh || refresh);
 
-    // ✅ Mise à jour dynamique du Store Zustand
-    // On utilise 'require' pour éviter les dépendances circulaires au démarrage de l'app
+    // Mise à jour dynamique du Store Zustand
+    // On utilise require pour éviter les dépendances circulaires
     const { useAuthStore } = require("../stores/useAuthStore");
-    useAuthStore.setState({ token: newToken });
+    
+    // Correction : mise à jour des propriétés réelles de votre store
+    useAuthStore.setState({ 
+      user: user || useAuthStore.getState().user,
+      isAuthenticated: true 
+    });
 
     console.log("[AUTH] Rafraîchissement du jeton réussi.");
     return newToken;
 
   } catch (err: any) {
-    console.error("[AUTH] Échec du rafraîchissement du token :", err.message);
+    console.error("[AUTH] Échec du rafraîchissement :", err.message);
 
-    // 🛑 En cas d'erreur 401 ou 403 (Refresh Token expiré ou révoqué)
-    // On force la déconnexion pour protéger l'accès aux données judiciaires
     if (err.response?.status === 401 || err.response?.status === 403) {
       const { useAuthStore } = require("../stores/useAuthStore");
+      const refreshToken = await secureGet(STORAGE_KEYS.REFRESH);
       
       await clearStorage();
-      useAuthStore.getState().logout();
+      // Correction : Appel conforme à la nouvelle signature de logout
+      await useAuthStore.getState().logout(refreshToken || '');
       
       console.warn("[AUTH] Session expirée. Redirection vers la connexion.");
     }

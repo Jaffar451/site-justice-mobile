@@ -2,9 +2,9 @@
 import { Router } from "express";
 
 // 👇 1. Imports du contrôleur
-import { 
-  createArrestWarrant, 
-  getArrestWarrants 
+import {
+  createArrestWarrant,
+  getArrestWarrants,
 } from "../controllers/arrestWarrant.controller";
 
 // 👇 2. Imports des middlewares standards
@@ -17,19 +17,19 @@ const router = Router();
 
 // Seul un juge (d'instruction) peut créer un mandat d'arrêt
 router.post(
-    "/", 
-    authenticate, 
-    // On remplace requireAssignmentRole par authorize(["judge"]) temporairement
-    authorize(["judge", "admin"]), 
-    createArrestWarrant
+  "/",
+  authenticate,
+  // On remplace requireAssignmentRole par authorize(["judge"]) temporairement
+  authorize(["judge", "admin"]),
+  createArrestWarrant,
 );
 
 // Seuls les agents judiciaires peuvent voir les mandats
 router.get(
-    "/", 
-    authenticate,
-    authorize(["police", "prosecutor", "judge", "clerk", "admin"]),
-    getArrestWarrants
+  "/",
+  authenticate,
+  authorize(["police", "prosecutor", "judge", "clerk", "admin"]),
+  getArrestWarrants,
 );
 
 export default router;

@@ -8,18 +8,18 @@ const router = Router();
 
 // 📌 AJOUTER UN TÉMOIN (Police, Juge, Greffier)
 router.post(
-  "/", 
-  authenticate, 
-  authorize(["police", "judge", "clerk", "admin"]), 
-  createWitness
+  "/",
+  authenticate,
+  authorize(["police", "judge", "clerk", "admin"]),
+  createWitness,
 );
 
 // 📌 LISTER LES TÉMOINS (Justice + Admin)
 router.get(
-  "/", 
-  authenticate, 
-  authorize(["police", "judge", "clerk", "prosecutor", "admin"]), 
-  getWitnesses
+  "/",
+  authenticate,
+  authorize(["police", "judge", "clerk", "prosecutor", "admin"]),
+  getWitnesses,
 );
 
 export default router;

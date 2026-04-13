@@ -8,7 +8,8 @@ import {
   Platform, 
   TouchableOpacity, 
   KeyboardAvoidingView,
-  StatusBar
+  StatusBar,
+  Keyboard
 } from 'react-native';
 import { TextInput, Button, Text, Surface } from 'react-native-paper';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -28,7 +29,7 @@ export default function CreateSummonScreen({ route, navigation }: PoliceScreenPr
   const { theme, isDark } = useAppTheme();
   const primaryColor = theme.colors.primary;
   
-  // ✅ Extraction typée des paramètres de navigation
+  // ✅ Extraction typée
   const complaintId = route.params?.complaintId;
   
   const [loading, setLoading] = useState(false);
@@ -51,28 +52,37 @@ export default function CreateSummonScreen({ route, navigation }: PoliceScreenPr
     inputBg: isDark ? "#0F172A" : "#FFFFFF",
   };
 
-  const isFormValid = form.targetName.trim().length > 2 && form.location.trim().length > 2;
+  // ✅ Validation (3 caractères min pour éviter les erreurs de saisie vide)
+  const isFormValid = form.targetName.trim().length >= 3 && form.location.trim().length >= 3;
 
+  // 🛠️ FIX: Gestion hybride Web/Mobile pour le DatePicker
   const onChangeDate = (event: any, selectedDate?: Date) => {
-    if (Platform.OS === 'android') setShowDatePicker(false);
+    if (Platform.OS !== 'ios') {
+      setShowDatePicker(false);
+    }
+    
     if (selectedDate) {
       setForm({ ...form, scheduledAt: selectedDate });
     }
   };
 
+  // 🛠️ FIX: Validation et Envoi
   const handleSubmit = async () => {
-    // 🛡️ Sécurité : Vérification de l'existence du dossier source
-    if (!complaintId) {
-      return Alert.alert("Erreur", "Identifiant du dossier manquant. Impossible d'émettre l'acte.");
+    // Ferme le clavier pour éviter les bugs de focus sur Web
+    Keyboard.dismiss();
+
+    const cleanId = Number(complaintId);
+    if (!cleanId || isNaN(cleanId)) {
+      return Alert.alert("Erreur", "Identifiant du dossier invalide.");
     }
 
     if (!isFormValid) {
-      return Alert.alert("Champs requis", "Veuillez renseigner au moins le nom du convoqué et le lieu.");
+      return Alert.alert("Champs requis", "Veuillez renseigner le nom et le lieu.");
     }
 
     Alert.alert(
-      "Émission d'acte judiciaire ⚖️",
-      `Confirmez-vous la génération de cette convocation pour ${form.targetName} ?`,
+      "Émission d'acte ⚖️",
+      `Confirmez-vous la convocation pour ${form.targetName} ?`,
       [
         { text: "Réviser", style: "cancel" },
         { 
@@ -80,9 +90,8 @@ export default function CreateSummonScreen({ route, navigation }: PoliceScreenPr
           onPress: async () => {
             setLoading(true);
             try {
-              // ✅ Préparation de l'objet Summon selon l'interface du service
               const summonData: Summon = {
-                complaintId: Number(complaintId),
+                complaintId: cleanId,
                 targetName: form.targetName,
                 targetPhone: form.targetPhone,
                 location: form.location,
@@ -92,13 +101,10 @@ export default function CreateSummonScreen({ route, navigation }: PoliceScreenPr
 
               await createSummon(summonData);
               
-              Alert.alert(
-                "Acte Validé ✅", 
-                "La convocation est désormais versée au dossier et sera notifiée au destinataire."
-              );
+              Alert.alert("Succès ✅", "Convocation enregistrée.");
               navigation.goBack();
             } catch (error) {
-              Alert.alert("Erreur de synchronisation", "L'acte a été généré localement mais n'a pas pu être transmis au serveur central.");
+              Alert.alert("Erreur", "Impossible de joindre le serveur.");
             } finally {
               setLoading(false);
             }
@@ -117,23 +123,21 @@ export default function CreateSummonScreen({ route, navigation }: PoliceScreenPr
         <KeyboardAvoidingView 
           behavior={Platform.OS === "ios" ? "padding" : undefined}
           style={{ flex: 1 }}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}
         >
           <ScrollView 
             contentContainerStyle={styles.scroll}
             keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
           >
-            {/* 🛡️ BANDEAU DE RESPONSABILITÉ JURIDIQUE */}
             <View style={[styles.infoBox, { backgroundColor: isDark ? "#1E1B4B" : "#E3F2FD" }]}>
               <Ionicons name="information-circle" size={24} color={primaryColor} />
               <Text style={[styles.infoText, { color: isDark ? "#BAE6FD" : "#1E3A8A" }]}>
-                La convocation est un acte d'instruction. Elle oblige la personne à se présenter sous peine de mandat d'amener.
+                Acte d'instruction : oblige la personne à se présenter sous peine de mandat.
               </Text>
             </View>
 
             <Surface style={[styles.formCard, { backgroundColor: colors.bgCard }]} elevation={2}>
-              <Text style={[styles.sectionTitle, { color: primaryColor }]}>Partie Convoquée</Text>
+              <Text style={[styles.sectionTitle, { color: primaryColor }]}>Destinataire</Text>
               
               <TextInput 
                 label="Nom et Prénom" 
@@ -143,46 +147,44 @@ export default function CreateSummonScreen({ route, navigation }: PoliceScreenPr
                 style={[styles.input, { backgroundColor: colors.inputBg }]}
                 outlineColor={colors.border}
                 activeOutlineColor={primaryColor}
-                textColor={colors.textMain}
-                left={<TextInput.Icon icon="account-search" />}
+                left={<TextInput.Icon icon="account-tie" />}
               />
 
               <TextInput 
-                label="Contact Téléphonique" 
+                label="Téléphone" 
                 mode="outlined"
                 keyboardType="phone-pad" 
                 value={form.targetPhone} 
                 onChangeText={t => setForm({...form, targetPhone: t})} 
                 style={[styles.input, { backgroundColor: colors.inputBg }]}
                 outlineColor={colors.border}
-                activeOutlineColor={primaryColor}
-                textColor={colors.textMain}
-                left={<TextInput.Icon icon="phone-outgoing" />}
+                left={<TextInput.Icon icon="phone" />}
               />
 
               <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
-              <Text style={[styles.sectionTitle, { color: primaryColor }]}>Détails de l'Audition</Text>
+              <Text style={[styles.sectionTitle, { color: primaryColor }]}>Rendez-vous</Text>
 
               <TextInput 
-                label="Lieu du rendez-vous" 
+                label="Lieu" 
                 mode="outlined"
                 value={form.location} 
                 onChangeText={t => setForm({...form, location: t})} 
                 style={[styles.input, { backgroundColor: colors.inputBg }]}
                 outlineColor={colors.border}
-                activeOutlineColor={primaryColor}
-                textColor={colors.textMain}
-                left={<TextInput.Icon icon="map-marker-radius" />}
+                left={<TextInput.Icon icon="map-marker" />}
               />
 
               <TouchableOpacity 
                  activeOpacity={0.7} 
-                 onPress={() => setShowDatePicker(true)}
+                 onPress={() => {
+                   Keyboard.dismiss();
+                   setShowDatePicker(true);
+                 }}
                  style={[styles.datePickerBtn, { borderColor: colors.border }]}
               >
                 <View style={[styles.dateIcon, { backgroundColor: primaryColor + '15' }]}>
-                  <Ionicons name="time" size={20} color={primaryColor} />
+                  <Ionicons name="calendar" size={20} color={primaryColor} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.dateLabel}>Date et Heure</Text>
@@ -190,7 +192,7 @@ export default function CreateSummonScreen({ route, navigation }: PoliceScreenPr
                     {format(form.scheduledAt, "eeee dd MMMM yyyy 'à' HH:mm", { locale: fr })}
                   </Text>
                 </View>
-                <Ionicons name="calendar-outline" size={18} color={colors.textSub} />
+                <Ionicons name="chevron-forward" size={18} color={colors.textSub} />
               </TouchableOpacity>
 
               {showDatePicker && (
@@ -205,7 +207,7 @@ export default function CreateSummonScreen({ route, navigation }: PoliceScreenPr
               )}
 
               <TextInput 
-                label="Motif de la convocation" 
+                label="Motif de convocation" 
                 mode="outlined"
                 multiline 
                 numberOfLines={3} 
@@ -213,8 +215,6 @@ export default function CreateSummonScreen({ route, navigation }: PoliceScreenPr
                 onChangeText={t => setForm({...form, reason: t})} 
                 style={[styles.textArea, { backgroundColor: colors.inputBg }]} 
                 outlineColor={colors.border}
-                activeOutlineColor={primaryColor}
-                textColor={colors.textMain}
               />
             </Surface>
 
@@ -227,10 +227,10 @@ export default function CreateSummonScreen({ route, navigation }: PoliceScreenPr
               contentStyle={styles.btnContent}
               labelStyle={styles.btnLabel}
             >
-              ÉMETTRE LA CONVOCATION
+              VALIDER LA CONVOCATION
             </Button>
             
-            <View style={{ height: 100 }} />
+            <View style={{ height: 60 }} />
           </ScrollView>
         </KeyboardAvoidingView>
       </View>
@@ -241,19 +241,19 @@ export default function CreateSummonScreen({ route, navigation }: PoliceScreenPr
 }
 
 const styles = StyleSheet.create({
-  scroll: { padding: 16, paddingBottom: 60 },
-  infoBox: { flexDirection: 'row', padding: 16, borderRadius: 16, marginBottom: 20, alignItems: 'center', gap: 12 },
-  infoText: { flex: 1, fontSize: 12, fontWeight: '700', lineHeight: 18 },
-  formCard: { padding: 20, borderRadius: 20, marginBottom: 25 },
-  sectionTitle: { fontSize: 13, fontWeight: "900", marginBottom: 18, textTransform: 'uppercase', letterSpacing: 0.5 },
-  input: { marginBottom: 16 },
+  scroll: { padding: 16 },
+  infoBox: { flexDirection: 'row', padding: 16, borderRadius: 12, marginBottom: 20, alignItems: 'center', gap: 12 },
+  infoText: { flex: 1, fontSize: 12, fontWeight: '600' },
+  formCard: { padding: 20, borderRadius: 16, marginBottom: 20 },
+  sectionTitle: { fontSize: 12, fontWeight: "800", marginBottom: 16, textTransform: 'uppercase', opacity: 0.7 },
+  input: { marginBottom: 12 },
   textArea: { marginBottom: 4, minHeight: 80 },
   divider: { height: 1, marginVertical: 20, opacity: 0.1 },
   datePickerBtn: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 12, borderWidth: 1, marginBottom: 16, gap: 12 },
-  dateIcon: { width: 40, height: 40, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
-  dateLabel: { fontSize: 10, fontWeight: "800", color: '#94A3B8', textTransform: 'uppercase' },
-  dateValue: { fontSize: 14, fontWeight: "700", marginTop: 2 },
-  btn: { borderRadius: 14, elevation: 2 },
-  btnContent: { height: 56 },
-  btnLabel: { fontWeight: '900', fontSize: 14 }
+  dateIcon: { width: 36, height: 36, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+  dateLabel: { fontSize: 10, fontWeight: "700", color: '#94A3B8' },
+  dateValue: { fontSize: 13, fontWeight: "600" },
+  btn: { borderRadius: 12, marginTop: 10 },
+  btnContent: { height: 54 },
+  btnLabel: { fontWeight: 'bold' }
 });

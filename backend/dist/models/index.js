@@ -23,6 +23,7 @@ const hearing_model_1 = __importDefault(require("./hearing.model"));
 exports.Hearing = hearing_model_1.default;
 const log_model_1 = __importDefault(require("./log.model"));
 exports.Log = log_model_1.default;
+exports.AuditLog = log_model_1.default;   // ✅ Alias requis par les contrôleurs
 const note_model_1 = __importDefault(require("./note.model"));
 exports.Note = note_model_1.default;
 const refreshToken_model_1 = __importDefault(require("./refreshToken.model"));

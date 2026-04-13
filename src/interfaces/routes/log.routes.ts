@@ -6,6 +6,6 @@ import { authenticate, authorize } from "../../middleware/auth.middleware";
 const router = Router();
 
 // Seul l'Admin peut voir les logs
-router.get("/", authenticate, authorize(["admin"]), logController.getLogs);
+router.get("/", authenticate, authorize(["admin"]), logController.getLog);
 
 export default router;

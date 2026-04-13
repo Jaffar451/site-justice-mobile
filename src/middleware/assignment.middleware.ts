@@ -2,7 +2,7 @@
 import { Request, Response, NextFunction } from "express";
 import Assignment from "../models/assignment.model";
 
-type AssignmentRole = 
+type AssignmentRole =
   | "police_investigator"
   | "prosecutor_supervisor"
   | "judge_instruction"
@@ -10,15 +10,14 @@ type AssignmentRole =
   | "clerk_instruction"
   | "clerk_trial";
 
-
 /**
- * Vérifie si l'utilisateur connecté est assigné à l'affaire 
+ * Vérifie si l'utilisateur connecté est assigné à l'affaire
  * avec un rôle spécifique.
  */
 export function requireAssignmentRole(...assignedRoles: AssignmentRole[]) {
   return async (req: Request, res: Response, next: NextFunction) => {
     const user = (req as any).user;
-    
+
     // Find caseId from params or body
     const caseIdParam = req.params.caseId || req.body.caseId || req.params.id;
 
@@ -27,11 +26,15 @@ export function requireAssignmentRole(...assignedRoles: AssignmentRole[]) {
     }
 
     if (!caseIdParam) {
-        return res.status(400).json({ message: "ID de l'affaire manquant dans la requête (params ou body)." });
+      return res
+        .status(400)
+        .json({
+          message: "ID de l'affaire manquant dans la requête (params ou body).",
+        });
     }
     const caseId = parseInt(caseIdParam, 10);
     if (isNaN(caseId)) {
-        return res.status(400).json({ message: "ID de l'affaire invalide."});
+      return res.status(400).json({ message: "ID de l'affaire invalide." });
     }
 
     try {
@@ -43,12 +46,16 @@ export function requireAssignmentRole(...assignedRoles: AssignmentRole[]) {
       });
 
       if (!assignment) {
-        return res.status(403).json({ message: "Accès refusé : vous n'êtes pas assigné à cette affaire." });
+        return res
+          .status(403)
+          .json({
+            message: "Accès refusé : vous n'êtes pas assigné à cette affaire.",
+          });
       }
 
       if (!assignedRoles.includes(assignment.role as AssignmentRole)) {
-        return res.status(403).json({ 
-            message: `Rôle insuffisant. Requis: ${assignedRoles.join(" ou ")}, vous avez: ${assignment.role}.` 
+        return res.status(403).json({
+          message: `Rôle insuffisant. Requis: ${assignedRoles.join(" ou ")}, vous avez: ${assignment.role}.`,
         });
       }
 
@@ -56,7 +63,9 @@ export function requireAssignmentRole(...assignedRoles: AssignmentRole[]) {
       (req as any).assignment = assignment;
       return next();
     } catch (error) {
-      return res.status(500).json({ message: "Erreur lors de la vérification des permissions." });
+      return res
+        .status(500)
+        .json({ message: "Erreur lors de la vérification des permissions." });
     }
   };
 }

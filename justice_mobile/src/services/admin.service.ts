@@ -3,7 +3,6 @@ import api from "./api";
 /**
  * 🛠️ TYPES & INTERFACES
  */
-
 export type CreateUserPayload = {
   firstname: string;
   lastname: string;
@@ -49,31 +48,27 @@ export const getAdminStats = async () => {
     const data = response.data.data;
 
     return {
-        // Objet summary complet pour les graphiques détaillés
-        summary: data.summary || {},
-
-        // Mappings pour le Dashboard Accueil
-        usersCount: data.summary?.users_total || 0, 
-        courtsCount: data.regionalStats?.length || 0,
-        activityRate: (data.summary?.complaints_total > 0)
-            ? Math.round((data.summary.complaints_open / data.summary.complaints_total) * 100) + "%" 
-            : "0%",
-        systemStatus: data.summary?.systemHealth === '100%' ? "Stable" : "Maintenance",
-        
-        statusStats: data.statusStats || [],
-        regionalStats: data.regionalStats || [],
-        timingStats: data.timingStats || { avg_days: 0 }
+      summary: data.summary || {},
+      usersCount: data.summary?.users_total || 0,
+      courtsCount: data.regionalStats?.length || 0,
+      activityRate: (data.summary?.complaints_total > 0)
+        ? Math.round((data.summary.complaints_open / data.summary.complaints_total) * 100) + "%"
+        : "0%",
+      systemStatus: data.summary?.systemHealth === '100%' ? "Stable" : "Maintenance",
+      statusStats: data.statusStats || [],
+      regionalStats: data.regionalStats || [],
+      timingStats: data.timingStats || { avg_days: 0 }
     };
   } catch (error) {
     console.error("[ADMIN SERVICE] Erreur Stats:", error);
-    return { 
-        summary: {},
-        usersCount: 0, 
-        courtsCount: 0, 
-        activityRate: "0%", 
-        systemStatus: "Inconnu", 
-        statusStats: [], 
-        regionalStats: [] 
+    return {
+      summary: {},
+      usersCount: 0,
+      courtsCount: 0,
+      activityRate: "0%",
+      systemStatus: "Inconnu",
+      statusStats: [],
+      regionalStats: []
     };
   }
 };
@@ -95,7 +90,7 @@ export const getAllUsers = async () => {
   }
 };
 
-// 2. Création
+// 2. ✅ Création (AVEC GESTION D'ERREUR AMÉLIORÉE)
 export const createUser = async (userData: CreateUserPayload) => {
   try {
     const finalPayload = {
@@ -118,8 +113,34 @@ export const createUser = async (userData: CreateUserPayload) => {
     const response = await api.post('/users', finalPayload);
     return response.data;
   } catch (error: any) {
-    console.error("[ADMIN SERVICE] Erreur création utilisateur:", error.response?.data || error.message);
-    throw error;
+    // ✅ Récupère le message d'erreur du backend
+    const status = error.response?.status;
+    const backendMessage = error.response?.data?.message || error.message;
+
+    // ✅ Messages personnalisés selon le status HTTP
+    let userFriendlyMessage = "Erreur lors de la création de l'utilisateur.";
+
+    if (status === 409) {
+      userFriendlyMessage = backendMessage || "Cet email est déjà utilisé.";
+    } else if (status === 400) {
+      userFriendlyMessage = backendMessage || "Données invalides. Vérifiez les champs.";
+    } else if (status === 401) {
+      userFriendlyMessage = "Session expirée. Veuillez vous reconnecter.";
+    } else if (status === 403) {
+      userFriendlyMessage = "Vous n'avez pas les permissions nécessaires.";
+    } else if (status && status >= 500) {
+      userFriendlyMessage = "Erreur serveur. Veuillez réessayer plus tard.";
+    }
+
+    // ✅ Log détaillé pour le debug (développeurs)
+    console.error("[ADMIN SERVICE] Erreur création utilisateur:", {
+      status,
+      message: backendMessage,
+      data: error.response?.data
+    });
+
+    // ✅ Lance une erreur avec le message utilisateur-friendly
+    throw new Error(userFriendlyMessage);
   }
 };
 
@@ -138,23 +159,44 @@ export const getUserDetails = async (id: number) => {
 export const updateUser = async (id: number, data: any) => {
   try {
     const payload = {
-        firstname: data.firstname,
-        lastname: data.lastname,
-        email: data.email,
-        telephone: data.telephone,
-        role: data.role,
-        is_active: data.is_active,
-        organization: data.organization,
-        matricule: data.matricule,
-        poste: data.poste,
-        ...(data.password ? { password: data.password } : {})
+      firstname: data.firstname,
+      lastname: data.lastname,
+      email: data.email,
+      telephone: data.telephone,
+      role: data.role,
+      is_active: data.is_active,
+      organization: data.organization,
+      matricule: data.matricule,
+      poste: data.poste,
+      ...(data.password ? { password: data.password } : {})
     };
 
     const response = await api.put(`/users/${id}`, payload);
     return response.data;
   } catch (error: any) {
-    console.error("Erreur update user:", error.response?.data || error.message);
-    throw error;
+    const status = error.response?.status;
+    const backendMessage = error.response?.data?.message || error.message;
+
+    let userFriendlyMessage = "Erreur lors de la mise à jour.";
+
+    if (status === 409) {
+      userFriendlyMessage = backendMessage || "Cet email est déjà utilisé.";
+    } else if (status === 404) {
+      userFriendlyMessage = "Utilisateur introuvable.";
+    } else if (status === 401) {
+      userFriendlyMessage = "Session expirée. Veuillez vous reconnecter.";
+    } else if (status === 403) {
+      userFriendlyMessage = "Vous n'avez pas les permissions nécessaires.";
+    } else if (status && status >= 500) {
+      userFriendlyMessage = "Erreur serveur. Veuillez réessayer plus tard.";
+    }
+
+    console.error("Erreur update user:", {
+      status,
+      message: backendMessage
+    });
+
+    throw new Error(userFriendlyMessage);
   }
 };
 
@@ -188,7 +230,7 @@ export const getSystemHealth = async () => {
   try {
     const response = await api.get('/admin/system-health');
     if (response.data && response.data.success) {
-        return response.data.data;
+      return response.data.data;
     }
     return response.data;
   } catch (e) {
@@ -199,7 +241,7 @@ export const getSystemHealth = async () => {
 
 export const getSystemLogs = async () => {
   const response = await api.get('/admin/logs');
-  return response.data; 
+  return response.data;
 };
 
 // Récupérer les logs d'audit (Format tableau pour l'écran Audit)
@@ -226,7 +268,7 @@ export const getSecurityOverview = async () => {
 export const triggerSecurityScan = async () => {
   return new Promise((resolve) => {
     setTimeout(() => {
-        resolve({ threatsFound: 0, vulnerabilities: "Aucune critique" });
+      resolve({ threatsFound: 0, vulnerabilities: "Aucune critique" });
     }, 2000);
   });
 };

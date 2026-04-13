@@ -1,3 +1,4 @@
+import StatusBadge from '../../components/ui/StatusBadge';
 // PATH: src/screens/citizen/StationMapScreen.web.tsx
 import React, { useEffect, useState, useMemo } from 'react';
 import { StyleSheet, View, Platform, Linking } from 'react-native';

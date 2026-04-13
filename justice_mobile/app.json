@@ -4,9 +4,14 @@
     "slug": "justice_mobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/armoirie.png",
+    "icon": "./assets/armoirie_square.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "androidStatusBar": {
+      "barStyle": "light-content",
+      "backgroundColor": "#00000000",
+      "translucent": true
+    },
     "splash": {
       "image": "./assets/armoirie.png",
       "resizeMode": "contain",
@@ -19,22 +24,26 @@
       "infoPlist": {
         "NSCameraUsageDescription": "L'application nécessite la caméra pour scanner les QR Codes des PV et joindre des preuves.",
         "NSPhotoLibraryUsageDescription": "L'application nécessite l'accès à la galerie pour importer des pièces jointes.",
-        "NSMicrophoneUsageDescription": "L'application utilise le micro lors de l'enregistrement de preuves vidéo."
+        "NSMicrophoneUsageDescription": "L'application utilise le micro lors de l'enregistrement de preuves vidéo.",
+        "NSUserNotificationsUsageDescription": "L'application utilise les notifications pour vous informer des nouvelles audiences, décisions et mises à jour de dossiers."
       }
     },
     "android": {
       "package": "ne.gouv.justice.mobile",
       "versionCode": 1,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/armoirie.png",
+        "foregroundImage": "./assets/armoirie_square.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "androidStatusBar": {
-        "barStyle": "light-content",
-        "backgroundColor": "#00000000",
-        "translucent": true
-      }
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "RECEIVE_BOOT_COMPLETED",
+        "POST_NOTIFICATIONS",
+        "RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/armoirie.png"
@@ -49,7 +58,14 @@
           "cameraPermission": "Autoriser Justice Mobile à utiliser la caméra pour scanner les documents et prendre des photos."
         }
       ],
-      "@react-native-community/datetimepicker"
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Autoriser Justice Mobile à accéder à vos photos pour joindre des pièces aux dossiers."
+        }
+      ],
+      "@react-native-community/datetimepicker",
+      "expo-build-properties"
     ],
     "extra": {
       "eas": {

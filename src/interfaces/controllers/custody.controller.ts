@@ -1,54 +1,66 @@
-// @ts-nocheck
-// src/interfaces/controllers/custody.controller.ts
-import { Request, Response } from "express";
-import Custody from "../../models/custody.model";
+import { Request, Response } from 'express';
+import { Custody } from '../../models'; // Utilisation de l'index des modèles
 
+// 1. Créer une nouvelle garde à vue
 export const createCustody = async (req: Request, res: Response) => {
   try {
-    const custody = await Custody.create(req.body);
-    return res.status(201).json(custody);
-  } catch (err) {
-    return res.status(500).json({ message: "Erreur création", error: err });
+    const newCustody = await Custody.create(req.body);
+    res.status(201).json({ success: true, data: newCustody });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Erreur création', error });
   }
 };
 
-export const getAllCustodies = async (_: Request, res: Response) => {
+// 2. Récupérer toutes les gardes à vue
+export const getAllCustodies = async (req: Request, res: Response) => {
   try {
-    const custodies = await Custody.findAll();
-    return res.json(custodies);
-  } catch (err) {
-    return res.status(500).json({ message: "Erreur récupération", error: err });
+    const data = await Custody.findAll();
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Erreur récupération', error });
   }
 };
 
+// 3. Récupérer uniquement les gardes à vue "actives"
+export const getActiveCustodies = async (req: Request, res: Response) => {
+  try {
+    // Supposons un champ 'status' ou 'isActive' dans votre modèle
+    const data = await Custody.findAll({ where: { status: 'active' } });
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Erreur récupération actifs', error });
+  }
+};
+
+// 4. Récupérer une seule garde à vue par ID
 export const getCustody = async (req: Request, res: Response) => {
   try {
-    const custody = await Custody.findByPk(req.params.id);
-    if (!custody) return res.status(404).json({ message: "Non trouvée" });
-    return res.json(custody);
-  } catch (err) {
-    return res.status(500).json({ message: "Erreur", error: err });
+    const data = await Custody.findByPk(req.params.id as string);
+    if (!data) return res.status(404).json({ success: false, message: 'Introuvable' });
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Erreur serveur', error });
   }
 };
 
+// 5. Mettre à jour
 export const updateCustody = async (req: Request, res: Response) => {
   try {
-    const custody = await Custody.findByPk(req.params.id);
-    if (!custody) return res.status(404).json({ message: "Non trouvée" });
-    await custody.update(req.body);
-    return res.json(custody);
-  } catch (err) {
-    return res.status(500).json({ message: "Erreur MAJ", error: err });
+    const [updated] = await Custody.update(req.body, { where: { id: req.params.id } });
+    if (!updated) return res.status(404).json({ success: false, message: 'Introuvable' });
+    res.status(200).json({ success: true, message: 'Mis à jour' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Erreur mise à jour', error });
   }
 };
 
+// 6. Supprimer
 export const deleteCustody = async (req: Request, res: Response) => {
   try {
-    const custody = await Custody.findByPk(req.params.id);
-    if (!custody) return res.status(404).json({ message: "Non trouvée" });
-    await custody.destroy();
-    return res.json({ message: "Supprimée" });
-  } catch (err) {
-    return res.status(500).json({ message: "Erreur suppression", error: err });
+    const deleted = await Custody.destroy({ where: { id: req.params.id } });
+    if (!deleted) return res.status(404).json({ success: false, message: 'Introuvable' });
+    res.status(200).json({ success: true, message: 'Supprimé' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Erreur suppression', error });
   }
 };

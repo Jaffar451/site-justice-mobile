@@ -68,9 +68,9 @@ export default function ClerkStack() {
       {/* ==========================================
           ⚖️ AUDIENCES & PROCÈS
       ========================================== */}
-      <Stack.Screen name="ClerkHearings" component={ClerkHearingsScreen} />
-      <Stack.Screen name="ClerkHearing" component={ClerkHearingsScreen} /> 
-      <Stack.Screen name="ClerkHearingDetails" component={ClerkHearingDetailsScreen} />
+      <Stack.Screen name={"ClerkHearings" as any} component={ClerkHearingsScreen} />
+      <Stack.Screen name={"ClerkHearing" as any} component={ClerkHearingsScreen} /> 
+      <Stack.Screen name={"ClerkHearingDetails" as any} component={ClerkHearingDetailsScreen} />
       <Stack.Screen name="ClerkAdjournHearing" component={ClerkAdjournHearingScreen} />
       <Stack.Screen name="ClerkWitness" component={ClerkWitnessScreen} />
 

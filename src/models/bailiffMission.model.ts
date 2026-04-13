@@ -3,7 +3,7 @@ export interface BailiffMission {
   case_id: number;
   bailiff_id: number;
   document_url: string;
-  status: 'A_SIGNIFIER' | 'SIGNIFIE' | 'ECHEC';
+  status: "A_SIGNIFIER" | "SIGNIFIE" | "ECHEC";
   latitude?: number;
   longitude?: number;
   executed_at?: Date;

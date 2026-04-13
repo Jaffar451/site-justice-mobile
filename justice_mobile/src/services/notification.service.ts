@@ -1,3 +1,4 @@
+// src/services/notification.service.ts
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
@@ -26,6 +27,8 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
@@ -36,8 +39,8 @@ export const getMyNotifications = async (): Promise<NotificationItem[]> => {
   try {
     const res = await api.get<NotificationItem[]>("/notifications/my");
     return res.data;
-  } catch (error) {
-    console.error("[NOTIF SERVICE] Erreur récupération inbox:", error);
+  } catch (error: any) {
+    console.error("[NOTIF SERVICE] Erreur récupération inbox:", error.message);
     return [];
   }
 };
@@ -81,9 +84,9 @@ export async function registerForPushNotificationsAsync() {
       // ✅ On tente la synchro, mais on ne bloque pas si l'utilisateur n'est pas loggé
       api.patch('/users/push-token', { pushToken: token })
          .then(() => console.log("✅ [NOTIF] Token synchronisé."))
-         .catch(err => console.log("⏳ [NOTIF] Token généré, en attente de connexion pour synchro."));
+         .catch((err: any) => console.log("⏳ [NOTIF] Token généré, en attente de connexion pour synchro."));
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("❌ [NOTIF] Erreur token:", error);
   }
 
@@ -100,8 +103,8 @@ export async function registerForPushNotificationsAsync() {
       name: 'Alertes SOS & Urgences',
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 500, 200, 500],
-      lightColor: '#FF0000', // Rouge alerte
-      sound: 'default', // Idéalement, un son personnalisé ici
+      lightColor: '#FF0000',
+      sound: 'default',
     });
   }
 
@@ -111,7 +114,37 @@ export async function registerForPushNotificationsAsync() {
 export const markAsRead = async (notificationId: string) => {
   try {
     await api.patch(`/notifications/${notificationId}/read`);
-  } catch (error) {
+  } catch (error: any) {
     console.error(`[NOTIF SERVICE] Erreur lecture ${notificationId}:`, error);
   }
+};
+
+/**
+ * 🔔 NOTIFICATION LOCALE DE TEST
+ */
+export const sendTestNotification = async () => {
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: '🔔 Test Notification',
+      body: 'Si tu vois ça, les notifications fonctionnent !',
+      data: { type: 'test' },
+    },
+    trigger: null,
+  });
+};
+
+/**
+ * 🚨 NOTIFICATION SOS (URGENTE)
+ */
+export const sendSOSNotification = async (sosId: string, location: string) => {
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: '🚨 ALERTE SOS',
+      body: `Un agent a lancé un SOS depuis ${location}`,
+      data: { type: 'test', sosId: sosId },
+      channelId: 'sos-alerts',
+      sound: 'default',
+    } as any,
+    trigger: null,
+  });
 };

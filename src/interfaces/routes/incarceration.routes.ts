@@ -18,9 +18,17 @@ router.post("/entry", prisonAccess, incarcerationController.registerEntry);
 router.get("/inmates", prisonAccess, incarcerationController.listInmates);
 
 // PATCH /api/incarcerations/:id/release -> Procéder à une levée d'écrou (libération)
-router.patch("/:id/release", prisonAccess, incarcerationController.releaseDetainee);
+router.patch(
+  "/:id/release",
+  prisonAccess,
+  incarcerationController.releaseDetainee,
+);
 
 // POST /api/incarcerations/:id/transfer -> Transférer un détenu vers un autre établissement
-router.post("/:id/transfer", prisonAccess, incarcerationController.transferDetainee);
+router.post(
+  "/:id/transfer",
+  prisonAccess,
+  incarcerationController.transferDetainee,
+);
 
 export default router;

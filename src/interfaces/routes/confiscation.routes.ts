@@ -1,5 +1,8 @@
 import { Router } from "express";
-import { createConfiscation, getConfiscations } from "../controllers/confiscation.controller";
+import {
+  createConfiscation,
+  getConfiscations,
+} from "../controllers/confiscation.controller";
 
 const router = Router();
 

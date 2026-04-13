@@ -1,3 +1,4 @@
+import StatusBadge from '../../components/ui/StatusBadge';
 import React, { useMemo } from 'react';
 import { 
   View, 

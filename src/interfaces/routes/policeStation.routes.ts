@@ -1,8 +1,8 @@
 // PATH: src/interfaces/routes/policeStation.routes.ts
-import { Router } from 'express';
+import { Router } from "express";
 // 👇 On importe tout en tant que "StationController" (pas de classe)
-import * as StationController from '../controllers/policeStation.controller'; 
-import { authenticate, authorize } from '../../middleware/auth.middleware';
+import * as StationController from "../controllers/policeStation.controller";
+import { authenticate, authorize } from "../../middleware/auth.middleware";
 
 const router = Router();
 
@@ -14,21 +14,13 @@ const router = Router();
  * @route   GET /api/police-stations
  * @desc    Récupérer la liste (Pour l'annuaire mobile)
  */
-router.get(
-  '/', 
-  authenticate, 
-  StationController.getAllStations
-);
+router.get("/", authenticate, StationController.getAllStations);
 
 /**
  * @route   GET /api/police-stations/:id
  * @desc    Détails d'un commissariat
  */
-router.get(
-  '/:id', 
-  authenticate, 
-  StationController.getStationById
-);
+router.get("/:id", authenticate, StationController.getStationById);
 
 // ==========================================
 // 🔒 ROUTES ADMIN (GESTION)
@@ -39,10 +31,10 @@ router.get(
  * @desc    Créer un commissariat
  */
 router.post(
-  '/', 
-  authenticate, 
-  authorize(['admin']), 
-  StationController.createStation
+  "/",
+  authenticate,
+  authorize(["admin"]),
+  StationController.createStation,
 );
 
 /**
@@ -50,10 +42,10 @@ router.post(
  * @desc    Modifier
  */
 router.put(
-  '/:id',
+  "/:id",
   authenticate,
-  authorize(['admin']),
-  StationController.updateStation
+  authorize(["admin"]),
+  StationController.updateStation,
 );
 
 /**
@@ -61,10 +53,10 @@ router.put(
  * @desc    Supprimer
  */
 router.delete(
-  '/:id',
+  "/:id",
   authenticate,
-  authorize(['admin']),
-  StationController.deleteStation
+  authorize(["admin"]),
+  StationController.deleteStation,
 );
 
 export default router;

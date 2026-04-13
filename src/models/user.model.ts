@@ -1,59 +1,61 @@
-import { Table, Column, Model, DataType, HasMany, HasOne, ForeignKey, BelongsTo, CreatedAt, UpdatedAt } from 'sequelize-typescript';
-import PoliceStation from './policeStation.model';
-import Court from './court.model';
-import Prison from './prison.model';
-import RefreshToken from './refreshToken.model';
-import AuditLog from './auditLog.model';
-import Complaint from './complaint.model';
-import Detainee from './detainee.model';
-import SosAlert from './sosAlert.model';
+import {
+  Table,
+  Column,
+  Model,
+  DataType,
+  HasMany,
+  HasOne,
+  ForeignKey,
+  BelongsTo,
+  CreatedAt,
+  UpdatedAt,
+} from "sequelize-typescript";
+import PoliceStation from "./policeStation.model";
+import Court from "./court.model";
+import Prison from "./prison.model";
+import RefreshToken from "./refreshToken.model";
+import AuditLog from "./auditLog.model";
+import Complaint from "./complaint.model";
+import Detainee from "./detainee.model";
+import SosAlert from "./sosAlert.model";
+import Person from "./person.model";
+import ProfessionalProfile from "./professionnalProfile.model";
 
-// ✅ DÉFINITION DES RÔLES
 export enum UserRole {
-  // --- Administration ---
-  ADMIN = 'admin',
-
-  // --- Justice (Magistrats & Greffe) ---
-  PROSECUTOR = 'prosecutor', // Procureur
-  JUDGE = 'judge',           // Juge d'Instruction / Siège
-  CLERK = 'greffier',        // Greffier
-
-  // --- Forces de l'Ordre (OPJ & Agents) ---
-  COMMISSAIRE = 'commissaire',      // Commissaire de Police (Chef d'unité)
-  OFFICIER_POLICE = 'officier_police', // Officier de Police
-  INSPECTEUR = 'inspecteur',        // Inspecteur de Police
-  
-  OPJ_GENDARME = 'opj_gendarme',    // Officier de Police Judiciaire (Gendarmerie)
-  GENDARME = 'gendarme',            // Gendarme (APJ)
-  
-  // --- Pénitentiaire ---
-  PRISON_GUARD = 'prison_guard',    // Garde Pénitentiaire
-  PRISON_DIRECTOR = 'prison_director', // Régisseur de prison
-
-  // --- Public ---
-  CITIZEN = 'citizen',       // Citoyen / Plaignant
-  LAWYER = 'lawyer'          // Avocat
+  ADMIN = "admin",
+  PROSECUTOR = "prosecutor",
+  JUDGE = "judge",
+  CLERK = "greffier",
+  COMMISSAIRE = "commissaire",
+  OFFICIER_POLICE = "officier_police",
+  INSPECTEUR = "inspecteur",
+  OPJ_GENDARME = "opj_gendarme",
+  GENDARME = "gendarme",
+  PRISON_GUARD = "prison_guard",
+  PRISON_DIRECTOR = "prison_director",
+  CITIZEN = "citizen",
+  LAWYER = "lawyer",
 }
 
-@Table({ tableName: 'users', timestamps: true, underscored: true })
+@Table({ 
+  tableName: "users", 
+  timestamps: true, 
+  underscored: true 
+})
 export default class User extends Model {
-  
-  @Column({ type: DataType.STRING, allowNull: false })
+  @Column({ type: DataType.INTEGER, primaryKey: true, autoIncrement: true })
+  id!: number;
+
+  @Column({ type: DataType.STRING, allowNull: false, field: "firstname" })
   firstname!: string;
 
-  @Column({ type: DataType.STRING, allowNull: false })
+  @Column({ type: DataType.STRING, allowNull: false, field: "lastname" })
   lastname!: string;
 
   @Column({ type: DataType.STRING, allowNull: false, unique: true })
   email!: string;
 
-  // ✅ AJOUT DE LA COLONNE MANQUANTE "MATRICULE"
-  // Permet la connexion via matricule pour les policiers/magistrats
-  @Column({ 
-    type: DataType.STRING, 
-    allowNull: true, // Optionnel (les citoyens n'en ont pas)
-    unique: true     // S'il existe, il doit être unique
-  })
+  @Column({ type: DataType.STRING, allowNull: true, unique: true })
   matricule?: string;
 
   @Column({ type: DataType.STRING, allowNull: false })
@@ -62,61 +64,74 @@ export default class User extends Model {
   @Column({ type: DataType.STRING, allowNull: true })
   telephone?: string;
 
-  @Column({ 
-    type: DataType.ENUM(...Object.values(UserRole)), 
-    defaultValue: UserRole.CITIZEN 
+  @Column({
+    type: DataType.ENUM(...Object.values(UserRole)),
+    defaultValue: UserRole.CITIZEN,
   })
   role!: UserRole;
 
   @Column({ type: DataType.STRING, allowNull: true })
-  organization?: string; // Ex: "Commissariat Central", "Brigade Fluviale"
+  organization?: string;
 
   @Column({ type: DataType.STRING, allowNull: true })
-  district?: string; // Ex: "Niamey", "Agadez"
+  district?: string;
 
-  // --- RELATIONS ---
+  @Column({ type: DataType.STRING, allowNull: true, field: "push_token" })
+  pushToken?: string;
 
-  // 1. Liaison Commissariat (Police)
+  // ─── Relations ──────────────────────────────────────────────
+
+  @HasOne(() => Person, { foreignKey: "userId" })
+  personProfile?: Person;
+
+  @HasOne(() => ProfessionalProfile, { foreignKey: "userId" })
+  professionalProfile?: ProfessionalProfile;
+
+  // --- Foreign Keys (Mapping explicite requis pour correspondre à la BDD) ---
+
   @ForeignKey(() => PoliceStation)
-  @Column({ type: DataType.INTEGER, allowNull: true })
+  @Column({ type: DataType.INTEGER, allowNull: true, field: "police_station_id" })
   policeStationId?: number;
 
-  @BelongsTo(() => PoliceStation, { as: 'station' })
+  @BelongsTo(() => PoliceStation)
   station?: PoliceStation;
 
-  // 2. Liaison Tribunal (Justice)
   @ForeignKey(() => Court)
-  @Column({ type: DataType.INTEGER, allowNull: true })
+  @Column({ type: DataType.INTEGER, allowNull: true, field: "court_id" })
   courtId?: number;
 
-  @BelongsTo(() => Court, { as: 'court' })
+  @BelongsTo(() => Court)
   court?: Court;
 
-  // 3. Liaison Prison (Pénitentiaire)
   @ForeignKey(() => Prison)
-  @Column({ type: DataType.INTEGER, allowNull: true })
+  @Column({ type: DataType.INTEGER, allowNull: true, field: "prison_id" })
   prisonId?: number;
 
-  @BelongsTo(() => Prison, { as: 'prison' })
+  @BelongsTo(() => Prison)
   prison?: Prison;
 
-  // --- AUTRES RELATIONS ---
+  // --- Autres Relations ---
 
-  @HasMany(() => AuditLog, { as: 'auditLogs' })
+  @HasMany(() => AuditLog)
   auditLogs!: AuditLog[];
 
-  @HasOne(() => RefreshToken, { as: 'authSession' })
+  @HasOne(() => RefreshToken)
   authSession?: RefreshToken;
 
-  @HasMany(() => Complaint, { as: 'filedComplaints' })
+  @HasMany(() => Complaint)
   filedComplaints!: Complaint[];
 
-  @HasMany(() => SosAlert, { as: 'sentAlerts' })
+  @HasMany(() => SosAlert)
   sentAlerts!: SosAlert[];
 
-  @HasOne(() => Detainee, { as: 'detaineeProfile' })
+  @HasOne(() => Detainee)
   detaineeProfile?: Detainee;
 
-  @CreatedAt createdAt!: Date;
-  @UpdatedAt updatedAt!: Date;
+  @CreatedAt 
+  @Column({ type: DataType.DATE, field: "created_at" }) 
+  createdAt!: Date;
+
+  @UpdatedAt 
+  @Column({ type: DataType.DATE, field: "updated_at" }) 
+  updatedAt!: Date;
 }

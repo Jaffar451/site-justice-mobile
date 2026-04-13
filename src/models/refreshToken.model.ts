@@ -1,7 +1,16 @@
-import { Table, Column, Model, DataType, ForeignKey, BelongsTo, CreatedAt, UpdatedAt } from 'sequelize-typescript';
-import User from './user.model';
+import {
+  Table,
+  Column,
+  Model,
+  DataType,
+  ForeignKey,
+  BelongsTo,
+  CreatedAt,
+  UpdatedAt,
+} from "sequelize-typescript";
+import User from "./user.model";
 
-@Table({ tableName: 'refresh_tokens', timestamps: true, underscored: true })
+@Table({ tableName: "refresh_tokens", timestamps: true, underscored: true })
 export default class RefreshToken extends Model {
   @Column({ type: DataType.STRING, allowNull: false })
   token!: string;
@@ -13,7 +22,7 @@ export default class RefreshToken extends Model {
   @Column({ type: DataType.INTEGER, allowNull: false })
   userId!: number;
 
-  @BelongsTo(() => User, { as: 'account' })
+  @BelongsTo(() => User, { as: "account" })
   account!: User;
 
   @CreatedAt createdAt!: Date;

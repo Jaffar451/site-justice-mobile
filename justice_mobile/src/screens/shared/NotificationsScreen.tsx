@@ -146,13 +146,8 @@ export default function NotificationsScreen({ navigation }: any) {
       <AppHeader 
         title="Alertes & Notifications" 
         showBack={true} 
-        rightElement={
-          notifications.some(n => !n.is_read) && (
-            <TouchableOpacity onPress={markAllAsRead} style={styles.headerBtn}>
-              <Ionicons name="checkmark-done" size={24} color="#FFF" />
-            </TouchableOpacity>
-          )
-        }
+        rightIcon={notifications.some(n => !n.is_read) ? "checkmark-done-outline" : undefined}
+        onRightPress={notifications.some(n => !n.is_read) ? markAllAsRead : undefined}
       />
       
       <View style={styles.container}>

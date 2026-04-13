@@ -18,7 +18,7 @@ router.get(
   "/",
   authenticate,
   authorize(["police", "clerk", "judge", "admin"]),
-  listNotes
+  listNotes,
 );
 
 // 🔹 Lecture une note
@@ -26,7 +26,7 @@ router.get(
   "/:id",
   authenticate,
   authorize(["police", "clerk", "judge", "admin"]),
-  getNote
+  getNote,
 );
 
 // 🔹 Création note interne
@@ -34,7 +34,7 @@ router.post(
   "/",
   authenticate,
   authorize(["police", "clerk", "judge", "admin"]),
-  createNote
+  createNote,
 );
 
 // 🔹 Modification (Seul l'auteur peut modifier, géré dans le controller)
@@ -42,15 +42,10 @@ router.put(
   "/:id",
   authenticate,
   authorize(["police", "clerk", "judge", "admin"]),
-  updateNote
+  updateNote,
 );
 
 // 🔹 Suppression définitive → admin only
-router.delete(
-  "/:id",
-  authenticate,
-  authorize(["admin"]),
-  deleteNote
-);
+router.delete("/:id", authenticate, authorize(["admin"]), deleteNote);
 
 export default router;

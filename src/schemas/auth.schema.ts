@@ -9,6 +9,7 @@ export const registerSchema = z.object({
 });
 
 export const loginSchema = z.object({
-  email: z.string().email("Email invalide"),
+  // On change 'email' par 'identifier' pour accepter matricule ou email
+  identifier: z.string().min(1, "Identifiant requis"),
   password: z.string().min(1, "Mot de passe requis"),
 });

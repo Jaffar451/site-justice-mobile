@@ -20,7 +20,7 @@ router.get(
   "/",
   authenticate,
   authorize(["admin", "police", "prosecutor", "judge", "clerk"]),
-  listAssignments
+  listAssignments,
 );
 
 // 📌 CRÉATION : Police + Procureur + Admin
@@ -28,7 +28,7 @@ router.post(
   "/",
   authenticate,
   authorize(["police", "prosecutor", "admin"]),
-  createAssignment
+  createAssignment,
 );
 
 // 📌 CONSULTATION : Admin + Agents de justice
@@ -36,23 +36,19 @@ router.get(
   "/:id",
   authenticate,
   authorize(["admin", "police", "prosecutor", "judge", "clerk"]),
-  getAssignment
+  getAssignment,
 );
 
 // 📌 MISE À JOUR : Police + Procureur + Juge + Admin
-router.put( // ou patch
+router.put(
+  // ou patch
   "/:id",
   authenticate,
   authorize(["police", "prosecutor", "judge", "admin"]),
-  updateAssignment
+  updateAssignment,
 );
 
 // 📌 SUPPRESSION : Admin uniquement
-router.delete(
-  "/:id",
-  authenticate,
-  authorize(["admin"]),
-  deleteAssignment
-);
+router.delete("/:id", authenticate, authorize(["admin"]), deleteAssignment);
 
 export default router;

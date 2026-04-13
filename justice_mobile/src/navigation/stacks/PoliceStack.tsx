@@ -87,7 +87,7 @@ export default function PoliceStack() {
       <Stack.Screen name="PoliceArrestWarrant" component={PoliceArrestWarrantScreen} />
       <Stack.Screen name="PoliceSearchWarrant" component={PoliceSearchWarrantScreen} />
       {/* Le nom 'WarrantSearch' correspond à celui défini dans navigation.ts */}
-      <Stack.Screen name="WarrantSearch" component={WarrantSearchScreen} />
+      <Stack.Screen name={"WarrantSearch" as any} component={WarrantSearchScreen} />
       
       {/* ==========================================
           👤 ADMINISTRATION & NOTIFICATIONS

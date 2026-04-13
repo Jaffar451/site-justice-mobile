@@ -1,6 +1,13 @@
-import { Table, Column, Model, DataType, CreatedAt, UpdatedAt } from 'sequelize-typescript';
+import {
+  Table,
+  Column,
+  Model,
+  DataType,
+  CreatedAt,
+  UpdatedAt,
+} from "sequelize-typescript";
 
-@Table({ tableName: 'Reparations', timestamps: true, underscored: true })
+@Table({ tableName: "Reparations", timestamps: true, underscored: true })
 export default class Reparation extends Model {
   @Column({ type: DataType.INTEGER, allowNull: false })
   caseId!: number;

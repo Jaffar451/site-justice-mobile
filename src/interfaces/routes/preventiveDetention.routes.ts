@@ -1,5 +1,8 @@
 import { Router } from "express";
-import { createPreventiveDetention, getAllPreventiveDetentions } from "../controllers/preventiveDetention.controller";
+import {
+  createPreventiveDetention,
+  getAllPreventiveDetentions,
+} from "../controllers/preventiveDetention.controller";
 
 const router = Router();
 

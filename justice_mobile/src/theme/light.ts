@@ -12,3 +12,4 @@ export const lightTheme = {
   shadows,
   typography,
 };
+

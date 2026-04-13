@@ -2,10 +2,6 @@ import { NavigatorScreenParams } from "@react-navigation/native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { Complaint } from "../services/complaint.service";
 
-/**
- * 🔗 ROUTES PARTAGÉES (Accessibles dans tous les Stacks Métiers)
- * Ces routes peuvent être appelées depuis n'importe quel profil.
- */
 export type SharedStackParamList = {
   Profile: undefined;
   EditProfile: undefined;
@@ -17,12 +13,10 @@ export type SharedStackParamList = {
   Support: undefined;
   MyDownloads: undefined;
   NationalMap: undefined;
-  VerificationScanner: undefined; // La carte est utile pour tout le monde (Admin, Police, Juge...)
+  VerificationScanner: undefined;
+  WeeklyReport: undefined; // ← ajouté ici pour tous les stacks
 };
 
-/**
- * 🔐 AUTH STACK
- */
 export type AuthStackParamList = {
   Splash: undefined;
   Login: undefined;
@@ -30,17 +24,15 @@ export type AuthStackParamList = {
   ForgotPassword: undefined;
 };
 
-/**
- * 👨‍💼 ADMIN STACK (+ Shared)
- */
 export type AdminStackParamList = {
-  AdminHome: undefined;
+  AdminHome: undefined;  // ← alias
   AdminStats: undefined;
-  AdminLogs: undefined;
+  AdminLogs: undefined;      // ← alias
   AdminUsers: undefined;
   AdminCreateUser: undefined;
   AdminEditUser: { userId: number };
   AdminUserDetails: { userId: number };
+  AdminUserDetail: { userId: number }; // ← alias
   AdminEditProfile: undefined;
   AdminSecurity: undefined;
   AdminMaintenance: undefined;
@@ -49,14 +41,10 @@ export type AdminStackParamList = {
   AdminCourts: undefined;
   AdminCreateCourt: undefined;
   ManageStations: undefined;
-  // NationalMap est hérité de SharedStackParamList
   AdminSettings: undefined;
   AdminNotifications: undefined;
 } & SharedStackParamList;
 
-/**
- * 👮 POLICE STACK (+ Shared)
- */
 export type PoliceStackParamList = {
   PoliceHome: undefined;
   PoliceComplaints: undefined;
@@ -69,22 +57,20 @@ export type PoliceStackParamList = {
   PoliceDetention: { complaintId?: number; suspectName: string };
   PoliceArrestWarrant: undefined;
   PoliceSearchWarrant: undefined;
+  WarrantSearch: undefined;   // ← alias
   CreateSummon: { complaintId: number | string };
-  WarrantSearch: undefined;
   SosDetail: { alert: any };
+  CommissaireGAVSupervision: undefined; // ← ajouté pour compatibilité
+  CommissaireReview: { id: number } | { complaintId: number }; // ← ajouté
 } & SharedStackParamList;
 
-/**
- * 👨‍⚖️ JUGE STACK (+ Shared)
- */
 export type JudgeStackParamList = {
   JudgeHome: undefined;
   JudgeCases: undefined;
-  JudgeCaseList: undefined; // Alias
-  JudgeCaseDetails: { caseId: number }; // ✅ Nom standardisé
-  CaseDetail: { caseId: number };       // Alias pour compatibilité
-  
-  // Actes & Procédures
+  JudgeCaseList: undefined;
+  JudgeCaseDetails: { caseId: number };
+  JudgeCaseDetail: { caseId: number };  // ← alias
+  CaseDetail: { caseId: number };
   JudgeInterrogation: { complaintId: number; suspectName: string };
   CreateDecision: { caseId: number };
   IssueArrestWarrant: { caseId: number };
@@ -93,8 +79,6 @@ export type JudgeStackParamList = {
   JudgeReparation: { caseId: number; decisionId?: number };
   JudgeVerdict: { caseId: number };
   JudgeAppeal: { caseId: number; personName?: string };
-  
-  // Gestion & Calendrier
   JudgeCalendar: undefined;
   JudgeHearing: undefined;
   JudgeDecisions: undefined;
@@ -103,9 +87,6 @@ export type JudgeStackParamList = {
   JudgeRelease: { caseId: number };
 } & SharedStackParamList;
 
-/**
- * ⚖️ PROCUREUR STACK (+ Shared)
- */
 export type ProsecutorStackParamList = {
   ProsecutorHome: undefined;
   ProsecutorDashboard: undefined;
@@ -115,9 +96,6 @@ export type ProsecutorStackParamList = {
   ProsecutorCalendar: undefined;
 } & SharedStackParamList;
 
-/**
- * 👮‍♂️ COMMISSAIRE STACK (+ Shared)
- */
 export type CommissaireStackParamList = {
   CommissaireDashboard: undefined;
   CommissaireReview: { id: number } | { complaintId: number };
@@ -128,9 +106,6 @@ export type CommissaireStackParamList = {
   CommissaireCommandCenter: undefined;
 } & SharedStackParamList;
 
-/**
- * 📝 GREFFIER STACK (+ Shared)
- */
 export type ClerkStackParamList = {
   ClerkHome: undefined;
   ClerkCalendar: undefined;
@@ -148,16 +123,15 @@ export type ClerkStackParamList = {
   ClerkWitness: undefined;
 } & SharedStackParamList;
 
-/**
- * 👨‍👩‍👧‍👦 CITOYEN STACK (+ Shared)
- */
 export type CitizenStackParamList = {
   CitizenHome: undefined;
   CitizenCreateComplaint: undefined;
   CitizenMyComplaints: undefined;
   CitizenComplaintDetails: { complaintId?: number };
+  ComplaintDetail: { id: string | number }; // ← alias utilisé dans les écrans
   CitizenTracking: undefined;
   CitizenCases: undefined;
+  ComplaintList: { id: string; complaintId: number }; // ← ajouter
   CitizenEditComplaint: { complaint: Complaint };
   CitizenCriminalRecord: undefined;
   CitizenDirectory: undefined;
@@ -166,9 +140,6 @@ export type CitizenStackParamList = {
   CitizenNotifications: undefined;
 } & SharedStackParamList;
 
-/**
- * ⚖️ AVOCAT STACK (+ Shared)
- */
 export type LawyerStackParamList = {
   LawyerHome: undefined;
   LawyerCaseList: undefined;
@@ -179,33 +150,20 @@ export type LawyerStackParamList = {
   LawyerTracking: undefined;
 } & SharedStackParamList;
 
-/**
- * 📜 HUISSIER STACK (+ Shared)
- */
 export type BailiffStackParamList = {
   BailiffHome: undefined;
   BailiffMissions: undefined;
   BailiffCalendar: undefined;
 } & SharedStackParamList;
 
-/**
- * 🏢 PRISON STACK (+ Shared)
- */
 export type PrisonStackParamList = {
   PrisonHome: undefined;
   PrisonInmates: undefined;
   PrisonCheckIn: { warrantId: string };
 } & SharedStackParamList;
 
-/**
- * 🌍 ROOT STACK PRINCIPAL
- * Regroupe tous les sous-navigateurs
- */
 export type RootStackParamList = {
-  // --- Auth ---
   Auth: NavigatorScreenParams<AuthStackParamList>;
-
-  // --- Navigateurs Métiers (Nested Stacks) ---
   AdminStack: NavigatorScreenParams<AdminStackParamList>;
   PoliceStack: NavigatorScreenParams<PoliceStackParamList>;
   JudgeStack: NavigatorScreenParams<JudgeStackParamList>;
@@ -216,19 +174,13 @@ export type RootStackParamList = {
   LawyerStack: NavigatorScreenParams<LawyerStackParamList>;
   BailiffStack: NavigatorScreenParams<BailiffStackParamList>;
   PrisonStack: NavigatorScreenParams<PrisonStackParamList>;
-
-  // --- Fallbacks globaux (au cas où) ---
   Main: undefined;
   ComplaintDetail: { id: string | number };
   ComplaintList: { id: string; complaintId: number };
   PoliceStation: undefined;
-} & SharedStackParamList; // Les routes partagées sont aussi accessibles à la racine
+} & SharedStackParamList;
 
-// --- Helpers de Types pour les Écrans ---
-
-// Helper générique pour accéder au Root + Son propre Stack
 export type RootStackScreenProps<T extends keyof RootStackParamList> = NativeStackScreenProps<RootStackParamList, T>;
-
 export type AuthScreenProps<T extends keyof AuthStackParamList> = NativeStackScreenProps<AuthStackParamList, T>;
 export type AdminScreenProps<T extends keyof AdminStackParamList> = NativeStackScreenProps<AdminStackParamList, T>;
 export type PoliceScreenProps<T extends keyof PoliceStackParamList> = NativeStackScreenProps<PoliceStackParamList, T>;
@@ -241,7 +193,6 @@ export type LawyerScreenProps<T extends keyof LawyerStackParamList> = NativeStac
 export type BailiffScreenProps<T extends keyof BailiffStackParamList> = NativeStackScreenProps<BailiffStackParamList, T>;
 export type PrisonScreenProps<T extends keyof PrisonStackParamList> = NativeStackScreenProps<PrisonStackParamList, T>;
 
-// Extension globale pour que useNavigation() connaisse tous les types
 declare global {
   namespace ReactNavigation {
     interface RootParamList extends RootStackParamList {}

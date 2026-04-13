@@ -7,13 +7,12 @@ import {
   ActivityIndicator, 
   RefreshControl, 
   StatusBar,
-  Platform 
 } from "react-native";
 import { Text, Card, Chip, Searchbar, Divider } from "react-native-paper";
 import { Ionicons } from "@expo/vector-icons";
 import Toast from "react-native-toast-message";
 
-// ✅ 1. Architecture & Thème
+// ✅ Architecture & Thème
 import { useAuthStore } from "../../stores/useAuthStore";
 import { getAppTheme } from "../../theme";
 import { CitizenScreenProps } from "../../types/navigation";
@@ -33,9 +32,14 @@ export default function ComplaintListScreen({ navigation }: CitizenScreenProps<'
   const { user } = useAuthStore();
   
   const [searchQuery, setSearchQuery] = useState("");
-
-  // ✅ TanStack Query
-  const { data, isLoading, refetch, isRefetching } = useComplaints();
+  
+  console.log("DEBUG ROLE:", user?.role);
+  // ✅ Détection du rôle pour ajuster l'interface et la requête
+  const isOfficer = user?.role === "officier_police" || user?.role === "gendarme" || user?.role === "commissaire";
+  console.log("IS OFFICER ?", isOfficer);
+  
+  // ✅ Utilisation du hook (on passe le rôle pour que le hook sache quelle route appeler)
+  const { data, isLoading, refetch, isRefetching } = useComplaints(isOfficer ? 'all' : 'mine');
 
   // 🔍 Filtrage (ID, Code ou Titre)
   const filteredData = useMemo(() => {
@@ -43,7 +47,7 @@ export default function ComplaintListScreen({ navigation }: CitizenScreenProps<'
     const term = searchQuery.toLowerCase().trim();
     return data.filter((item: any) =>
       (item.title || "").toLowerCase().includes(term) ||
-      item.id.toString().includes(term) ||
+      (item.id && item.id.toString().includes(term)) ||
       (item.trackingCode || "").toLowerCase().includes(term)
     );
   }, [data, searchQuery]);
@@ -57,14 +61,11 @@ export default function ComplaintListScreen({ navigation }: CitizenScreenProps<'
       case "transmitted": 
       case "transmise_parquet": return { color: "#10B981", label: "AU PARQUET", icon: "send-outline" };
       case "closed": return { color: "#EF4444", label: "CLASSÉ", icon: "archive-outline" };
-      default: return { color: "#64748B", label: status.toUpperCase(), icon: "file-tray-outline" };
+      default: return { color: "#64748B", label: status?.replace(/_/g, ' ') || "INCONNU", icon: "file-tray-outline" };
     }
   };
 
   const handleAction = async (item: any) => {
-    // ✅ CORRECTION 2367 : Utilisation des rôles reconnus dans votre système
-    const isOfficer = user?.role === "police" || user?.role === "commissaire";
-    
     if (isOfficer) {
       try {
         Toast.show({ type: 'info', text1: 'Génération PDF', text2: 'Préparation du procès-verbal...' });
@@ -73,19 +74,16 @@ export default function ComplaintListScreen({ navigation }: CitizenScreenProps<'
         Toast.show({ type: 'error', text1: 'Erreur', text2: 'Échec de la génération.' });
       }
     } else {
-      // ✅ CORRECTION 2353 : Utilisation de 'id' au lieu de 'complaintId'
       navigation.navigate("ComplaintDetail", { id: item.id });
     }
   };
 
   const renderItem = ({ item }: { item: any }) => {
     const config = getStatusConfig(item.status);
-    const isOfficer = user?.role === "police" || user?.role === "commissaire";
     
     return (
       <Card 
         style={[styles.card, { borderColor: "#F1F5F9" }]} 
-        // ✅ CORRECTION 2353 : Harmonisation de la navigation
         onPress={() => navigation.navigate("ComplaintDetail", { id: item.id })}
       >
         <Card.Content>
@@ -143,7 +141,8 @@ export default function ComplaintListScreen({ navigation }: CitizenScreenProps<'
   return (
     <ScreenContainer withPadding={false}>
       <StatusBar barStyle="light-content" />
-      <AppHeader title="Registre des Dossiers" showMenu={true} />
+      {/* ✅ Titre dynamique selon le rôle */}
+      <AppHeader title={isOfficer ? "Registre de Police" : "Mes Plaintes"} showMenu={true} />
       
       <View style={styles.searchContainer}>
         <Searchbar

@@ -1,5 +1,5 @@
-import {sequelize} from '../../config/database'; 
-import { QueryTypes } from 'sequelize';
+import { sequelize } from "../../config/database";
+import { QueryTypes } from "sequelize";
 
 export class LawyerService {
   /**
@@ -19,10 +19,10 @@ export class LawyerService {
 
     const results = await sequelize.query(query, {
       replacements: { lawyerId },
-      type: QueryTypes.SELECT
+      type: QueryTypes.SELECT,
     });
 
-    return results; 
+    return results;
   }
 
   /**
@@ -51,9 +51,9 @@ export class LawyerService {
         caseId: data.caseId,
         title: data.title,
         fileUrl: fileUrl,
-        lawyerId: data.lawyerId
+        lawyerId: data.lawyerId,
       },
-      type: QueryTypes.INSERT
+      type: QueryTypes.INSERT,
     });
 
     return newAttachment;

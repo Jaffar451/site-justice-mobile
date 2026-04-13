@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 import { 
   View, 
   Text, 
@@ -18,7 +18,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
 // ✅ Architecture & Thème
-import { useAppTheme } from "../../theme/AppThemeProvider"; // ✅ Hook dynamique
+import { useAppTheme } from "../../theme/AppThemeProvider";
 import { getUserById, deleteUser, updateUser, UserData } from "../../services/user.service"; 
 
 // Composants
@@ -33,7 +33,22 @@ export default function AdminUserDetailsScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const queryClient = useQueryClient();
-  const userId = route.params?.userId || route.params?.id;
+
+  // ✅ 1. VALIDER userId (memoized pour stabilité)
+  const userId = useMemo(() => {
+    const id = route.params?.userId || route.params?.id;
+    if (!id || isNaN(Number(id))) {
+      return null;
+    }
+    return Number(id);
+  }, [route.params?.userId, route.params?.id]);
+
+  // 🔍 LOG (une seule fois au mount)
+  useEffect(() => {
+    if (userId) {
+      console.log("🔍 UserId reçu:", userId);
+    }
+  }, [userId]);
 
   // 🎨 PALETTE DYNAMIQUE
   const colors = {
@@ -46,20 +61,23 @@ export default function AdminUserDetailsScreen() {
     dangerBorder: isDark ? "#7F1D1D" : "#EF444450",
   };
 
-  const { data: rawData, isLoading, error } = useQuery({
+  // ✅ 2. REQUÊTE USER (avec data: rawData)
+  const {  data, isLoading, error } = useQuery({
     queryKey: ["user", userId],
-    queryFn: () => getUserById(userId),
+    queryFn: () => getUserById(userId!),  // ✅ userId! car enabled vérifie
     enabled: !!userId,
+    retry: 1,
   });
 
   const user: UserData | null = useMemo(() => {
-    if (!rawData) return null;
-    const d = rawData as any;
+    if (!data) return null;
+    const d = data as any;
     return d.data || d.user || d;
-  }, [rawData]);
+  }, [data]);
 
+  // ✅ 3. DELETE MUTATION (avec userId!)
   const deleteMutation = useMutation({
-    mutationFn: deleteUser,
+    mutationFn: () => deleteUser(userId!),  // ✅ userId!
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
       if (Platform.OS === 'web') window.alert("Compte révoqué avec succès.");
@@ -68,8 +86,9 @@ export default function AdminUserDetailsScreen() {
     onError: (err: any) => Alert.alert("Erreur", err.response?.data?.message || "Échec de suppression.")
   });
 
+  // ✅ 4. STATUS MUTATION (avec userId!)
   const statusMutation = useMutation({
-    mutationFn: (newStatus: boolean) => updateUser(userId, { isActive: newStatus }),
+    mutationFn: (newStatus: boolean) => updateUser(userId!, { isActive: newStatus }),  // ✅ userId!
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["user", userId] }); 
       queryClient.invalidateQueries({ queryKey: ["users"] }); 
@@ -105,19 +124,41 @@ export default function AdminUserDetailsScreen() {
     const title = "⚠️ RÉVOCATION ACCÈS";
     const msg = "Voulez-vous supprimer définitivement cet agent du registre national ?";
     if (Platform.OS === 'web') {
-        if (window.confirm(`${title}\n\n${msg}`)) deleteMutation.mutate(userId);
+        if (window.confirm(`${title}\n\n${msg}`)) deleteMutation.mutate();
     } else {
         Alert.alert(title, msg, [
           { text: "Annuler", style: "cancel" },
-          { text: "RÉVOQUER", style: "destructive", onPress: () => deleteMutation.mutate(userId) }
+          { text: "RÉVOQUER", style: "destructive", onPress: () => deleteMutation.mutate() }
         ]);
     }
   };
 
+  // ✅ 5. EARLY RETURN si userId invalide
+  if (!userId) {
+    return (
+      <ScreenContainer withPadding={false}>
+        <AppHeader title="Erreur" showBack />
+        <View style={[styles.center, { backgroundColor: colors.bgMain }]}>
+          <Ionicons name="alert-circle-outline" size={60} color="#EF4444" />
+          <Text style={{color: colors.textMain, marginTop: 15, fontWeight: '700'}}>ID utilisateur invalide</Text>
+          <TouchableOpacity
+            style={[styles.retryBtn, { backgroundColor: primaryColor, marginTop: 15 }]}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={{ color: "#FFF", fontWeight: '700' }}>Retour</Text>
+          </TouchableOpacity>
+        </View>
+      </ScreenContainer>
+    );
+  }
+
   if (isLoading) return (
     <ScreenContainer withPadding={false}>
       <AppHeader title="Fiche Agent" showBack />
-      <View style={[styles.center, { backgroundColor: colors.bgMain }]}><ActivityIndicator size="large" color={primaryColor} /></View>
+      <View style={[styles.center, { backgroundColor: colors.bgMain }]}>
+        <ActivityIndicator size="large" color={primaryColor} />
+        <Text style={{color: colors.textSub, marginTop: 10}}>Chargement des informations...</Text>
+      </View>
     </ScreenContainer>
   );
 
@@ -127,6 +168,12 @@ export default function AdminUserDetailsScreen() {
        <View style={[styles.center, { backgroundColor: colors.bgMain }]}>
           <Ionicons name="alert-circle-outline" size={60} color="#EF4444" />
           <Text style={{color: colors.textMain, marginTop: 15, fontWeight: '700'}}>Agent introuvable</Text>
+          <TouchableOpacity
+            style={[styles.retryBtn, { backgroundColor: primaryColor, marginTop: 15 }]}
+            onPress={() => queryClient.invalidateQueries({ queryKey: ["user", userId] })}
+          >
+            <Text style={{ color: "#FFF", fontWeight: '700' }}>Réessayer</Text>
+          </TouchableOpacity>
        </View>
     </ScreenContainer>
   );
@@ -195,7 +242,7 @@ export default function AdminUserDetailsScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* DÉTAILS ADMINISTRATIVE */}
+          {/* DÉTAILS ADMINISTRATIFS */}
           <Text style={[styles.sectionTitle, { color: colors.textSub }]}>Information de Service</Text>
           <View style={[styles.infoCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
             <InfoRow 
@@ -247,7 +294,8 @@ const InfoRow = ({ icon, label, value, primaryColor, isLast, colors }: any) => (
 );
 
 const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", gap: 16 },
+  retryBtn: { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
   mainWrapper: { flex: 1 },
   scrollView: { flex: 1 },
   scrollContent: { padding: 20 },
@@ -270,7 +318,12 @@ const styles = StyleSheet.create({
   actionGrid: { flexDirection: 'row', gap: 15, marginBottom: 35 },
   actionBtn: { 
     flex: 1, flexDirection: 'row', height: 60, borderRadius: 20, justifyContent: 'center', 
-    alignItems: 'center', gap: 10, ...Platform.select({ android: { elevation: 3 }, ios: { shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10 } })
+    alignItems: 'center', gap: 10,
+    ...Platform.select({
+      web: { boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' },
+      android: { elevation: 3 },
+      ios: { shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10 }
+    })
   },
   actionBtnText: { color: '#fff', fontWeight: '900', fontSize: 15 },
   

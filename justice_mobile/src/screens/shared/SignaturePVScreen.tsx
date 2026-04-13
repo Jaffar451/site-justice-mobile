@@ -54,7 +54,7 @@ export default function SignaturePVScreen({ route, navigation }: any) {
               
               // Mise à jour du statut dans le registre central
               await updateComplaint(complaintId, {
-                status: user?.role === 'police' ? 'transmise_parquet' : 'attente_validation',
+                status: user?.role === 'officier_police' || user?.role === 'gendarme' || user?.role === 'commissaire' ? 'transmise_parquet' : 'attente_validation',
                 signatureData: signatureBase64,
                 signedAt: new Date().toISOString()
               } as any);

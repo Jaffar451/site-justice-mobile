@@ -18,42 +18,37 @@ const router = Router();
 
 // Lecture → Police / Juge / Greffier / Procureur / Admin
 router.get(
-  "/", 
-  authenticate, 
-  authorize(["police", "judge", "clerk", "prosecutor", "admin"]), 
-  listEvidence
+  "/",
+  authenticate,
+  authorize(["police", "judge", "clerk", "prosecutor", "admin"]),
+  listEvidence,
 );
 
 // Création → Police uniquement (avec upload si disponible)
 router.post(
-  "/", 
-  authenticate, 
-  authorize(["police"]), 
+  "/",
+  authenticate,
+  authorize(["police"]),
   // uploadEvidence, // Décommente si le fichier existe
-  createEvidence
+  createEvidence,
 );
 
 router.get(
-  "/:id", 
-  authenticate, 
-  authorize(["police", "judge", "clerk", "admin"]), 
-  getEvidence
+  "/:id",
+  authenticate,
+  authorize(["police", "judge", "clerk", "admin"]),
+  getEvidence,
 );
 
 // Modification → Police ou Juge
 router.put(
-  "/:id", 
-  authenticate, 
-  authorize(["police", "judge"]), 
-  updateEvidence
+  "/:id",
+  authenticate,
+  authorize(["police", "judge"]),
+  updateEvidence,
 );
 
 // Suppression → Admin
-router.delete(
-  "/:id", 
-  authenticate, 
-  authorize(["admin"]), 
-  deleteEvidence
-);
+router.delete("/:id", authenticate, authorize(["admin"]), deleteEvidence);
 
 export default router;

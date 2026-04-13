@@ -1,5 +1,5 @@
-import {sequelize} from '../../config/database';
-import { QueryTypes } from 'sequelize';
+import { sequelize } from "../../config/database";
+import { QueryTypes } from "sequelize";
 
 export class BailiffService {
   /**
@@ -22,20 +22,26 @@ export class BailiffService {
 
     return await sequelize.query(query, {
       replacements: { bailiffId },
-      type: QueryTypes.SELECT
+      type: QueryTypes.SELECT,
     });
   }
 
   /**
    * ✅ MISE À JOUR : Valide l'acte ET notifie le citoyen automatiquement
    */
-  async markAsSignified(data: { missionId: number; bailiffId: number; lat: number; lng: number }) {
+  async markAsSignified(data: {
+    missionId: number;
+    bailiffId: number;
+    lat: number;
+    lng: number;
+  }) {
     // Utilisation d'une transaction pour la sécurité des données
     const t = await sequelize.transaction();
 
     try {
       // 1. Mise à jour du statut de la convocation (Summons)
-      await sequelize.query(`
+      await sequelize.query(
+        `
         UPDATE "Summons"
         SET 
           status = 'SERVED',
@@ -45,31 +51,37 @@ export class BailiffService {
           updated_at = NOW()
         WHERE id = :missionId 
         AND bailiff_id = :bailiffId;
-      `, { 
-        replacements: data, 
-        type: QueryTypes.UPDATE,
-        transaction: t 
-      });
+      `,
+        {
+          replacements: data,
+          type: QueryTypes.UPDATE,
+          transaction: t,
+        },
+      );
 
       // 2. Recherche du CitizenID lié au dossier (Case) pour la notification
       // On récupère aussi le RG_NUMBER pour personnaliser le message
-      const caseInfo: any = await sequelize.query(`
+      const caseInfo: any = await sequelize.query(
+        `
         SELECT c.citizen_id, c.rg_number 
         FROM "Cases" c
         JOIN "Summons" s ON s.case_id = c.id
         WHERE s.id = :missionId
         LIMIT 1;
-      `, { 
-        replacements: { missionId: data.missionId }, 
-        type: QueryTypes.SELECT,
-        transaction: t 
-      });
+      `,
+        {
+          replacements: { missionId: data.missionId },
+          type: QueryTypes.SELECT,
+          transaction: t,
+        },
+      );
 
       if (caseInfo && caseInfo.length > 0) {
         const { citizen_id, rg_number } = caseInfo[0];
 
         // 3. Création de la notification dans la base pour le Citoyen
-        await sequelize.query(`
+        await sequelize.query(
+          `
           INSERT INTO "Notifications" (user_id, title, message, type, created_at, updated_at)
           VALUES (
             :citizenId, 
@@ -79,20 +91,21 @@ export class BailiffService {
             NOW(), 
             NOW()
           );
-        `, { 
-          replacements: { 
-            citizenId: citizen_id, 
-            message: `L'huissier a officiellement déposé un acte concernant votre dossier ${rg_number}.` 
-          }, 
-          type: QueryTypes.INSERT,
-          transaction: t 
-        });
+        `,
+          {
+            replacements: {
+              citizenId: citizen_id,
+              message: `L'huissier a officiellement déposé un acte concernant votre dossier ${rg_number}.`,
+            },
+            type: QueryTypes.INSERT,
+            transaction: t,
+          },
+        );
       }
 
       // Valider toutes les opérations
       await t.commit();
       return { success: true };
-
     } catch (error) {
       // En cas d'erreur, on annule tout (Rollback)
       await t.rollback();

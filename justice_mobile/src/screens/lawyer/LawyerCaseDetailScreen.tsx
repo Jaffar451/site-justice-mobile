@@ -1,3 +1,4 @@
+import StatusBadge from '../../components/ui/StatusBadge';
 import React, { useState } from "react";
 import { 
   View, 
@@ -128,9 +129,7 @@ export default function LawyerCaseDetailScreen({ route, navigation }: LawyerScre
         <View style={[styles.statusCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
           <View style={styles.badgeRow}>
             <View style={[styles.statusBadge, { backgroundColor: primaryColor + '15' }]}>
-                <Text style={[styles.statusText, { color: primaryColor }]}>
-                    {caseData?.status?.toUpperCase() || "EN COURS"}
-                </Text>
+                <StatusBadge status={caseData?.status ?? ''} />
             </View>
             <Text style={[styles.caseType, { color: colors.textSub }]}>CABINET D'INSTRUCTION</Text>
           </View>

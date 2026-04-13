@@ -1,6 +1,6 @@
-import { Router } from 'express';
-import { CitizenController } from '../controllers/citizen.controller';
-import { authenticate, authorize } from '../../middleware/auth.middleware';
+import { Router } from "express";
+import { CitizenController } from "../controllers/citizen.controller";
+import { authenticate, authorize } from "../../middleware/auth.middleware";
 
 const router = Router();
 const controller = new CitizenController();
@@ -11,10 +11,10 @@ const controller = new CitizenController();
  * @access  Privé (Citizen uniquement)
  */
 router.get(
-    '/cases', 
-    authenticate, 
-    authorize(['citizen']), 
-    (req: any, res: any) => controller.getDashboard(req, res)
+  "/cases",
+  authenticate,
+  authorize(["citizen"]),
+  (req: any, res: any) => controller.getDashboard(req, res),
 );
 
 /**
@@ -23,10 +23,10 @@ router.get(
  * @access  Privé (Citizen uniquement)
  */
 router.get(
-    '/notifications', 
-    authenticate, 
-    authorize(['citizen']), 
-    (req: any, res: any) => controller.getNotifications(req, res)
+  "/notifications",
+  authenticate,
+  authorize(["citizen"]),
+  (req: any, res: any) => controller.getNotifications(req, res),
 );
 
 /**
@@ -34,13 +34,15 @@ router.get(
  * @desc    Voir les convocations reçues
  */
 router.get(
-    '/summons',
-    authenticate,
-    authorize(['citizen']),
-    (req: any, res: any) => {
-        // Tu pourras ajouter une méthode getMySummons dans le controller plus tard
-        res.status(501).json({ message: "Non implémenté : liste des convocations" });
-    }
+  "/summons",
+  authenticate,
+  authorize(["citizen"]),
+  (req: any, res: any) => {
+    // Tu pourras ajouter une méthode getMySummons dans le controller plus tard
+    res
+      .status(501)
+      .json({ message: "Non implémenté : liste des convocations" });
+  },
 );
 
 export default router;

@@ -1,111 +1,100 @@
 import { Router } from "express";
-import { 
-  createComplaint, 
-  listComplaints, 
-  getComplaint, 
-  transmitToHierarchy, 
-  validateToParquet,   
+import {
+  createComplaint,
+  listComplaints,
+  getComplaint,
+  getMyComplaints,
+  transmitToHierarchy,
+  validateToParquet,
   addAttachment,
-  updateComplaint 
+  updateComplaint,
+  transitionComplaint,
+  getAvailableTransitions,
 } from "../controllers/complaint.controller";
-
-// ✅ Import des middlewares corrigés
 import { authenticate } from "../../middleware/auth.middleware";
-import { 
-  onlyCitizen, 
-  onlyOfficialAgents, 
-  requireRole 
+import {
+  onlyCitizen,
+  onlyOfficialAgents,
+  requireRole,
 } from "../../middleware/role.middleware";
-
-// ✅ Import du middleware d'upload
-import { uploadEvidence } from "../../middleware/upload-evidence.middleware"; 
-
+import { uploadEvidence } from "../../middleware/upload-evidence.middleware";
 const router = Router();
-
-// ==========================================
-// 1. ROUTES CITOYENS (Dépôt & Suivi)
-// ==========================================
-
-// Déposer une nouvelle plainte
-router.post(
-  "/", 
-  authenticate, 
-  onlyCitizen, 
-  createComplaint
-);
-
-// Lister mes plaintes (Citoyen)
+router.post("/", authenticate, onlyCitizen, createComplaint);
 router.get(
-  "/me", 
-  authenticate, 
-  onlyCitizen, 
-  listComplaints
+  "/me",
+  authenticate,
+  requireRole("citizen", "officier_police", "gendarme", "commissaire"),
+  getMyComplaints,
 );
-
 router.get(
-  "/my-complaints", 
-  authenticate, 
-  onlyCitizen, 
-  listComplaints
+  "/my-complaints",
+  authenticate,
+  requireRole("citizen", "officier_police", "gendarme", "commissaire"),
+  getMyComplaints,
 );
-
-// ✅ MISE À JOUR PLAINTE (Synchronisé avec DB)
 router.patch(
   "/:id",
   authenticate,
   requireRole("citizen", "officier_police", "gendarme", "admin"),
-  updateComplaint
+  updateComplaint,
 );
-
-// ✅ UPLOAD DE PREUVES (Synchronisé avec DB)
 router.post(
   "/:id/attachments",
   authenticate,
-  requireRole("citizen", "officier_police", "gendarme", "commissaire"), 
-  uploadEvidence, 
-  addAttachment
+  requireRole("citizen", "officier_police", "gendarme", "commissaire"),
+  uploadEvidence,
+  addAttachment,
 );
-
-// ==========================================
-// 2. CONSULTATION GLOBALE (Police / Justice)
-// ==========================================
-
-// Lister toutes les plaintes (Pour les agents de l'État)
+router.get("/", authenticate, onlyOfficialAgents, listComplaints);
 router.get(
-  "/", 
-  authenticate, 
-  onlyOfficialAgents, // ✅ Utilise le groupe incluant 'officier_police'
-  listComplaints
+  "/:id",
+  authenticate,
+  requireRole(
+    "citizen",
+    "officier_police",
+    "commissaire",
+    "gendarme",
+    "prosecutor",
+    "judge",
+    "greffier",
+    "admin",
+  ),
+  getComplaint,
 );
-
-// Voir le détail
 router.get(
-  "/:id", 
-  authenticate, 
-  requireRole("citizen", "officier_police", "commissaire", "gendarme", "prosecutor", "judge", "greffier", "admin"), 
-  getComplaint
+  "/:id/transitions",
+  authenticate,
+  requireRole(
+    "officier_police",
+    "inspecteur",
+    "commissaire",
+    "prosecutor",
+    "admin",
+  ),
+  getAvailableTransitions,
 );
-
-// ==========================================
-// 3. WORKFLOW OPJ -> COMMISSAIRE
-// ==========================================
-
+router.post(
+  "/:id/transition",
+  authenticate,
+  requireRole(
+    "officier_police",
+    "inspecteur",
+    "commissaire",
+    "prosecutor",
+    "admin",
+  ),
+  transitionComplaint,
+);
+router.post(
+  "/:id/transmit",
+  authenticate,
+  requireRole("officier_police", "gendarme", "inspecteur"),
+  transmitToHierarchy,
+);
 router.put(
-  "/:id/transmit", 
-  authenticate, 
-  requireRole("officier_police", "gendarme"), 
-  transmitToHierarchy
+  "/:id/validate-parquet",
+  authenticate,
+  requireRole("commissaire", "admin"),
+  validateToParquet,
 );
-
-// ==========================================
-// 4. WORKFLOW COMMISSAIRE -> PARQUET
-// ==========================================
-
-router.put(
-  "/:id/validate-parquet", 
-  authenticate, 
-  requireRole("commissaire", "admin"), 
-  validateToParquet
-);
-
 export default router;

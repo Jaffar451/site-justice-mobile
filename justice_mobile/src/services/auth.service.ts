@@ -1,103 +1,167 @@
-import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-// ✅ IMPORT IMPORTANT : On récupère la config qu'on a faite dans env.ts
-// (Ajuste le chemin '../config/env' si ton dossier est structuré différemment)
-import { ENV } from '../config/env'; 
+// src/services/auth.service.ts
+import { Platform } from 'react-native';
+import api, { logoutFromApi } from './api';
 
-// ❌ ON SUPPRIME LA LIGNE QUI FORÇAIT L'IP LOCALE
-// const API_URL = 'http://192.168.120.20:4000/api'; 
+export interface LoginCredentials {
+  identifier: string;
+  password: string;
+}
 
-// ✅ ON UTILISE L'URL DYNAMIQUE DE NOTRE CONFIG
-console.log("🔗 API URL utilisée :", ENV.API_URL); // Log pour vérifier
+export interface RegisterData {
+  email: string;
+  password: string;
+  matricule?: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+  phone?: string;
+  [key: string]: any;
+}
 
-export const api = axios.create({
-  baseURL: ENV.API_URL, // <--- C'est ici que la magie opère (Render)
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  timeout: ENV.TIMEOUT || 30000, // On utilise le timeout de la config
-});
+export interface AuthResponse {
+  token: string;
+  refreshToken?: string;
+  user: {
+    id: number;
+    email: string;
+    matricule?: string;
+    firstName: string;
+    lastName: string;
+    role: string;
+    permissions?: string[];
+    [key: string]: any;
+  };
+}
 
-// ============================================================
-// ✅ INTERCEPTEUR (Ton code était bon ici)
-// ============================================================
-api.interceptors.request.use(
-  async (config) => {
-    try {
-      const json = await AsyncStorage.getItem('auth-storage');
-      if (json) {
-        const storage = JSON.parse(json);
-        const token = storage.state?.token;
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
+export interface UserProfile {
+  id: number;
+  email: string;
+  matricule?: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+  phone?: string;
+  avatar?: string;
+  lastLogin?: string;
+  [key: string]: any;
+}
+
+/**
+ * Normalise la réponse pour garantir un objet user cohérent
+ */
+const normalizeAuthResponse = (data: any): AuthResponse => {
+  if (data.user && typeof data.user === 'object') {
+    return data as AuthResponse;
+  }
+  
+  return {
+    token: data.token,
+    refreshToken: data.refreshToken,
+    user: {
+      id: data.id,
+      email: data.email,
+      matricule: data.matricule,
+      firstName: data.firstName,
+      lastName: data.lastName,
+      role: data.role,
+      permissions: data.permissions || [],
+      ...data
+    }
+  };
+};
+
+export const login = async (identifier: string, password: string): Promise<AuthResponse> => {
+  const payload = { 
+    identifier: identifier, 
+    password: password 
+  };
+
+  try {
+    const response = await api.post<any>('/auth/login', payload, {
+      headers: {
+        'Content-Type': 'application/json'
       }
-    } catch (error) {
-      console.warn("Erreur lecture token:", error);
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// --- FONCTIONS D'AUTHENTIFICATION ---
-
-export const login = async (email: string, password: string) => {
-  try {
-    // On utilise api.getUri() pour voir l'URL complète dans les logs
-    console.log(`📡 ENVOI LOGIN vers ${ENV.API_URL}/auth/login...`);
-    const response = await api.post('/auth/login', { email, password });
-    return response.data; 
-  } catch (error: any) { 
-    console.error("❌ ERREUR API LOGIN :", error.message);
+    });
+    return normalizeAuthResponse(response.data);
+  } catch (error: any) {
     if (error.response) {
-      throw new Error(error.response.data.message || "Erreur serveur");
-    } else if (error.request) {
-      throw new Error("Impossible de contacter le serveur (Vérifiez votre internet).");
-    } else {
-      throw new Error("Erreur de requête.");
+      console.error("Détail erreur serveur :", error.response.data);
     }
+    throw error;
   }
 };
 
-export const register = async (userData: any) => {
-  try {
-    console.log(`📡 ENVOI REGISTER vers ${ENV.API_URL}/auth/register...`);
-    const response = await api.post('/auth/register', userData);
-    return response.data;
-  } catch (error: any) {
-    console.error("❌ ERREUR API REGISTER :", error.message);
-    if (error.response) {
-      throw new Error(error.response.data.message || "Erreur lors de l'inscription");
-    }
-    throw new Error("Impossible de contacter le serveur.");
+export const register = async (userData: RegisterData): Promise<AuthResponse> => {
+  const response = await api.post<any>('/auth/register', userData);
+  return normalizeAuthResponse(response.data);
+};
+
+export const getProfile = async (): Promise<UserProfile> => {
+  const response = await api.get<UserProfile>('/auth/me');
+  return response.data;
+};
+
+export const updateProfile = async (userData: Partial<UserProfile>): Promise<UserProfile> => {
+  const response = await api.put<UserProfile>('/auth/update', userData);
+  return response.data;
+};
+
+export const changePassword = async (currentPassword: string, newPassword: string): Promise<{ message: string }> => {
+  const response = await api.post<{ message: string }>('/auth/change-password', { currentPassword, newPassword });
+  return response.data;
+};
+
+// CORRECTION : Accepte le token de rafraîchissement
+export const logout = async (refreshToken?: string): Promise<void> => {
+  await logoutFromApi({ refresh: refreshToken || '' });
+};
+
+export const requestPasswordReset = async (email: string): Promise<{ message: string }> => {
+  const response = await api.post<{ message: string }>('/auth/forgot-password', { email });
+  return response.data;
+};
+
+export const resetPassword = async (token: string, newPassword: string): Promise<{ message: string }> => {
+  const response = await api.post<{ message: string }>('/auth/reset-password', { token, newPassword });
+  return response.data;
+};
+
+export const verifyEmail = async (token: string): Promise<{ message: string }> => {
+  const response = await api.post<{ message: string }>('/auth/verify-email', { token });
+  return response.data;
+};
+
+export const resendVerificationEmail = async (email: string): Promise<{ message: string }> => {
+  const response = await api.post<{ message: string }>('/auth/resend-verification', { email });
+  return response.data;
+};
+
+export const isEmailFormat = (identifier: string): boolean => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(identifier);
+};
+
+// CORRECTION : Accepte le token de rafraîchissement
+export const forceLogout = async (refreshToken?: string): Promise<void> => {
+  await logoutFromApi({ refresh: refreshToken || '' });
+  if (typeof window !== 'undefined' && Platform.OS === 'web') {
+    window.dispatchEvent(new CustomEvent('auth:force-logout'));
   }
 };
 
-export const getProfile = async () => {
-  try {
-    const response = await api.get('/auth/me');
-    return response.data;
-  } catch (error: any) {
-    return null;
-  }
+const authService = {
+  login,
+  register,
+  getProfile,
+  updateProfile,
+  changePassword,
+  logout,
+  requestPasswordReset,
+  resetPassword,
+  verifyEmail,
+  resendVerificationEmail,
+  isEmailFormat,
+  forceLogout,
 };
 
-export const updateProfile = async (userData: any) => {
-  try {
-    console.log(`📡 ENVOI UPDATE vers ${ENV.API_URL}/auth/update...`);
-    const response = await api.put('/auth/update', userData);
-    return response.data;
-  } catch (error: any) {
-    console.error("❌ ERREUR API UPDATE :", error);
-    throw new Error(error.response?.data?.message || "Erreur lors de la mise à jour du profil");
-  }
-};
-
-export const logout = async () => {
-  return;
-};
-
-export default api;
+export default authService;

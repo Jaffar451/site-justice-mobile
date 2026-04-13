@@ -55,7 +55,7 @@ export const useSosListener = (navigation: any) => {
 
   useEffect(() => {
     // ✅ Vérification stricte de l'existence de l'utilisateur et de son rôle
-    if (user && user.role === 'police' && user.policeStationId && token) {
+    if (user && (user.role === 'officier_police'|| user.role === 'gendarme') && user.policeStationId && token) {
       
       socketRef.current = io(API_URL, {
         auth: { token },

@@ -1,7 +1,7 @@
 // PATH: src/scripts/seed.ts
 
 // 1. On garde l'import de sequelize pour la connexion et sync
-import { sequelize } from "../models"; 
+import { sequelize } from "../models";
 
 // 2. ⚠️ CORRECTION : On importe les Modèles et l'Enum directement depuis leurs fichiers
 // Cela évite l'erreur "Module has no exported member"
@@ -16,7 +16,7 @@ import bcrypt from "bcryptjs"; // Si erreur, remplacez par 'bcrypt'
 async function seed() {
   try {
     console.log("🌱 Démarrage du Seeding...");
-    
+
     // Connexion DB
     await sequelize.authenticate();
     await sequelize.sync({ force: true });
@@ -26,15 +26,15 @@ async function seed() {
 
     // --- A. CRÉATION DES STRUCTURES ---
     console.log("🏢 Création des structures...");
-    
+
     const [tribunal] = await Court.findOrCreate({
       where: { name: "Tribunal de Grande Instance de Niamey" },
       defaults: {
         city: "Niamey",
         jurisdiction: "Région de Niamey",
         type: "TGI",
-        status: "active"
-      }
+        status: "active",
+      },
     });
 
     const [commissariat] = await PoliceStation.findOrCreate({
@@ -43,8 +43,8 @@ async function seed() {
         type: "POLICE",
         city: "Niamey",
         district: "Centre-Ville",
-        status: "active"
-      }
+        status: "active",
+      },
     });
 
     const [prison] = await Prison.findOrCreate({
@@ -53,8 +53,8 @@ async function seed() {
         city: "Niamey",
         type: "Maison d'Arrêt",
         capacity: 1200,
-        status: "active"
-      }
+        status: "active",
+      },
     });
 
     // --- B. CRÉATION DES UTILISATEURS ---
@@ -71,7 +71,7 @@ async function seed() {
       matricule: "ADM-001",
       password: passwordHash,
       role: UserRole.ADMIN, // ✅ L'erreur a disparu ici
-      telephone: "90000000"
+      telephone: "90000000",
     });
 
     // 2. Procureur
@@ -83,7 +83,7 @@ async function seed() {
       password: passwordHash,
       role: UserRole.PROSECUTOR,
       courtId: tribunal.id,
-      telephone: "91000000"
+      telephone: "91000000",
     });
 
     // 3. Commissaire
@@ -95,16 +95,15 @@ async function seed() {
       password: passwordHash,
       role: UserRole.COMMISSAIRE,
       policeStationId: commissariat.id,
-      telephone: "93000000"
+      telephone: "93000000",
     });
 
     console.log("✅ Seeding terminé avec succès !");
     console.log("👉 Login Admin : admin@justice.ne");
     console.log("👉 Login Police: police@justice.ne");
     console.log("👉 Mot de passe: password123");
-    
-    process.exit(0);
 
+    process.exit(0);
   } catch (error) {
     console.error("❌ Erreur lors du seeding :", error);
     process.exit(1);

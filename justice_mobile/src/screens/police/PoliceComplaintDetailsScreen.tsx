@@ -25,6 +25,8 @@ import SmartFooter from '../../components/layout/SmartFooter';
 
 // Services
 import { getComplaintById, updateComplaintStatus } from '../../services/complaint.service';
+import StatusBadge from '@/components/ui/StatusBadge';
+
 
 export default function PoliceComplaintDetailScreen({ route, navigation }: PoliceScreenProps<'PoliceComplaintDetails'>) {
   const { theme, isDark } = useAppTheme();
@@ -32,7 +34,7 @@ export default function PoliceComplaintDetailScreen({ route, navigation }: Polic
   const queryClient = useQueryClient();
   
   // 🔵 Identité Visuelle Police
-  const POLICE_BLUE = "#1E40AF"; // Bleu foncé officiel
+  const POLICE_BLUE = theme.colors.primary;
 
   // Récupération de l'ID via la navigation
   const { complaintId } = route.params;
@@ -58,13 +60,13 @@ export default function PoliceComplaintDetailScreen({ route, navigation }: Polic
   });
 
   const colors = {
-    bgMain: isDark ? "#0F172A" : "#F8FAFC",
-    bgCard: isDark ? "#1E293B" : "#FFFFFF",
-    textMain: isDark ? "#FFFFFF" : "#1E293B",
-    textSub: isDark ? "#94A3B8" : "#64748B",
-    border: isDark ? "#334155" : "#E2E8F0",
-    headerBg: isDark ? "#172554" : "#EFF6FF",
-  };
+  bgMain:   isDark ? theme.colors.background : theme.colors.surface,
+  bgCard:   theme.colors.background,
+  textMain: theme.colors.text,
+  textSub:  theme.colors.textSecondary,
+  border:   isDark ? "#334155" : "#E2E8F0",
+  headerBg: isDark ? "#172554" : "#EFF6FF",
+};
 
   // ⚠️ Gestion de l'erreur 500 (celle de vos logs)
   if (error) {
@@ -124,21 +126,21 @@ export default function PoliceComplaintDetailScreen({ route, navigation }: Polic
         
         {/* 📋 EN-TÊTE DU DOSSIER */}
         <View style={[styles.headerCard, { backgroundColor: colors.headerBg, borderColor: POLICE_BLUE }]}>
-          <View style={styles.rowBetween}>
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{complaint.status.toUpperCase().replace('_', ' ')}</Text>
-            </View>
-            <Text style={[styles.date, { color: colors.textSub }]}>
-              {new Date(complaint.filedAt).toLocaleDateString('fr-FR')}
-            </Text>
-          </View>
-          <Text style={[styles.title, { color: POLICE_BLUE }]}>
-            {complaint.type || "Plainte contre X"}
-          </Text>
-          <Text style={[styles.subtitle, { color: colors.textSub }]}>
-            Plaignant : {complaint.citizen ? `${complaint.citizen.lastname} ${complaint.citizen.firstname}` : "Anonyme"}
-          </Text>
-        </View>
+  <View style={styles.rowBetween}>
+    <StatusBadge status={complaint.status} />
+    <Text style={[styles.date, { color: colors.textSub }]}>
+      {new Date(complaint.filedAt).toLocaleDateString('fr-FR')}
+    </Text>
+  </View>
+  <Text style={[styles.title, { color: POLICE_BLUE }]}>
+    {complaint.type || "Plainte contre X"}
+  </Text>
+  <Text style={[styles.subtitle, { color: colors.textSub }]}>
+    Plaignant : {complaint.citizen
+      ? `${complaint.citizen.lastname} ${complaint.citizen.firstname}`
+      : "Anonyme"}
+  </Text>
+</View>
 
         {/* 📝 DESCRIPTION DES FAITS */}
         <View style={[styles.card, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>

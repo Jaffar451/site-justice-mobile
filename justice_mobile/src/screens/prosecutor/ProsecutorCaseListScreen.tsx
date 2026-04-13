@@ -1,5 +1,6 @@
+import StatusBadge from '../../components/ui/StatusBadge';
 // PATH: src/screens/prosecutor/ProsecutorCaseListScreen.tsx
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback, memo } from "react";
 import { 
   View, 
   Text, 
@@ -80,7 +81,7 @@ export default function ProsecutorCaseListScreen({ navigation }: ProsecutorScree
       case 'instruction': 
         return { bg: isDark ? "#14532D" : "#DCFCE7", text: "#10B981", label: "INSTRUIT" };
       default: 
-        return { bg: colors.divider, text: colors.textSub, label: status?.toUpperCase() || "N/A" };
+        return { bg: colors.divider, text: colors.textSub, label: status?.replace(/_/g, ' ') || "N/A" };
     }
   };
 

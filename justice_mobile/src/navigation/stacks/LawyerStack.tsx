@@ -59,7 +59,7 @@ export default function LawyerStack() {
       <Stack.Screen name="LawyerTracking" component={LawyerTrackingScreen} />
       
       {/* Notifications Spécifiques Avocat */}
-      <Stack.Screen name="LawyerNotifications" component={LawyerNotificationsScreen} />
+      <Stack.Screen name={"LawyerNotifications" as any} component={LawyerNotificationsScreen} />
       {/* Alias pour la navigation partagée vers l'écran de notif avocat */}
       <Stack.Screen name="Notifications" component={LawyerNotificationsScreen as any} />
 

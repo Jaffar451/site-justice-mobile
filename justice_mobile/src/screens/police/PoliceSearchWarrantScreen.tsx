@@ -1,3 +1,4 @@
+import StatusBadge from '../../components/ui/StatusBadge';
 // PATH: src/screens/police/PoliceSearchWarrantScreen.tsx
 import React, { useState, useCallback } from "react";
 import { 

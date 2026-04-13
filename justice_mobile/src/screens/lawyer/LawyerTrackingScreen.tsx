@@ -1,3 +1,4 @@
+import StatusBadge from '../../components/ui/StatusBadge';
 import React, { useState, useMemo, useCallback } from "react";
 import { 
   View, 
@@ -99,9 +100,7 @@ export default function LawyerTrackingScreen({ navigation }: LawyerScreenProps<'
             </Text>
           </View>
           <View style={[styles.statusBadge, { backgroundColor: statusConfig.bg }]}>
-            <Text style={[styles.statusText, { color: statusConfig.color }]}>
-              {item.status.toUpperCase().replace('_', ' ')}
-            </Text>
+            <StatusBadge status={item.status} />
           </View>
         </View>
         

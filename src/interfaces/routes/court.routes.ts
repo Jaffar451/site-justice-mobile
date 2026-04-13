@@ -6,7 +6,7 @@ import { authenticate, authorize } from "../../middleware/auth.middleware";
 const router = Router();
 
 /**
- * 1. 📋 Lister les tribunaux 
+ * 1. 📋 Lister les tribunaux
  * Accessible à tout utilisateur authentifié (pour remplir les listes déroulantes)
  */
 router.get("/", authenticate, courtController.listCourts);
@@ -17,21 +17,36 @@ router.get("/", authenticate, courtController.listCourts);
 router.get("/:id", authenticate, courtController.getCourt);
 
 /**
- * 3. 🚀 Créer un tribunal 
+ * 3. 🚀 Créer un tribunal
  * Réservé aux ADMINS uniquement
  */
-router.post("/", authenticate, authorize(["admin"]), courtController.createCourt);
+router.post(
+  "/",
+  authenticate,
+  authorize(["admin"]),
+  courtController.createCourt,
+);
 
 /**
- * 4. 🔄 Modifier un tribunal 
+ * 4. 🔄 Modifier un tribunal
  * Réservé aux ADMINS uniquement
  */
-router.put("/:id", authenticate, authorize(["admin"]), courtController.updateCourt);
+router.put(
+  "/:id",
+  authenticate,
+  authorize(["admin"]),
+  courtController.updateCourt,
+);
 
 /**
- * 5. 🗑️ Supprimer un tribunal 
+ * 5. 🗑️ Supprimer un tribunal
  * Réservé aux ADMINS uniquement
  */
-router.delete("/:id", authenticate, authorize(["admin"]), courtController.deleteCourt);
+router.delete(
+  "/:id",
+  authenticate,
+  authorize(["admin"]),
+  courtController.deleteCourt,
+);
 
 export default router;

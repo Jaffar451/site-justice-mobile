@@ -1,3 +1,4 @@
+import StatusBadge from '../../components/ui/StatusBadge';
 import React from "react";
 import { 
   View, 
@@ -84,7 +85,7 @@ export default function ClerkComplaintDetailsScreen({ navigation, route }: Clerk
           <View style={[styles.statusCard, { backgroundColor: colors.statusBg, borderColor: primaryColor }]}>
             <View style={styles.statusHeader}>
               <View style={[styles.badge, { backgroundColor: primaryColor }]}>
-                <Text style={styles.badgeText}>{complaint.status?.replace(/_/g, ' ').toUpperCase()}</Text>
+                <StatusBadge status={complaint.status} />
               </View>
               <Text style={[styles.dateText, { color: colors.textSub }]}>
                 Transmis le {complaint.filedAt ? format(new Date(complaint.filedAt), "dd MMM yyyy", { locale: fr }) : "--/--/----"}
